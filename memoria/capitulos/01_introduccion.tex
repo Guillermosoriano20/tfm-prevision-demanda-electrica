@@ -1,0 +1,252 @@
+% =====================================================================
+% Capítulo 1. Introducción
+% Estado: capítulo completo (secciones 1.1 a 1.4).
+% =====================================================================
+
+\chapter{Introducción}\label{cap:introduccion}
+
+\section{Contexto y motivación}\label{sec:contexto}
+
+El sistema eléctrico presenta una particularidad que lo distingue de la mayoría
+de los mercados de bienes: la producción y el consumo deben igualarse en cada
+instante. Aunque la capacidad de almacenamiento está creciendo, sigue siendo
+reducida en relación con el volumen de demanda que el sistema atiende, de modo
+que la energía consumida ha de generarse prácticamente en el mismo momento en
+que se utiliza. Esta restricción física sitúa la anticipación de la demanda por
+delante de cualquier decisión de operación: qué unidades de generación se
+programan, cuánta reserva se mantiene disponible y a qué precio se intercambia
+la energía dependen, en último término, de una estimación de cuánta
+electricidad se va a consumir.
+
+La previsión de la demanda se elabora a distintos horizontes en función de la
+decisión a la que sirve. La planificación de la red y de la capacidad de
+generación requiere previsiones a varios años vista, mientras que la operación
+del sistema y la participación en los mercados se apoyan en previsiones que
+abarcan desde unas pocas horas hasta algunos días \parencite{hong2016probabilistic}.
+Este trabajo se sitúa en el segundo grupo, la previsión a corto plazo, cuyas
+consecuencias económicas se materializan de forma inmediata.
+
+En España, la Ley~24/2013, del Sector Eléctrico, atribuye a Red Eléctrica de
+España la función de operador del sistema, cuyo cometido principal es
+garantizar la continuidad y la seguridad del suministro y coordinar
+adecuadamente la producción y el transporte de energía \parencite{ley2013sectorelectrico}.
+La gestión del mercado organizado de electricidad corresponde, por su parte, al
+operador del mercado, función que desempeña el Operador del Mercado Ibérico de
+Energía (OMIE).
+
+En el mercado diario, los agentes presentan sus ofertas de compra y venta de
+energía para el día siguiente, y la recepción de ofertas se cierra a las
+12:00~CET \parencite{omie2025mtu15}. Tanto la comercializadora que adquiere
+energía para sus clientes como el generador que decide cuánta ofrecer lo hacen,
+por tanto, a partir de una previsión de la demanda de las veinticuatro horas
+siguientes elaborada antes de ese cierre. Tras la casación, el operador del
+sistema resuelve las restricciones técnicas y gestiona los servicios de ajuste
+necesarios para equilibrar producción y consumo en tiempo real. Las diferencias
+entre la energía programada y la finalmente consumida, conocidas como desvíos,
+se liquidan y generan costes para los agentes responsables. Un error de
+previsión se traduce así en compras de energía mal dimensionadas, en una mayor
+necesidad de reservas y en costes de desvío.
+
+El marco de funcionamiento, además, se ha vuelto más exigente en los últimos
+años. Desde el 1 de diciembre de 2024, los desvíos se liquidan en periodos de
+quince minutos \parencite{cnmc2025procedimientos}, y desde la jornada de entrega
+del 1 de octubre de 2025 el mercado diario casa productos cuartohorarios, con
+96 precios diarios en lugar de 24 \parencite{omie2025mtu15}. Al reducirse la
+unidad temporal en la que se compensan los errores, la precisión de la
+previsión gana peso económico. Este trabajo se circunscribe al periodo
+2017-2024, durante el cual la casación del mercado diario, que es la decisión
+a la que sirve la previsión estudiada, se realizó íntegramente en resolución
+horaria. La delimitación completa del problema se presenta en la
+sección~\ref{sec:problema}.
+
+A ello se suma la transformación del propio sistema. La creciente participación
+de fuentes renovables no gestionables, como la eólica y la solar fotovoltaica,
+obliga a equilibrar una generación variable con una demanda que también lo es.
+La expansión del autoconsumo, por su parte, modifica la forma de la curva de
+demanda que observa el sistema, especialmente en las horas centrales del día.
+Ambos fenómenos aumentan el valor de disponer de previsiones fiables y, al mismo
+tiempo, hacen menos probable que los patrones históricos se mantengan estables.
+
+Por último, una previsión puntual, es decir, un único valor para cada hora,
+resulta insuficiente para buena parte de estas decisiones. Dimensionar las
+reservas o gestionar el riesgo de desvío exige conocer también la incertidumbre
+asociada a la previsión, lo que ha impulsado el desarrollo de la previsión
+probabilística de la demanda \parencite{hong2016probabilistic}. Un intervalo de
+predicción, sin embargo, solo es útil si está calibrado: si un intervalo
+nominal del 90\,\% contiene el valor observado con una frecuencia muy distinta
+del 90\,\%, la información que transmite a quien toma la decisión es engañosa.
+
+La confluencia de estos factores motiva el presente trabajo: un problema de
+relevancia operativa y económica directa, la disponibilidad de datos públicos
+de calidad publicados por el propio operador del sistema y una necesidad
+creciente de cuantificar, y no solo de reducir, el error de previsión.
+
+\section{Planteamiento y delimitación del problema}\label{sec:problema}
+
+El objeto de estudio es la demanda horaria de energía eléctrica del sistema
+peninsular español, entendida como la media, en cada hora, de la demanda real
+que publica Red Eléctrica de España a través de su sistema de información
+ESIOS. Quedan fuera del análisis los sistemas de los territorios no
+peninsulares, que la normativa trata como sistemas eléctricos diferenciados
+\parencite{ley2013sectorelectrico}.
+
+La tarea que se aborda es la previsión del día siguiente. A las 12:00 de un
+día $D$, hora de cierre del mercado diario, se emiten las previsiones de las
+24 horas del día $D+1$. Con esta configuración, la anticipación de las
+previsiones oscila entre 12 y 36 horas, y cada una de ellas solo puede
+apoyarse en la información disponible en el momento de su emisión. Esta
+restricción condiciona tanto la especificación de los modelos como el diseño
+de su evaluación.
+
+La serie presenta tres rasgos que dificultan su modelización. En primer
+lugar, superpone varios ciclos estacionales: el diario, de 24 horas, ligado
+al ritmo de la actividad humana; el semanal, de 168 horas, que distingue los
+días laborables de los fines de semana; y el anual, de unas 8760 horas,
+asociado a la climatología y a la duración del día. En segundo lugar, está
+sometida a efectos de calendario, como los festivos nacionales y autonómicos
+o los puentes, que alteran el perfil diario de forma irregular. En tercer
+lugar, depende de la temperatura de manera no lineal: la demanda crece tanto
+con el frío, por el uso de calefacción, como con el calor, por el de
+refrigeración \parencite{hong2016probabilistic}.
+
+Estos rasgos hacen inadecuada la aplicación directa de los modelos clásicos
+más extendidos. Un modelo SARIMA incorpora un único periodo estacional, y su
+estimación resulta poco práctica cuando ese periodo es largo, como ocurre con
+los ciclos semanal y anual de una serie horaria
+\parencite{hyndman2021fpp3}. La estacionalidad múltiple exige, por tanto,
+recurrir a extensiones específicas: la regresión armónica dinámica, que
+representa los ciclos largos mediante términos de Fourier y modela la
+dinámica de corto plazo con un proceso ARIMA sobre los errores
+\parencite{hyndman2021fpp3}, o los modelos de espacio de estados con
+estacionalidad compleja \parencite{delivera2011forecasting}. Los modelos de
+aprendizaje automático y profundo, por su parte, pueden aprender estos
+patrones directamente de los datos, a cambio de renunciar a una
+especificación estadística explícita.
+
+El estudio se delimita, además, mediante tres decisiones cuya justificación
+detallada se presenta en el marco metodológico. La primera es el periodo de
+estudio, de 2017 a 2024, del que se excluyen los meses de marzo a junio de
+2020, en los que las restricciones asociadas a la pandemia de COVID-19
+alteraron de forma excepcional el comportamiento de la demanda. La segunda
+son las variables explicativas, limitadas a la temperatura horaria ponderada
+por la población de cada provincia y al calendario laboral estatal y
+autonómico. La tercera, y la de mayores consecuencias, es el tratamiento de
+la temperatura. En operación real, a las 12:00 del día $D$ no se conoce la
+temperatura del día siguiente, sino una previsión meteorológica sujeta a
+error. Este trabajo emplea temperaturas de reanálisis, que reconstruyen las
+condiciones observadas, tanto para ajustar como para evaluar los modelos, lo que equivale a suponer
+una previsión meteorológica perfecta. Los resultados deben interpretarse, por
+tanto, como una cota superior del rendimiento alcanzable en operación, y esta
+limitación se retoma al discutir los resultados.
+
+\section{Carencias de la literatura y aportación del trabajo}\label{sec:aportacion}
+
+La previsión de la demanda eléctrica cuenta con una literatura extensa, en la
+que conviven los modelos estadísticos clásicos con un número creciente de
+propuestas basadas en aprendizaje automático y profundo. La evidencia sobre
+el rendimiento relativo de ambos enfoques, sin embargo, es menos concluyente
+de lo que ese volumen de publicaciones podría sugerir.
+\textcite{makridakis2018statistical} señalaron la escasez de evidencia al
+respecto y, al comparar varios métodos populares de aprendizaje automático con
+ocho métodos estadísticos tradicionales sobre 1045 series mensuales de la
+competición M3, encontraron que los primeros quedaban por detrás en todas las
+métricas y horizontes analizados, con un coste computacional
+considerablemente mayor. Aunque este resultado procede de series mensuales y
+no puede trasladarse sin más a la demanda horaria, muestra que la ventaja de
+los métodos más complejos no puede darse por supuesta y debe demostrarse en
+cada problema.
+
+La revisión de la literatura que se desarrolla en el marco teórico pone de
+manifiesto dos limitaciones recurrentes en los estudios que comparan ambas
+familias de modelos. La primera es la falta de equidad en las condiciones de
+comparación. Cuando un modelo estadístico se emplea en su configuración por
+defecto frente a una red neuronal cuidadosamente ajustada, o cuando los
+modelos no disponen de las mismas variables explicativas ni del mismo
+horizonte, las diferencias observadas no pueden atribuirse al método, porque
+pueden deberse simplemente a un esfuerzo de ajuste desigual. La segunda es la
+restricción de la evaluación al error puntual. La literatura de previsión de
+la demanda se ha centrado mayoritariamente en la previsión puntual
+\parencite{hong2016probabilistic}, a pesar de que, como se ha expuesto en la
+sección~\ref{sec:contexto}, las decisiones de operación requieren conocer
+también la incertidumbre asociada a la previsión.
+
+Evaluar esa incertidumbre exige, además, comprobar que los intervalos de
+predicción son fiables. El criterio de referencia consiste en maximizar la
+nitidez de las previsiones probabilísticas, es decir, obtener intervalos lo
+más estrechos posible, con la condición de que estén calibrados
+\parencite{gneiting2007probabilistic}. La predicción conforme ofrece un
+mecanismo para recalibrar los intervalos que produce cualquier modelo sin
+imponer supuestos sobre la distribución de sus errores. Su aplicación a series
+temporales, en las que no se cumple la intercambiabilidad de los datos que
+exige la teoría conforme clásica, ha dado lugar a variantes específicas, entre
+ellas la inferencia conforme adaptativa (ACI), diseñada para mantener la
+cobertura a largo plazo aunque la distribución de los datos cambie con el
+tiempo \parencite{gibbs2021adaptive}.
+
+A partir de estas limitaciones, el trabajo se plantea la siguiente pregunta de
+investigación:
+
+\begin{quote}
+\itshape
+Bajo un protocolo de comparación equitativo, ¿mejoran los modelos de
+aprendizaje automático y profundo, de forma estadísticamente significativa, a
+un modelo SARIMAX con estacionalidad múltiple en la previsión del día
+siguiente de la demanda eléctrica peninsular? ¿En qué horas y tipos de día lo
+hacen? ¿Y qué familia de modelos proporciona intervalos de predicción mejor
+calibrados?
+\end{quote}
+
+Para responderla se comparan cuatro modelos dispuestos en una escala de
+complejidad creciente: un modelo ingenuo estacional como referencia mínima, un
+modelo SARIMAX con términos de Fourier y variables exógenas, un modelo de
+\textit{gradient boosting} (LightGBM) y una red neuronal de previsión
+multihorizonte (N-HiTS). La aportación del trabajo se concreta en tres
+elementos. El primero es un protocolo de comparación equitativa, en el que
+todos los modelos, incluido el SARIMAX, se evalúan mediante validación con
+origen móvil, con las mismas variables explicativas, el mismo horizonte y un
+presupuesto de búsqueda de hiperparámetros idéntico y documentado. El segundo
+es una evaluación conjunta de la precisión puntual, con contrastes de
+significación de Diebold-Mariano, y de la calibración de los intervalos de
+predicción, antes y después de recalibrarlos con ACI de forma uniforme para
+todos los modelos. El tercero es el desglose de los resultados por hora del
+día y tipo de día, que permite identificar en qué situaciones concretas
+resulta preferible cada enfoque, en lugar de limitarse a promedios agregados.
+El código, las semillas y las particiones temporales se publican para
+garantizar la reproducibilidad de los experimentos.
+
+El propósito, por tanto, no es proclamar una familia de modelos como
+ganadora. Si los modelos más complejos no mejoran de forma significativa al
+SARIMAX, ese resultado constituye un hallazgo del trabajo con implicaciones
+prácticas directas, puesto que un modelo más sencillo es también más barato de
+mantener y más fácil de interpretar.
+
+\section{Estructura del documento}\label{sec:estructura}
+
+El resto del documento se organiza en cinco capítulos. El capítulo 2 formula
+el objetivo general y los objetivos específicos del trabajo, junto con los
+criterios que permiten considerar cumplido cada uno de ellos.
+
+El capítulo 3 presenta el marco teórico y el estado del arte. Recoge los
+fundamentos de las series temporales y su tratamiento cuando presentan
+estacionalidad múltiple, los métodos de aprendizaje automático y profundo
+aplicados a la previsión, los criterios de evaluación de las previsiones
+puntuales y probabilísticas, y la revisión de la literatura sobre previsión de
+la demanda eléctrica de la que surgen las carencias señaladas en la
+sección~\ref{sec:aportacion}.
+
+El capítulo 4 describe el marco metodológico: las fuentes de datos y la
+construcción del conjunto de datos, el protocolo de comparación equitativa, la
+especificación de cada modelo, el diseño de la capa probabilística y las
+métricas y contrastes empleados.
+
+El capítulo 5 expone los resultados: el análisis exploratorio de la serie, la
+comparación de la precisión puntual, la evaluación de la calibración de los
+intervalos de predicción y el desglose por hora del día y tipo de día,
+acompañados de su discusión.
+
+El capítulo 6 recoge las conclusiones, da respuesta a cada uno de los
+objetivos específicos y expone las limitaciones del trabajo, entre ellas la
+derivada del escenario de previsión meteorológica perfecta, así como las
+líneas de trabajo futuro. Por último, los anexos reúnen el material
+complementario, como las tablas completas de resultados y el detalle de la
+configuración de los modelos.
