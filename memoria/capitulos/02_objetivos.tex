@@ -1,0 +1,132 @@
+% =====================================================================
+% Capítulo 2. Objetivos
+% Estado: 2.1 y 2.2 redactadas; 2.3 (criterios de cumplimiento) pendiente.
+% =====================================================================
+
+\chapter{Objetivos}\label{cap:objetivos}
+
+Este capítulo formula el objetivo general del trabajo y lo descompone en
+objetivos específicos. Los objetivos se enuncian ajustados al alcance
+delimitado en la sección~\ref{sec:problema}: un único horizonte de previsión,
+el del día siguiente, un periodo de estudio de 2017 a 2024 y un conjunto de
+modelos reducido a un representante de cada familia. El capítulo termina con
+los criterios que permitirán considerar cumplido cada objetivo, que se retoman
+uno por uno en las conclusiones.
+
+\section{Objetivo general}\label{sec:objetivo-general}
+
+El objetivo general del trabajo es comparar, bajo un protocolo experimental
+equitativo, un modelo estadístico clásico de series temporales con
+estacionalidad múltiple frente a modelos de aprendizaje automático y profundo
+en la previsión del día siguiente de la demanda eléctrica horaria del sistema
+peninsular español, evaluando tanto la precisión puntual de las previsiones
+como la calibración de los intervalos de predicción que produce cada familia
+de modelos. La previsión se emite a las 12:00 del día $D$ para las 24 horas
+del día $D+1$, y la comparación se realiza sobre el periodo 2017-2024, con el
+año 2024 como periodo de prueba.
+
+\section{Objetivos específicos}\label{sec:objetivos-especificos}
+
+El objetivo general se concreta en los nueve objetivos específicos siguientes,
+ordenados según la secuencia de trabajo: construcción de los datos, análisis
+de la serie, modelización, protocolo de comparación, evaluación y
+reproducibilidad.
+
+\begin{enumerate}
+	
+	\item[\textbf{OE1.}] Construir un conjunto de datos reproducible para el
+	periodo 2017-2024 que integre la demanda horaria peninsular publicada por
+	Red Eléctrica de España a través de ESIOS, la temperatura horaria de
+	reanálisis ponderada por la población de cada provincia y el calendario
+	laboral estatal y autonómico, documentando el tratamiento de los huecos, de
+	los cambios de hora y de los valores anómalos, así como la exclusión de los
+	meses de marzo a junio de 2020.
+	
+	\item[\textbf{OE2.}] Caracterizar estadísticamente la serie de demanda
+	mediante la descomposición en tendencia y estacionalidades de 24, 168 y 8760
+	horas, el análisis espectral, los contrastes de estacionariedad ADF y KPSS y
+	la modelización de la relación no lineal con la temperatura a través de
+	grados-día de calefacción y de refrigeración.
+	
+	\item[\textbf{OE3.}] Especificar, estimar y diagnosticar los modelos
+	clásicos de referencia: un método ingenuo estacional, que actúa como suelo de
+	rendimiento, y un modelo SARIMAX con términos de Fourier y regresores
+	exógenos, validando la adecuación de sus residuos con el contraste de
+	Ljung-Box.
+	
+	\item[\textbf{OE4.}] Implementar los modelos de aprendizaje automático y
+	profundo: un modelo de \textit{gradient boosting} (LightGBM) sobre variables
+	de retardo y de calendario, y una red neuronal de previsión multihorizonte
+	(N-HiTS), ambos capaces de incorporar la temperatura como covariable conocida
+	a futuro.
+	
+	\item[\textbf{OE5.}] Definir y aplicar un protocolo de comparación
+	equitativa, basado en validación con origen móvil, idénticas variables
+	exógenas, idéntico horizonte de previsión e idéntico presupuesto de búsqueda
+	de hiperparámetros para todas las familias, y documentarlo de forma explícita
+	como aportación metodológica del trabajo.
+	
+	\item[\textbf{OE6.}] Cuantificar la precisión puntual de cada modelo mediante
+	MAE, RMSE, MAPE y MASE, y contrastar la significación estadística de las
+	diferencias entre modelos con el test de Diebold-Mariano, sin extraer
+	conclusiones de diferencias que no resulten significativas.
+	
+	\item[\textbf{OE7.}] Generar intervalos de predicción para cada modelo, en
+	primer lugar con el procedimiento propio de cada uno (intervalos analíticos
+	del SARIMAX, regresión cuantílica en LightGBM y N-HiTS, y cuantiles empíricos
+	del error de validación en el método ingenuo) y, en segundo lugar, mediante
+	recalibración con inferencia conforme adaptativa (ACI) aplicada de manera
+	uniforme a todos ellos; y evaluar su calidad con la pérdida pinball, el CRPS,
+	la cobertura empírica frente a la nominal, la anchura media y los diagramas
+	de fiabilidad.
+	
+	\item[\textbf{OE8.}] Desglosar los resultados de precisión y de calibración
+	por hora del día y por tipo de día (laborable, festivo y puente) para
+	identificar en qué regímenes concretos resulta preferible cada familia de
+	modelos, en lugar de comparar únicamente promedios agregados.
+	
+	\item[\textbf{OE9.}] Publicar el código, las semillas y las particiones
+	temporales en un repositorio público que garantice la reproducibilidad
+	íntegra de los experimentos.
+	
+\end{enumerate}
+
+Respecto a la propuesta aprobada, estos objetivos mantienen su estructura y
+su numeración lógica, con las siguientes acotaciones: el horizonte se fija
+en el día siguiente, el periodo se establece en 2017-2024, los modelos de
+suavizado exponencial, TBATS y \textit{Temporal Fusion Transformer} se tratan
+en el marco teórico pero no se implementan, la recalibración conforme se
+limita al método ACI y la lectura económica del error de previsión queda como
+línea de trabajo futuro. La justificación de cada acotación se expone en el
+marco metodológico.
+
+\section{Criterios de cumplimiento}\label{sec:criterios}
+
+La tabla~\ref{tab:criterios} establece, para cada objetivo específico, la
+evidencia que permitirá considerarlo cumplido. Los criterios se formulan en
+términos de resultados comprobables en la memoria o en el repositorio, y no
+en términos del rendimiento de los modelos: un objetivo de comparación se
+cumple cuando la comparación se ha realizado correctamente, sea cual sea el
+modelo que resulte preferible.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Criterios de cumplimiento de los objetivos específicos}
+	\label{tab:criterios}
+	\small
+	\begin{tabularx}{\textwidth}{l X}
+		\hline
+		\textbf{Objetivo} & \textbf{Se considera cumplido si} \\
+		\hline
+		OE1 & El conjunto de datos se genera íntegramente con el código del repositorio a partir de las fuentes públicas, y la memoria documenta el número de huecos tratados, el criterio aplicado en los cambios de hora y los valores anómalos detectados. \\
+		OE2 & La memoria presenta la descomposición de la serie, el periodograma con los picos en los tres periodos estacionales, los resultados de los contrastes ADF y KPSS y la curva demanda-temperatura ajustada con grados-día. \\
+		OE3 & Ambos modelos clásicos producen previsiones para todo el periodo de prueba, y el SARIMAX incluye la especificación final (órdenes, número de armónicos y exógenas) y el resultado del contraste de Ljung-Box sobre sus residuos. \\
+		OE4 & LightGBM y N-HiTS producen previsiones para todo el periodo de prueba con la temperatura como covariable, y la memoria recoge los hiperparámetros finales y el espacio de búsqueda explorado. \\
+		OE5 & El protocolo queda descrito en el marco metodológico con los orígenes de previsión, las variables exógenas comunes, el horizonte y el presupuesto de búsqueda, y se aplica sin excepción a los cuatro modelos. \\
+		OE6 & Existe una tabla con MAE, RMSE, MAPE y MASE de cada modelo sobre 2024 completo y una matriz de $p$-valores del test de Diebold-Mariano para cada par de modelos. \\
+		OE7 & Para cada modelo se reportan cobertura empírica, anchura media, pérdida pinball y CRPS de los intervalos al 90\,\% antes y después de aplicar ACI, junto con sus diagramas de fiabilidad. \\
+		OE8 & Las métricas de precisión y de calibración se presentan desglosadas por hora del día y por tipo de día, y la discusión identifica los regímenes en los que cambia el modelo preferible. \\
+		OE9 & El repositorio público contiene el código, las semillas, las particiones y las dependencias fijadas, y permite reproducir las tablas de resultados de la memoria. \\
+		\hline
+	\end{tabularx}
+\end{table}
