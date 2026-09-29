@@ -1,0 +1,48 @@
+cod_provincia,provincia,capital,lat,lon
+01,Álava,Vitoria-Gasteiz,42.85,-2.67
+02,Albacete,Albacete,38.99,-1.86
+03,Alicante,Alicante,38.35,-0.48
+04,Almería,Almería,36.84,-2.46
+05,Ávila,Ávila,40.66,-4.70
+06,Badajoz,Badajoz,38.88,-6.97
+08,Barcelona,Barcelona,41.39,2.17
+09,Burgos,Burgos,42.34,-3.70
+10,Cáceres,Cáceres,39.47,-6.37
+11,Cádiz,Cádiz,36.53,-6.29
+12,Castellón,Castellón de la Plana,39.99,-0.05
+13,Ciudad Real,Ciudad Real,38.99,-3.93
+14,Córdoba,Córdoba,37.88,-4.78
+15,A Coruña,A Coruña,43.36,-8.41
+16,Cuenca,Cuenca,40.07,-2.14
+17,Girona,Girona,41.98,2.82
+18,Granada,Granada,37.18,-3.60
+19,Guadalajara,Guadalajara,40.63,-3.17
+20,Gipuzkoa,Donostia-San Sebastián,43.32,-1.98
+21,Huelva,Huelva,37.26,-6.95
+22,Huesca,Huesca,42.14,-0.41
+23,Jaén,Jaén,37.77,-3.79
+24,León,León,42.60,-5.57
+25,Lleida,Lleida,41.62,0.62
+26,La Rioja,Logroño,42.47,-2.45
+27,Lugo,Lugo,43.01,-7.56
+28,Madrid,Madrid,40.42,-3.70
+29,Málaga,Málaga,36.72,-4.42
+30,Murcia,Murcia,37.99,-1.13
+31,Navarra,Pamplona,42.82,-1.64
+32,Ourense,Ourense,42.34,-7.86
+33,Asturias,Oviedo,43.36,-5.85
+34,Palencia,Palencia,42.01,-4.53
+36,Pontevedra,Pontevedra,42.43,-8.64
+37,Salamanca,Salamanca,40.97,-5.66
+39,Cantabria,Santander,43.46,-3.80
+40,Segovia,Segovia,40.95,-4.12
+41,Sevilla,Sevilla,37.39,-5.98
+42,Soria,Soria,41.76,-2.46
+43,Tarragona,Tarragona,41.12,1.25
+44,Teruel,Teruel,40.34,-1.11
+45,Toledo,Toledo,39.86,-4.03
+46,Valencia,Valencia,39.47,-0.38
+47,Valladolid,Valladolid,41.65,-4.72
+48,Bizkaia,Bilbao,43.26,-2.93
+49,Zamora,Zamora,41.50,-5.75
+50,Zaragoza,Zaragoza,41.65,-0.89
