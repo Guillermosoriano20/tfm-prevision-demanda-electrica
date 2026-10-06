@@ -153,4 +153,21 @@ Misma información para SARIMAX, LightGBM y N-HiTS; cada familia la codifica a s
 - Lista concreta de retardos de LightGBM.
 - Capa probabilística: intervalos propios, ACI (parámetros y arranque), métricas
   probabilísticas.
-- Escala del MASE (se fija al programar las métricas, antes de ver resultados).
+
+## 7. Métricas puntuales (fijadas el 6 de octubre de 2026, antes de ver resultados)
+
+1. **Error:** *e* = real − previsto (positivo: el modelo se queda corto).
+2. **Promedio sobre todas las horas evaluadas juntas** (8.760 en 2023, 8.784 en 2024),
+   no por días.
+3. **MAE** = media de |*e*| (MW); **RMSE** = raíz de la media de *e*² (MW);
+   **MAPE** = media de |*e*| / real × 100 (%). El MAPE no tiene problemas aquí: el
+   mínimo de la serie es 16.117 MW.
+4. **MASE** = MAE / escala. **Escala** = media de |*y*ₜ − *y*ₜ₋₁₆₈| (ingenuo semanal, en
+   horas UTC) calculada **una sola vez con 2017-2022**, excluyendo los pares con *t* o
+   *t* − 168 en el periodo COVID. Constante fija, igual para 2023 y 2024 y para los
+   cuatro modelos. El MASE del ingenuo no tiene por qué valer 1.
+5. **MAE relativo al ingenuo estacional** (MAE del modelo / MAE del ingenuo en el mismo
+   conjunto): columna adicional; el ingenuo vale 1.
+6. **Previsiones guardadas** hora a hora en `data/predicciones/<modelo>_<conjunto>.parquet`
+   (columnas `hora_utc`, `fecha_objetivo`, `real`, `prevision`, `modelo`), fuera de git,
+   para Diebold-Mariano, OE8 y ACI.

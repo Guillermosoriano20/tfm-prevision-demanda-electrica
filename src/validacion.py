@@ -11,7 +11,9 @@ import pandas as pd
 RAIZ = Path(__file__).resolve().parent.parent
 DATASET = RAIZ / "data" / "processed" / "dataset.parquet"
 HUELLA_OFICIAL = 5794786326140387865
+FIN_ENTRENAMIENTO = pd.Timestamp("2023-01-01")  # fecha local; 2017-2022
 FIN_VALIDACION = pd.Timestamp("2024-01-01")  # fecha local; 2024 es la prueba
+DIR_PREDICCIONES = RAIZ / "data" / "predicciones"
 
 ZONA = "Europe/Madrid"
 HORA_ORIGEN = 12
@@ -77,6 +79,45 @@ def comprobar_fuga(prever, datos, origenes):
     return con_fuga
 
 
+def escala_mase(datos):
+    """Error medio del ingenuo semanal (168 h) en 2017-2022 sin COVID. Constante fija."""
+    entreno = datos[datos["fecha_local"] < FIN_ENTRENAMIENTO]
+    y, covid = entreno["demanda_mw"], entreno["excluir_covid"]
+    diferencia = (y - y.shift(168)).abs()           # el índice es horario y sin huecos
+    valido = ~covid & ~covid.shift(168, fill_value=True)
+    return diferencia[valido].mean()
+
+
+def metricas(tabla, escala):
+    """MAE, RMSE, MAPE y MASE sobre todas las horas juntas. Error = real - previsto."""
+    e = tabla["real"] - tabla["prevision"]
+    mae = e.abs().mean()
+    return pd.Series({
+        "MAE": mae,
+        "RMSE": np.sqrt((e ** 2).mean()),
+        "MAPE": (e.abs() / tabla["real"]).mean() * 100,
+        "MASE": mae / escala,
+    })
+
+
+def evaluar(prever, datos, conjunto, modelo, guardar=True):
+    """Recorre los orígenes, recorta cada previsión y la guarda en el formato común."""
+    trozos = []
+    for origen in generar_origenes(conjunto).itertuples():
+        p = recortar(prever(datos, origen), origen)
+        trozos.append(pd.DataFrame({
+            "hora_utc": p.index,
+            "fecha_objetivo": origen.fecha_objetivo,
+            "real": datos.loc[p.index, "demanda_mw"].to_numpy(),
+            "prevision": p.to_numpy(),
+        }))
+    tabla = pd.concat(trozos, ignore_index=True).assign(modelo=modelo)
+    if guardar:
+        DIR_PREDICCIONES.mkdir(parents=True, exist_ok=True)
+        tabla.to_parquet(DIR_PREDICCIONES / f"{modelo}_{conjunto}.parquet", index=False)
+    return tabla
+
+
 if __name__ == "__main__":
     # Comprobación: solo fechas, no se lee ningún dato de demanda.
     for conjunto in ANIOS:
@@ -119,3 +160,11 @@ if __name__ == "__main__":
     for L in (168, 37, 36, 24):
         fugas = comprobar_fuga(con_retardo(L), datos, origenes)
         print(f"Retardo de {L} h: {len(fugas)} días con fuga {fugas[:3]}")
+
+    # Comprobación del paso 10: métricas con un ejemplo hecho a mano...
+    ejemplo = pd.DataFrame({"real": [100.0, 200.0], "prevision": [110.0, 190.0]})
+    print("Ejemplo a mano:", metricas(ejemplo, escala=5).round(2).to_dict())
+    # ...escala del MASE con 2017-2022 y recorrido completo sin guardar nada
+    print(f"Escala del MASE (2017-2022, sin COVID): {escala_mase(datos):.1f} MW")
+    tabla = evaluar(con_retardo(168), datos, "validacion", "prueba_infra", guardar=False)
+    print(f"evaluar: {len(tabla)} filas, columnas {list(tabla.columns)}")
