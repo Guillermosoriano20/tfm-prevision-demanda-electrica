@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use("Agg")  # guarda las figuras en archivo, sin abrir ventanas
 import matplotlib.pyplot as plt
 import pandas as pd
+import numpy as np
 from scipy.signal import periodogram
 from statsmodels.tsa.seasonal import MSTL
 from statsmodels.tsa.stattools import acf, adfuller, kpss
@@ -105,4 +106,74 @@ for ax in axes.flat:
         ax.axvline(p, color="red", linestyle="--", linewidth=0.6)
 fig.tight_layout()
 fig.savefig(FIGURAS / "acf_pacf.png", dpi=150)
+plt.close(fig)
+
+# --- 3a. Curva demanda-temperatura (días laborables, sin COVID) ---
+diario = explo.groupby("fecha_local").agg(
+    demanda=("demanda_mw", "mean"),
+    temp=("t_ponderada", "mean"),
+    tipo=("tipo_dia", "first"),
+    covid=("excluir_covid", "any"),
+)
+lab = diario[(diario["tipo"] == "laborable") & ~diario["covid"]]
+print("Días laborables sin COVID:", len(lab))
+
+curva = lab.groupby(lab["temp"].round())["demanda"].agg(["mean", "count"])
+print(curva.round(0).to_string())
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.scatter(lab["temp"], lab["demanda"], s=4, alpha=0.4)
+ax.plot(curva.index, curva["mean"], color="red", linewidth=1.5)
+ax.set_xlabel("Temperatura media diaria ponderada (°C)")
+ax.set_ylabel("Demanda media diaria (MW)")
+ax.set_title("Demanda frente a temperatura, laborables 2017-2022 sin COVID")
+fig.tight_layout()
+fig.savefig(FIGURAS / "demanda_temperatura.png", dpi=150)
+plt.close(fig)
+
+# --- 3b. Umbrales de grados-día (por provincia, ponderados después) ---
+pesos = pd.read_csv(RAIZ / "referencia" / "pesos_poblacion_2021.csv", dtype={"cod_provincia": str})
+cols_t = ["t_" + c for c in pesos["cod_provincia"]]
+w = pesos["peso"].to_numpy()
+assert set(cols_t) <= set(explo.columns) and abs(w.sum() - 1) < 1e-9
+
+t_prov = explo.groupby("fecha_local")[cols_t].mean().loc[lab.index].to_numpy()  # días × provincias
+anios = pd.get_dummies(lab.index.year, dtype=float).to_numpy()  # una columna por año
+yd = lab["demanda"].to_numpy()
+
+resultados = []
+for tc in np.arange(12, 20.01, 0.5):
+    hdd = np.maximum(tc - t_prov, 0) @ w  # grados-día de calefacción, ponderados
+    for tr in np.arange(max(tc, 16), 24.01, 0.5):
+        cdd = np.maximum(t_prov - tr, 0) @ w  # grados-día de refrigeración, ponderados
+        X = np.column_stack([anios, hdd, cdd])
+        coef, sse, *_ = np.linalg.lstsq(X, yd, rcond=None)
+        resultados.append((tc, tr, sse[0], coef[-2], coef[-1]))
+
+res = pd.DataFrame(resultados, columns=["tc", "tr", "sse", "b_cal", "b_ref"]).sort_values("sse")
+res["dif_%"] = 100 * (res["sse"] / res["sse"].min() - 1)
+print(res.head(10).drop(columns="sse").round(2).to_string(index=False))
+
+
+# --- 3c. Ajuste con los umbrales elegidos ---
+TC, TR = res.iloc[0]["tc"], res.iloc[0]["tr"]
+hdd = np.maximum(TC - t_prov, 0) @ w
+cdd = np.maximum(t_prov - TR, 0) @ w
+X = np.column_stack([anios, hdd, cdd])
+coef, *_ = np.linalg.lstsq(X, yd, rcond=None)
+ajuste = X @ coef
+r2 = 1 - ((yd - ajuste) ** 2).sum() / ((yd - yd.mean()) ** 2).sum()
+print(f"Umbrales: Tc={TC} °C, Tr={TR} °C; R² = {r2:.3f}")
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.scatter(lab["temp"], yd, s=4, alpha=0.3, label="observada")
+ax.scatter(lab["temp"], ajuste, s=4, alpha=0.6, color="red", label="ajustada (grados-día + año)")
+ax.axvline(TC, color="black", linestyle="--", linewidth=0.8)
+ax.axvline(TR, color="black", linestyle="--", linewidth=0.8)
+ax.set_xlabel("Temperatura media diaria ponderada (°C)")
+ax.set_ylabel("Demanda media diaria (MW)")
+ax.set_title(f"Ajuste con grados-día: Tc = {TC} °C, Tr = {TR} °C")
+ax.legend()
+fig.tight_layout()
+fig.savefig(FIGURAS / "demanda_temperatura_ajuste.png", dpi=150)
 plt.close(fig)
