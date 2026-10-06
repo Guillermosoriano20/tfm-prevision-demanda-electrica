@@ -1,0 +1,620 @@
+% =====================================================================
+% Capítulo 4. Marco metodológico
+% Estado: 4.1 redactada (06/10/2026); 4.2 a 4.6 pendientes.
+% =====================================================================
+
+\chapter{Marco metodológico}\label{cap:metodologia}
+
+Este capítulo describe cómo se ha llevado a cabo el trabajo y por qué se ha
+optado por cada alternativa. El capítulo~\ref{cap:marco-teorico} expone en
+qué consisten los métodos empleados; aquí se recogen las decisiones concretas
+que se han tomado al aplicarlos. El capítulo se organiza en seis partes: las
+fuentes de datos y la construcción del conjunto de datos; el protocolo de
+comparación equitativa; la especificación de cada modelo; el diseño de la
+capa probabilística; las métricas y contrastes empleados; y el entorno de
+ejecución y las medidas de reproducibilidad.
+
+\section{Fuentes de datos y construcción del conjunto}\label{sec:datos}
+
+El conjunto de datos del trabajo es una tabla con una fila por hora y
+70\,127 filas, que reúne la demanda eléctrica, la temperatura y el calendario
+laboral. Todas las transformaciones que conducen a ella están programadas en
+los scripts del repositorio, de modo que el conjunto puede regenerarse por
+completo a partir de las fuentes públicas originales, como exige el
+objetivo~OE1. Esta sección describe cada fuente, las decisiones tomadas al
+procesarla y las comprobaciones realizadas, y termina con un resumen de las
+limitaciones del conjunto.
+
+% ---------------------------------------------------------------------
+\subsection{Visión general y periodo de estudio}\label{sec:datos-vision}
+
+El conjunto cubre, con resolución horaria, el periodo comprendido entre el
+1 de enero de 2017 y el 31 de diciembre de 2024 en hora peninsular. Integra
+tres fuentes públicas y gratuitas, recogidas en la tabla~\ref{tab:fuentes}:
+la demanda real del sistema peninsular, publicada por Red Eléctrica de
+España; la temperatura horaria de reanálisis en las 47 capitales de
+provincia peninsulares; y el calendario laboral estatal y autonómico
+publicado en el Boletín Oficial del Estado. A ellas se suma una fuente
+auxiliar, la población provincial del Instituto Nacional de Estadística, que
+se emplea para ponderar la temperatura y el calendario.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Fuentes del conjunto de datos}
+	\label{tab:fuentes}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.8cm} >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Variable} & \textbf{Fuente} & \textbf{Resolución original} & \textbf{Uso en el conjunto} \\
+		\hline
+		Demanda real peninsular & Red Eléctrica de España, e·sios, indicador 1293 \parencite{ree2026demandareal} & 10~min hasta el 23/05/2022; 5~min después & Variable objetivo, como media horaria \\
+		Temperatura del aire a 2~m & Reanálisis ERA5-Land \parencite{munozsabater2021era5land}, servido por Open-Meteo \parencite{zippenfenig2023openmeteo} & Horaria, valor instantáneo; rejilla de 0,1° & 47 series provinciales y media ponderada por población \\
+		Población provincial & INE, tabla 2852, Padrón a 1 de enero de 2021 \parencite{ine2021tabla2852} & Anual & Pesos fijos de ponderación \\
+		Calendario laboral & Resoluciones anuales de fiestas laborales publicadas en el BOE (sección~\ref{sec:datos-calendario}) & Diaria & Fracción de población en festivo, puentes y tipo de día \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+La elección del periodo responde a tres razones. La primera, expuesta en la
+sección~\ref{sec:contexto}, es la coherencia con la aplicación: durante todo
+el periodo, la casación del mercado diario, que es la decisión a la que sirve
+la previsión estudiada, se realizó en resolución horaria. El argumento se
+refiere al mercado diario y no al conjunto del sistema, porque la
+liquidación de los desvíos ya pasó a ser cuartohoraria el 1 de diciembre de
+2024, dentro del periodo. Tampoco se refiere a la calidad de los datos: la
+serie de demanda no cambió con el paso a los productos cuartohorarios; lo
+que cambió fue el uso que se da a su previsión. La segunda razón es que el
+periodo de prueba debe ser un año natural completo, porque el desglose por
+tipo de día del objetivo~OE8 necesita el ciclo anual entero, con su invierno,
+su verano, el periodo navideño y los puentes de diciembre; 2024 es el último
+año natural completo con mercado diario horario. La tercera es que el
+periodo deja fuera el apagón del 28 de abril de 2025, que habría obligado a
+tratar como anomalía un episodio excepcional dentro del año de prueba.
+
+El periodo de ocho años es suficiente para los fines del trabajo y mantiene
+acotado su coste de cálculo. Proporciona seis años de entrenamiento, de 2017
+a 2022, y con ellos seis ciclos anuales completos para estimar la
+estacionalidad anual, el ciclo con menos repeticiones en la serie. Al mismo
+tiempo, cada año adicional alarga la serie de entrenamiento y encarece el
+ajuste de los modelos más costosos, en particular el del SARIMAX, que debe
+reajustarse periódicamente durante la evaluación. Se comprobó que la fuente
+sirve el año 2017 completo y sin huecos; de no haber sido así, el plan de
+reserva era el periodo 2018-2024.
+
+El periodo se divide en tres tramos consecutivos: 2017-2022 para el
+entrenamiento, 2023 para la validación, es decir, para elegir la
+configuración de cada modelo, y 2024 para la prueba. La partición es
+temporal y no aleatoria, porque una partición aleatoria permitiría que un
+modelo aprendiera de horas posteriores a las que debe prever. El uso
+concreto de cada tramo forma parte del protocolo de comparación, que se
+describe más adelante en este capítulo. Todas las decisiones que dependen de
+los datos y que se presentan en esta sección, como los umbrales de los
+grados-día, se toman exclusivamente con los datos de 2017-2022.
+
+Las variables explicativas se limitan a la temperatura y al calendario.
+Ambas cumplen dos condiciones: son públicas y gratuitas, y su valor para el
+día siguiente se conoce, o puede preverse, en el momento de emitir la
+previsión. El calendario se conoce con exactitud; la temperatura, mediante
+una previsión meteorológica, que en este trabajo se sustituye por el
+reanálisis, con las consecuencias expuestas en la
+sección~\ref{sec:problema}. Otras variables relacionadas con la demanda no
+cumplen la segunda condición. El precio del mercado diario para el día
+$D+1$, por ejemplo, es el resultado de la casación a la que sirve la propia
+previsión, de modo que no se conoce a las 12:00 del día $D$. Otras variables
+meteorológicas, como la radiación solar o la humedad, podrían aportar
+información adicional, pero se excluyen para acotar el alcance del trabajo.
+
+% ---------------------------------------------------------------------
+\subsection{Demanda eléctrica}\label{sec:datos-demanda}
+
+La variable objetivo es la demanda real del sistema eléctrico peninsular,
+que Red Eléctrica de España publica como indicador 1293 de su sistema de
+información e·sios \parencite{ree2026demandareal}. Se expresa en megavatios
+(MW) y tiene resolución inferior a la hora, que además cambia dentro del
+periodo: un valor cada diez minutos hasta el 23 de mayo de 2022 a las
+19:00~UTC y uno cada cinco minutos a partir de entonces.
+
+Conviene precisar qué recoge esta demanda. Las cifras de demanda que publica
+Red Eléctrica no incluyen la energía producida por las instalaciones de
+autoconsumo, que se contabiliza aparte: en 2025, tenerla en cuenta habría
+elevado la demanda nacional por encima de los 269~TWh
+\parencite{ree2026informe2025}.
+% Verificado para las estadísticas de REE; para el indicador 1293 es una
+% inferencia coherente (la medida del sistema no observa el consumo cubierto
+% detrás del contador), no una afirmación explícita de la fuente.
+La serie representa, por tanto, la demanda que debe cubrir el sistema, y no
+el consumo eléctrico total. La expansión del autoconsumo descrita en la
+sección~\ref{sec:contexto} forma parte de su evolución, porque reduce la
+demanda observada, sobre todo en las horas centrales del día, sin que ninguna
+variable del conjunto de datos la represente. Es una posible fuente de
+diferencias entre el periodo de entrenamiento y el de prueba, y se retoma al
+discutir los resultados.
+
+Los datos se descargaron a través de la interfaz de programación de e·sios,
+que requiere un token personal gratuito, con una petición por mes, 96 en
+total. Las peticiones se expresan en tiempo universal coordinado (UTC), que
+no tiene horas repetidas ni ausentes; la conversión a hora peninsular se
+realiza después, al construir el conjunto de datos
+(sección~\ref{sec:datos-tiempo}).
+
+La descarga contiene 558\,030 valores, desde el 1 de enero de 2017 a las
+00:00~UTC hasta el 31 de diciembre de 2024 a las 23:55~UTC. Se verificó que
+no contiene valores nulos, duplicados ni menores o iguales que cero, y que
+la distancia entre dos valores consecutivos es siempre de diez o de cinco
+minutos, de modo que la serie no presenta huecos. El único día con un número
+de valores distinto del esperado es el 23 de mayo de 2022, el del cambio de
+resolución. En consecuencia, no ha sido necesario ningún tratamiento de
+huecos.
+
+Para obtener la serie horaria, cada hora $H$ recibe la media de los valores
+registrados entre las $H$:00 y las $H$:55; la etiqueta corresponde, por
+tanto, al inicio del intervalo. Es la misma convención que siguen los
+periodos del mercado diario, en el que el primer periodo va de las 00:00 a
+las 01:00. Se emplea la media, y no la suma, a causa del cambio de
+resolución: la suma tendría 6 sumandos por hora hasta mayo de 2022 y 12 a
+partir de entonces, lo que duplicaría artificialmente la serie en esa fecha,
+mientras que la media no depende del número de valores. Al tratarse de la
+media de una potencia a lo largo de una hora, el valor obtenido en MW
+equivale a la energía consumida en esa hora expresada en MWh.
+
+El número de valores de cada hora se conserva en el conjunto de datos como
+variable de control: 47\,251 horas se construyen con 6 valores y 22\,877 con
+12, recuentos que cuadran con la descarga, puesto que
+$47\,251 \times 6 + 22\,877 \times 12 = 558\,030$. Esas 70\,128 horas
+incluyen la última, que en hora peninsular corresponde ya al 1 de enero de
+2025 y se descarta, lo que deja las 70\,127 filas del conjunto.
+
+Como consecuencia del cambio de resolución, el periodo de entrenamiento
+mezcla ambas resoluciones, mientras que los de validación y prueba se
+construyen íntegramente con valores cada cinco minutos. La magnitud medida es
+la misma y la media horaria no depende del número de valores, aunque la media
+de doce valores puede ser ligeramente más suave que la de seis. Este posible
+efecto no se ha cuantificado y se considera menor.
+
+% ---------------------------------------------------------------------
+\subsection{Tratamiento del tiempo: hora UTC y hora peninsular}\label{sec:datos-tiempo}
+
+El conjunto de datos conserva la serie indexada en UTC y añade la hora
+peninsular como columnas: la hora local completa, la fecha local y la hora
+del día. El índice en UTC es continuo, sin horas repetidas ni ausentes, que
+es lo que necesitan los modelos que tratan la serie como una sucesión
+regular de observaciones, como el SARIMAX y N-HiTS. La hora local, por su
+parte, es la que gobierna el comportamiento de la demanda: la actividad se
+organiza según el reloj oficial, y el calendario se define por fechas
+locales. Por eso, todas las variables que describen el ciclo diario se
+construyen sobre la hora local.
+
+Los cambios de hora hacen que los días locales no tengan siempre 24 horas.
+El último domingo de marzo, el reloj salta de las 02:00 a las 03:00 y el
+día tiene 23 horas; el último domingo de octubre, la hora de 02:00 a 03:00
+se repite y el día tiene 25. En el periodo de estudio hay 2905 días locales
+de 24 horas, 9 de 23 y 8 de 25. Esos días se mantienen tal como son, con 23
+o 25 horas, igual que los periodos que casa el mercado diario en esas
+fechas: no se interpola la hora que falta ni se promedian las dos horas que
+se repiten. La alternativa de forzar días de 24 horas obligaría a inventar
+un dato en marzo y a destruir otro en octubre.
+
+De los nueve días de 23 horas, ocho corresponden a los cambios de hora de
+marzo y el noveno es el 1 de enero de 2017, cuya primera hora local, de
+00:00 a 01:00, corresponde al 31 de diciembre de 2016 a las 23:00~UTC, que
+no forma parte de la descarga. Al pertenecer al periodo de entrenamiento,
+esta hora ausente no tiene ningún efecto sobre la evaluación. En el extremo
+opuesto, la última hora UTC descargada corresponde ya al 1 de enero de 2025
+en hora peninsular y se descarta, como se ha indicado en la
+sección~\ref{sec:datos-demanda}.
+
+La coexistencia de ambas escalas de tiempo tiene dos consecuencias para la
+modelización. La primera es que el día objetivo de cada previsión puede
+tener 23, 24 o 25 horas, de modo que el número de valores que hay que prever
+no es constante. La segunda es que los retardos de la demanda, que se
+cuentan en horas UTC, no siempre coinciden con la misma hora local del día
+anterior o de la semana anterior en las semanas de cambio de hora. La forma
+en que cada modelo resuelve ambas cuestiones forma parte del protocolo de
+comparación.
+
+% ---------------------------------------------------------------------
+\subsection{Temperatura}\label{sec:datos-temperatura}
+
+La temperatura procede del reanálisis ERA5-Land, que reconstruye de forma
+coherente la evolución de las variables de superficie terrestre con
+resolución horaria desde 1950 y con una resolución espacial nativa de unos
+9~km \parencite{munozsabater2021era5land}. Se descarga a través de la
+interfaz de datos históricos de Open-Meteo
+\parencite{zippenfenig2023openmeteo}, que lo sirve en una rejilla de 0,1°
+(unos 11~km), de forma gratuita para uso no comercial y sin registro. La
+variable empleada es la temperatura del aire a 2~m. Se descartó el servicio
+de datos abiertos de la Agencia Estatal de Meteorología porque no ofrece en
+abierto un histórico horario descargable para todo el periodo de estudio.
+
+El modelo de reanálisis se elige de forma explícita. La opción por defecto de
+Open-Meteo combina varios modelos sin indicar cuál se usa en cada momento, y
+algunos de ellos se generan con la versión del modelo meteorológico vigente
+en cada fecha. Un cambio de versión a mitad del periodo podría desplazar la
+temperatura y confundirse con un cambio en la demanda. Un reanálisis, en
+cambio, se produce con una única versión del modelo para todo el periodo, lo
+que garantiza la homogeneidad de la serie. Entre los dos reanálisis
+disponibles, ERA5 y ERA5-Land, se elige el segundo por su mayor resolución
+espacial.
+
+Se descargan las series horarias de 2017 a 2024 en las capitales de las 47
+provincias peninsulares, en UTC, igual que la demanda. Las coordenadas de
+cada capital se comprobaron con el servicio de geocodificación de
+Open-Meteo, y todas quedan a menos de 10~km de la posición que este
+devuelve. Las 47 series tienen 70\,128 horas y ningún valor nulo.
+
+Open-Meteo asigna a cada coordenada una celda de la rejilla según un
+criterio configurable. Por defecto, busca una celda situada sobre tierra y
+con una elevación similar a la del punto solicitado. Es un criterio
+razonable para ponderar por población, porque la población vive en tierra,
+pero en las capitales costeras la celda asignada puede no reflejar el efecto
+moderador del mar. Todas las celdas asignadas quedan a menos de 11~km de su
+capital; la más alejada es la de Cádiz.
+
+Para medir la sensibilidad a esta elección, se comparó ERA5-Land con ERA5
+en dos capitales costeras, Barcelona y Cádiz, pidiendo en ERA5 la celda más
+próxima, que puede incluir mar. El criterio se fijó antes de ver los
+resultados: se mantendría ERA5-Land si la correlación entre las medias
+diarias de ambas series era al menos de 0,95 y la diferencia media no
+superaba 1~°C. La tabla~\ref{tab:costa} muestra que el criterio se cumple
+con holgura en ambas capitales.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Comparación de ERA5-Land con ERA5 en dos capitales costeras, 2017-2024}
+	\label{tab:costa}
+	\small
+	\begin{tabularx}{0.85\textwidth}{l >{\centering\arraybackslash}X >{\centering\arraybackslash}X}
+		\hline
+		\textbf{Capital} & \textbf{Correlación de las medias diarias} & \textbf{Diferencia media (ERA5-Land $-$ ERA5)} \\
+		\hline
+		Barcelona & 0,998 & $-0{,}60$~°C \\
+		Cádiz & 0,997 & $+0{,}38$~°C \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+La comparación revela un matiz en Cádiz: la amplitud diaria media, es decir,
+la diferencia entre la temperatura máxima y la mínima de cada día, es mayor
+en la celda terrestre (8,6~°C) que en la de ERA5 (5,8~°C), lo que refleja el
+efecto costero real que la celda terrestre no recoge. Su repercusión en la
+media peninsular es reducida, porque Cádiz pesa un 2,8\,\% en la
+ponderación por población. Conviene subrayar, además, que ERA5 no es la
+temperatura verdadera, sino otro reanálisis: la comparación mide cuánto
+cambia el resultado al cambiar de fuente, no cuál de las dos acierta.
+
+La temperatura de Open-Meteo es un valor instantáneo a la hora en punto,
+mientras que la demanda de la hora $H$ es una media entre $H$ y $H+1$. Para
+que ambas se refieran al mismo intervalo, la hora $H$ recibe la media de las
+temperaturas en sus dos extremos:
+\begin{equation}
+	\tilde{T}_H = \frac{T(H) + T(H+1)}{2},
+\end{equation}
+que equivale a aproximar la temperatura media de la hora por la regla del
+trapecio. La alternativa más sencilla, usar solo $T(H)$, introduciría un
+desfase sistemático de media hora. La alineación no añade información
+posterior a la que ya supone el escenario de previsión meteorológica
+perfecta, porque el instante $H+1$ es el final de la propia hora que se
+prevé.
+
+La temperatura peninsular se obtiene como media de las 47 temperaturas
+provinciales, ponderada por la población de cada provincia:
+\begin{equation}
+	T^{\mathrm{pond}}_H = \sum_{p=1}^{47} w_p \, \tilde{T}_{p,H},
+	\qquad w_p = \frac{P_p}{\sum_{q} P_q},
+\end{equation}
+donde $P_p$ es la población de la provincia $p$. La ponderación refleja que
+la demanda depende de dónde vive la población: el peso de Madrid es del
+15,4\,\% y el de Barcelona del 13,0\,\%, mientras que el de las provincias
+menos pobladas no llega al 0,5\,\%. Las poblaciones proceden de las cifras
+oficiales del Padrón municipal a 1 de enero de 2021, que suman
+43\,869\,377 habitantes en las 47 provincias \parencite{ine2021tabla2852}.
+
+Los pesos son fijos para todo el periodo. Se valoró usar pesos anuales, pero
+se descartaron porque introducen una fuga de información pequeña pero real:
+la cifra oficial de población a 1 de enero de un año se publica meses
+después, de modo que las previsiones de 2024 habrían usado un dato que aún no
+existía en el momento de emitirlas. El año de referencia, 2021, pertenece al
+periodo de entrenamiento y su cifra se publicó mucho antes del periodo de
+prueba. Se eligió 2021, y no 2022, porque la tabla del INE empleada termina
+en ese año. Como el reparto de la población entre provincias cambia muy
+despacio, el efecto de fijar el año es despreciable.
+
+Además de la temperatura ponderada, el conjunto conserva las 47
+temperaturas provinciales con la misma alineación, porque los grados-día se
+calculan provincia a provincia (sección~\ref{sec:datos-gradosdia}). Por
+último, representar cada provincia por la temperatura de su capital es una
+simplificación: en provincias extensas o con relieve marcado, la capital
+puede no ser representativa del conjunto de su población.
+
+% ---------------------------------------------------------------------
+\subsection{Grados-día de calefacción y de refrigeración}\label{sec:datos-gradosdia}
+
+La relación entre la demanda y la temperatura no es lineal: la demanda
+aumenta tanto cuando hace frío como cuando hace calor
+(sección~\ref{sec:determinantes}). Para representarla se emplean los
+grados-día de calefacción y de refrigeración, que miden cuánto se aleja la
+temperatura de una zona neutra. Para la provincia $p$ y el día local $d$,
+con temperatura media diaria $T_{p,d}$, se definen como
+\begin{equation}
+	\mathrm{GDC}_{p,d} = \max\left(T_c - T_{p,d},\, 0\right),
+	\qquad
+	\mathrm{GDR}_{p,d} = \max\left(T_{p,d} - T_r,\, 0\right),
+\end{equation}
+donde $T_c$ es el umbral por debajo del cual se activa la calefacción y
+$T_r$ el umbral por encima del cual se activa la refrigeración. Los valores
+peninsulares se obtienen ponderando por población con los mismos pesos de la
+sección~\ref{sec:datos-temperatura}:
+$\mathrm{GDC}_d = \sum_p w_p \, \mathrm{GDC}_{p,d}$, y de forma análoga para
+la refrigeración.
+
+El orden de las operaciones importa. Los grados-día se calculan primero en
+cada provincia y se ponderan después, en lugar de calcularse sobre la
+temperatura peninsular ponderada. El motivo es la no linealidad. Supóngase
+un día en que la mitad de la población está a 8~°C y la otra mitad a 28~°C.
+La temperatura ponderada sería de 18~°C, dentro de la zona neutra, y daría
+cero grados-día de ambos tipos, aunque media España esté encendiendo la
+calefacción y la otra media el aire acondicionado. Calculados por provincia,
+con los umbrales finalmente elegidos ($T_c = 15{,}5$~°C y $T_r = 19{,}5$~°C),
+el mismo día tendría $0{,}5 \times 7{,}5 = 3{,}75$ grados-día de calefacción
+y $0{,}5 \times 8{,}5 = 4{,}25$ de refrigeración. El ejemplo es extremo, pero
+la situación se da de forma atenuada en muchos días de primavera y otoño.
+
+Los umbrales $T_c$ y $T_r$ no se toman de la literatura, sino que se estiman
+con los datos, y exclusivamente con los de 2017-2022, para no introducir
+información de los periodos de validación y prueba. El procedimiento es el
+siguiente:
+\begin{enumerate}
+	\item Se seleccionan los días laborables de 2017-2022, excluido el periodo
+	de la pandemia: 1410 días. Limitarse a los laborables evita que el efecto
+	del fin de semana y de los festivos se confunda con el de la temperatura.
+	\item Para cada pareja de umbrales candidata se calculan los grados-día
+	ponderados y se ajusta por mínimos cuadrados una regresión de la demanda
+	media diaria sobre ambos grados-día y una variable indicadora por año. Las
+	indicadoras absorben el nivel de demanda de cada año, como el descenso de
+	2022, que de otro modo se atribuiría a la temperatura.
+	\item Los umbrales se buscan en una rejilla de 0,5~°C, con $T_c$ entre 12
+	y 20~°C, $T_r$ entre 16 y 24~°C y la condición $T_c \le T_r$, y se elige la
+	pareja con menor suma de cuadrados de los residuos.
+\end{enumerate}
+Antes de ver el resultado se fijó un criterio de validez: el óptimo no debía
+caer en el borde de la rejilla, porque en ese caso el verdadero óptimo podría
+estar fuera del intervalo explorado. El resultado se presenta en la
+sección~\ref{sec:explo-temperatura}.
+
+Los grados-día no se guardan en el conjunto de datos, sino que se calculan a
+partir de las temperaturas provinciales cuando se construyen las variables de
+cada modelo. Como los umbrales están fijados con datos de entrenamiento, su
+cálculo para cualquier día no requiere información de los periodos de
+validación o prueba. La forma en que se combinan con la temperatura horaria
+en los modelos es una decisión del protocolo de comparación.
+
+% ---------------------------------------------------------------------
+\subsection{Calendario laboral}\label{sec:datos-calendario}
+
+No existe una interfaz oficial que proporcione el calendario laboral de
+todas las comunidades autónomas. La fuente empleada son las resoluciones
+anuales de la Dirección General de Empleo, y desde la resolución de 2018 de
+la Dirección General de Trabajo, que publican en el BOE la relación de fiestas laborales de cada año
+\parencite{boe2016fiestas2017,boe2017fiestas2018,boe2018fiestas2019,boe2019fiestas2020,boe2020fiestas2021,boe2021fiestas2022,boe2022fiestas2023,boe2023fiestas2024}.
+Se incluyen las fiestas nacionales y las autonómicas de las 15 comunidades
+peninsulares, y se excluyen las fiestas locales. La información de las ocho
+resoluciones se transcribió a una tabla de referencia con 237 filas, una por
+fecha festiva, que indica las comunidades en las que es fiesta.
+
+La tabla se verificó de tres formas. Primero, su coherencia interna: sin
+valores nulos, con códigos de comunidad y fechas válidos y sin duplicados.
+Segundo, el número de fiestas por comunidad y año, que es de 12 salvo en
+nueve casos con 13, todos justificados por las notas de las propias
+resoluciones. Tercero, el contraste con la librería \texttt{holidays}
+\parencite{holidays2026}, excluidos los domingos: ninguna fecha aparece solo
+en la tabla, y ocho aparecen solo en la librería, todas ellas el 3 de
+diciembre en Navarra. Esa fecha es una fiesta local común a toda la
+Comunidad Foral según su normativa, y el BOE no la recoge como fiesta
+autonómica, por lo que se mantiene el criterio de la fuente.
+
+A partir de la tabla se construyen, para cada día local, las variables
+siguientes:
+\begin{itemize}
+	\item \textbf{Fracción de población en festivo} (\texttt{fraccion\_festivo}):
+	suma de los pesos de población de las comunidades en las que el día es
+	festivo, entre 0 y 1. Los pesos de cada comunidad son la suma de los de sus
+	provincias. Es la variable de calendario que usan los modelos, porque
+	refleja que un festivo autonómico reduce la demanda en proporción a la
+	población afectada. Un festivo nacional vale 1; el 7 de diciembre de 2020,
+	festivo en varias comunidades, vale 0,535.
+	\item \textbf{Festivo} (\texttt{festivo}): indicador de que la fracción
+	anterior es al menos 0,5. Se emplea únicamente para clasificar los días en
+	el desglose del objetivo~OE8 y no como entrada de los modelos, por lo que
+	no se ajusta con datos ni introduce fuga de información. Tiene un efecto
+	frontera conocido: el 9 de diciembre de 2019 queda fuera, con 0,498, y el
+	7 de diciembre de 2020 dentro, con 0,535.
+	\item \textbf{Puente} (\texttt{puente}): día de lunes a viernes, no
+	festivo, situado entre dos días no laborables, entendidos como festivos o
+	días de fin de semana. Hay 20 puentes en el periodo de estudio.
+	\item \textbf{Tipo de día} (\texttt{tipo\_dia}): clasificación con la
+	prioridad festivo, puente, fin de semana y laborable. Un festivo en sábado
+	cuenta como festivo. A las tres categorías previstas en el objetivo~OE8 se
+	añade la de fin de semana, que de otro modo quedaría mezclada con los
+	laborables.
+\end{itemize}
+
+La tabla~\ref{tab:tipos-dia} recoge el recuento de días de cada tipo. Los
+festivos y los puentes son pocos, lo que deberá tenerse en cuenta al
+interpretar el desglose de resultados: el año de prueba tiene 10 festivos y un
+solo puente, y las métricas calculadas sobre ellos
+serán más inestables que las de los laborables.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Días de cada tipo en el periodo de estudio, 2017-2024}
+	\label{tab:tipos-dia}
+	\small
+	\begin{tabular}{lr}
+		\hline
+		\textbf{Tipo de día} & \textbf{Días} \\
+		\hline
+		Laborable & 1994 \\
+		Fin de semana & 826 \\
+		Festivo & 82 \\
+		Puente & 20 \\
+		\hline
+		Total & 2922 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+El criterio de la fuente tiene una consecuencia que conviene declarar. Las
+resoluciones del BOE no incluyen las fiestas nacionales que caen en domingo,
+de modo que esos días aparecen en el conjunto como un domingo corriente, con
+fracción de festivo nula. En 2017-2024 hay diez fiestas nacionales de fecha
+fija que caen en domingo, verificadas con un script: el 1 de enero de 2017,
+el 6 de enero de 2019, el 8 de diciembre de 2019, el 1 de noviembre y el 6 de
+diciembre de 2020, el 15 de agosto de 2021, el 1 de mayo y el 25 de
+diciembre de 2022, el 1 de enero de 2023, en el periodo de validación, y el
+8 de diciembre de 2024, en el de prueba. El efecto esperado es pequeño,
+porque la demanda de un domingo ya es baja, pero no nulo: el mínimo horario
+del periodo de entrenamiento se registra precisamente el 25 de diciembre de
+2022 (sección~\ref{sec:explo-anomalias}). Cuando una fiesta nacional cae en
+domingo, varias comunidades la trasladan al lunes, y ese lunes sí figura en
+el BOE, como el 7 de diciembre de 2020 citado antes. Estos días se vigilan
+en el desglose de resultados.
+
+Quedan fuera dos tipos de días que también alteran la demanda. Las fiestas
+locales no se incluyen, ni siquiera las de grandes ciudades como Madrid o
+Barcelona, cuyo efecto puede notarse en los errores de esos días. Tampoco se
+etiquetan en el conjunto de datos los días especiales que no son festivos,
+como el 24 y el 31 de diciembre o el resto del periodo navideño; el 24 y el
+31 de diciembre de 2018, por ejemplo, figuran como puentes. El análisis
+exploratorio muestra que el periodo navideño concentra los mayores déficits
+de demanda (sección~\ref{sec:explo-anomalias}), y por ese motivo el
+protocolo de comparación añade una variable específica para ese periodo, con
+la evidencia obtenida exclusivamente en 2017-2022.
+
+% ---------------------------------------------------------------------
+\subsection{Huecos, valores anómalos y periodo de la pandemia}\label{sec:datos-anomalias}
+
+El conjunto de datos no contiene huecos. La demanda no presenta ninguno en
+la descarga (sección~\ref{sec:datos-demanda}), las 47 series de temperatura
+están completas y el calendario cubre todos los días del periodo. El
+conjunto final tiene un índice horario continuo y ningún valor nulo.
+
+Ningún valor de la demanda se ha corregido ni eliminado. El criterio es que
+solo se corrige un dato si es erróneo, y la revisión de los valores extremos
+del análisis exploratorio (sección~\ref{sec:explo-anomalias}) no encontró
+ninguno: los días con demanda muy alejada de la esperada tienen una
+explicación real, ya sea de calendario, como el periodo navideño y el lunes
+de Pascua, o meteorológica, como la borrasca Filomena de enero de 2021.
+Suavizar esos valores mejoraría el ajuste de los modelos en entrenamiento,
+pero los modelos se enfrentarían a episodios del mismo tipo en el periodo de
+prueba sin haberlos visto antes.
+
+La única excepción es el periodo de la pandemia. Entre marzo y junio de 2020,
+las restricciones de movilidad alteraron la demanda de forma excepcional, y
+su inclusión en el entrenamiento enseñaría a los modelos un comportamiento
+que no se repite. El conjunto marca esas horas con la columna
+\texttt{excluir\_covid}, verdadera entre el 1 de marzo y el 30 de junio de
+2020 en fecha local, 2927 horas en total, en lugar de eliminarlas. Borrar las
+filas habría dejado un hueco de cuatro meses en el índice, y los retardos que
+lo cruzaran habrían unido sin aviso observaciones separadas por ese hueco.
+Con la marca, cada modelo aplica la exclusión al construir sus muestras de
+entrenamiento, según una regla común que forma parte del protocolo de
+comparación. Como el periodo de prueba es 2024, nunca se evalúa sobre esas
+horas.
+
+Con lo anterior, la sección cubre los tres elementos que exige el criterio
+de cumplimiento de OE1 (tabla~\ref{tab:criterios}): el número de huecos
+tratados, que es cero; el criterio aplicado en los cambios de hora
+(sección~\ref{sec:datos-tiempo}); y los valores anómalos detectados, que se
+describen en la sección~\ref{sec:explo-anomalias}.
+
+% ---------------------------------------------------------------------
+\subsection{Congelación y verificación del conjunto}\label{sec:datos-verificacion}
+
+Los datos no se publican en el repositorio, sino que se regeneran con los
+scripts a partir de las fuentes. Lo que se congela es, por tanto, el código
+que los genera, junto con una huella de contenido que permite comprobar que
+el conjunto regenerado es idéntico al empleado en el trabajo. La huella es un
+número entero calculado a partir del contenido de todas las celdas de la
+tabla: cualquier diferencia en cualquier valor la cambia. Todos los scripts
+de análisis y de modelización comprueban la huella antes de empezar y se
+detienen si no coincide.
+
+La tabla~\ref{tab:control} recoge las cifras de control del conjunto. Son
+cifras estructurales, que describen su forma y no su contenido; los
+estadísticos descriptivos de la demanda y de la temperatura se presentan en
+el análisis exploratorio, calculados solo sobre el periodo de entrenamiento.
+Además de estas cifras, la construcción comprueba que el índice horario es
+continuo y sin duplicados, que toda la demanda es positiva y que la tabla
+guardada en disco se relee idéntica.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Cifras de control del conjunto de datos}
+	\label{tab:control}
+	\small
+	\begin{tabular}{lr}
+		\hline
+		\textbf{Cifra} & \textbf{Valor} \\
+		\hline
+		Filas (horas) & 70\,127 \\
+		Columnas & 60 \\
+		Valores nulos & 0 \\
+		Horas construidas con 6 valores / con 12 valores & 47\,251 / 22\,877 \\
+		Días locales de 24 / 23 / 25 horas & 2905 / 9 / 8 \\
+		Horas marcadas como periodo de la pandemia & 2927 \\
+		Primera hora local & 01/01/2017 01:00 \\
+		Última hora local & 31/12/2024 23:00 \\
+		Huella de contenido & 5794786326140387865 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+La huella se calcula con la librería pandas, y su valor depende de que los
+datos sean idénticos bit a bit. Durante el trabajo hubo que cambiar la
+versión de pandas por un requisito de compatibilidad de otra librería
+(sección de entorno de este capítulo), y el conjunto se regeneró con la
+nueva versión. La comparación con la versión anterior mostró que 59 de las
+60 columnas eran idénticas bit a bit y que la temperatura ponderada difería,
+como máximo, en $1{,}4 \times 10^{-14}$~°C. La causa probable, no comprobada
+en el código de la librería, es un cambio en el orden de las sumas en coma
+flotante al calcular la media ponderada. La copia anterior, leída con la
+nueva versión, reproduce la huella original, lo que demuestra que la
+diferencia está en los datos y no en el cálculo de la huella. Antes de
+comparar se había fijado un criterio de aceptación: diferencias inferiores a
+$10^{-10}$ en la temperatura ponderada y el resto de columnas idénticas. Al
+cumplirse, se aceptó el conjunto regenerado y su huella pasó a ser la
+oficial.
+
+El episodio tiene una consecuencia para la reproducibilidad: el conjunto solo
+se reproduce bit a bit con las versiones exactas de las librerías, que por
+ese motivo quedan fijadas en el repositorio. Con otras versiones, el conjunto
+puede diferir en el orden de la precisión de la máquina y la huella no
+coincidiría, aunque los resultados serían a efectos prácticos los mismos.
+
+% ---------------------------------------------------------------------
+\subsection{Limitaciones del conjunto de datos}\label{sec:datos-limitaciones}
+
+La tabla~\ref{tab:limitaciones} reúne las limitaciones del conjunto de datos
+que se han ido señalando a lo largo de la sección, con su efecto esperado y
+el lugar del trabajo en que se retoman.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Limitaciones del conjunto de datos}
+	\label{tab:limitaciones}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3cm}}
+		\hline
+		\textbf{Limitación} & \textbf{Efecto esperado} & \textbf{Dónde se retoma} \\
+		\hline
+		Temperatura de reanálisis en lugar de previsión meteorológica & Los resultados son una cota superior del rendimiento en operación & Discusión y conclusiones \\
+		Autoconsumo no observado & Posible deriva de la demanda entre el entrenamiento y la prueba, sobre todo en las horas centrales & Discusión \\
+		Cada provincia representada por su capital, con celda sobre tierra & Error de representatividad, reducido en la media ponderada & --- \\
+		Pesos de población fijos (2021) & Despreciable, por la lentitud del cambio en el reparto de la población & --- \\
+		Fiestas locales excluidas & Errores en días concretos de grandes ciudades & Desglose por tipo de día \\
+		Fiestas nacionales en domingo sin marcar & Posibles errores el 01/01/2023 (validación) y el 08/12/2024 (prueba) & Desglose por tipo de día \\
+		Resolución de la demanda distinta en entrenamiento y prueba & Menor; no cuantificado & --- \\
+		Otras variables meteorológicas excluidas & Información potencialmente útil no aprovechada & Conclusiones \\
+		\hline
+	\end{tabularx}
+\end{table}

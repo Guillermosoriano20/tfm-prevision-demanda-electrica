@@ -1,0 +1,447 @@
+% =====================================================================
+% Capítulo 5. Desarrollo, análisis y resultados
+% Estado: 5.1 redactada (06/10/2026); 5.2 en adelante pendientes.
+% Figuras de 5.1: versiones provisionales de figuras/exploracion
+% (pendiente regenerarlas con calidad de impresión y rótulos en español).
+% =====================================================================
+
+\chapter{Desarrollo, análisis y resultados}\label{cap:resultados}
+
+Este capítulo presenta los resultados del trabajo en el orden de los
+objetivos específicos. Comienza con el análisis exploratorio de la serie de
+demanda, que caracteriza sus propiedades estadísticas y fundamenta las
+decisiones de modelización. A continuación se presentan la precisión puntual
+de los cuatro modelos, la calibración de sus intervalos de predicción y el
+desglose de ambos por hora del día y tipo de día, y el capítulo termina con
+la discusión de los resultados.
+
+\section{Análisis exploratorio de la serie}\label{sec:exploratorio}
+
+Esta sección responde al objetivo~OE2: caracterizar estadísticamente la
+serie de demanda antes de modelizarla. Todo el análisis se realiza
+exclusivamente con los datos de 2017-2022, el periodo de entrenamiento, que
+comprende 52\,583 horas. Los años 2023 y 2024 no intervienen en ningún
+cálculo, de modo que las decisiones que se derivan de esta sección no
+incorporan información de los periodos de validación y prueba. Salvo en el
+análisis de la relación con la temperatura, que se limita a los días
+laborables fuera del periodo de la pandemia, los cálculos emplean la serie
+completa de 2017-2022, porque las herramientas utilizadas requieren una serie
+continua.
+
+% Cifras calculadas el 06/10/2026 con el dataset oficial (huella comprobada)
+% y pandas 2.3.3; PENDIENTE incorporarlas a src/14_exploracion.py.
+En el periodo, la demanda tiene una media de 28\,049~MW y una desviación
+típica de 4560~MW; excluido el periodo de la pandemia, la media sube a 28\,251~MW. El
+valor horario mínimo, 16\,117~MW, y el máximo, 41\,829~MW, se analizan en la
+sección~\ref{sec:explo-anomalias}. La tabla~\ref{tab:medias-anuales} muestra
+la demanda media de cada año, que anticipa el comportamiento de la tendencia:
+estable entre 2017 y 2019, con un descenso marcado en 2020, una recuperación
+parcial en 2021 y un nuevo descenso en 2022, hasta el valor más bajo del
+periodo.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Demanda media anual, 2017-2022}
+	\label{tab:medias-anuales}
+	\small
+	\begin{tabular}{lrrrrrr}
+		\hline
+		\textbf{Año} & 2017 & 2018 & 2019 & 2020 & 2021 & 2022 \\
+		\hline
+		\textbf{Demanda media (MW)} & 28\,849 & 29\,056 & 28\,527 & 27\,078 & 27\,838 & 26\,946 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\subsection{Periodicidades: el periodograma}\label{sec:explo-periodograma}
+
+El primer paso es identificar qué ciclos contiene la serie y cuánto pesa cada
+uno. La figura~\ref{fig:periodograma} muestra el periodograma de la demanda
+horaria, que reparte la varianza de la serie entre ciclos de distinta
+duración (sección~\ref{sec:espectral}). El eje horizontal indica la duración
+del ciclo, en horas, y el vertical la potencia espectral, proporcional al
+cuadrado de la amplitud del ciclo; ambos ejes están en escala logarítmica.
+Las líneas discontinuas señalan los periodos de 24, 168 y 8766 horas, es
+decir, el día, la semana y el año medio de 365,25 días.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{periodograma.png}
+	\caption{Periodograma de la demanda horaria, 2017-2022. Ambos ejes en
+	escala logarítmica; las líneas discontinuas marcan los periodos de 24, 168
+	y 8766 horas.}
+	\label{fig:periodograma}
+\end{figure}
+
+Las dos frecuencias más potentes de toda la serie son exactamente las de 24 y
+168 horas. Les siguen picos en 12, 84 y 28 horas, que no son ciclos nuevos,
+sino armónicos de los anteriores: 12 es la mitad de 24, y 84 y 28 son la
+mitad y la sexta parte de 168. Su presencia indica que los ciclos diario y
+semanal no tienen forma sinusoidal, como cabe esperar de un perfil diario con
+un valle nocturno largo y dos máximos, y de una semana en la que el sábado y
+el domingo se separan bruscamente de los laborables.
+
+En los periodos largos destacan las frecuencias de 4381,9 horas, el
+semestre, y de 1460,6 horas, la sexta parte del año, que es un armónico
+anual. El periodo anual propiamente dicho, que en la rejilla de frecuencias
+del periodograma corresponde a 8763,8 horas, ocupa el décimo puesto de 26\,291
+frecuencias, pero su potencia es solo el 9,2\,\% de la del semestre, lo que
+equivale a una amplitud de aproximadamente un 30\,\% de la semestral. La
+explicación está en la forma del ciclo anual: la demanda tiene dos máximos al
+año, uno en invierno y otro en verano, y dos mínimos en primavera y otoño, de
+modo que la oscilación dominante tiene periodo semestral.
+
+En síntesis, el periodograma muestra picos en los tres periodos
+estacionales: 24 y 168 horas son las dos frecuencias más potentes de la
+serie, y el periodo anual ocupa el décimo puesto, aunque su potencia es
+inferior a la de su segundo armónico, de 4382 horas, reflejo del doble
+máximo invernal y estival. Esta observación tiene una consecuencia directa
+para la modelización: si la estacionalidad anual se representa con términos
+de Fourier, un solo armónico no basta, y hacen falta al menos dos
+(sección~\ref{sec:fourier}).
+
+El análisis tiene dos limitaciones. La primera es la resolución en los
+periodos largos. Con 52\,583 horas, las frecuencias contiguas a la anual
+corresponden a periodos de 7512 y 10\,517 horas, de modo que el periodograma
+no puede distinguir ciclos cercanos al año y la estimación de su potencia es
+poco precisa. La segunda es la fuga espectral desde la tendencia: los cambios
+de nivel entre años reparten potencia hacia las frecuencias más bajas, lo que
+explica la subida de la curva en el extremo derecho de la figura.
+
+% ---------------------------------------------------------------------
+\subsection{Descomposición en tendencia y estacionalidades}\label{sec:explo-mstl}
+
+Una vez identificados los periodos, la descomposición MSTL
+(sección~\ref{sec:mstl}) separa la serie en una tendencia, tres componentes
+estacionales de 24, 168 y 8766 horas y un residuo, cuya suma reproduce la
+serie original. Se emplea la implementación de la librería statsmodels con
+sus parámetros por defecto. La figura~\ref{fig:mstl} muestra la serie y sus
+componentes, todas en megavatios y con el tiempo en el eje horizontal, y la
+tabla~\ref{tab:mstl} resume la variabilidad de cada componente mediante su
+desviación típica.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{descomposicion_mstl.png}
+	\caption{Descomposición MSTL de la demanda horaria, 2017-2022. De arriba
+	abajo: serie observada, tendencia, componentes estacionales diaria (24~h),
+	semanal (168~h) y anual (8766~h), y residuo. Todas las componentes en MW.}
+	\label{fig:mstl}
+\end{figure}
+
+\begin{table}[htbp]
+	\centering
+	\caption{Desviación típica de las componentes de la descomposición MSTL, 2017-2022}
+	\label{tab:mstl}
+	\small
+	\begin{tabular}{lr}
+		\hline
+		\textbf{Componente} & \textbf{Desviación típica (MW)} \\
+		\hline
+		Estacional diaria (24~h) & 3336 \\
+		Estacional semanal (168~h) & 2070 \\
+		Estacional anual (8766~h) & 1816 \\
+		Residuo & 1052 \\
+		Tendencia & 828 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+El ciclo diario es la mayor fuente de variación de la serie, seguido del
+semanal y del anual, que tienen un peso parecido entre sí. El residuo, que
+recoge todo lo que no explican la tendencia y los ciclos regulares, tiene
+una desviación típica de 1052~MW, en torno al 4\,\% de la demanda media. Es
+en ese residuo donde actúan la temperatura, que se aparta de su valor
+estacional típico, y el calendario, que altera la regularidad semanal.
+
+La tendencia confirma lo que anticipaban las medias anuales: un nivel
+estable entre 2017 y 2019, en torno a 29\,000~MW, una caída en 2020, una
+recuperación parcial en 2021 y un descenso fuerte a lo largo de 2022. El
+tramo final debe interpretarse con cautela, porque el suavizado en el que se
+basa la descomposición es menos fiable en los extremos de la serie.
+
+La componente anual presenta una doble joroba: un máximo en enero, uno
+secundario en julio y mínimos en primavera y otoño, coherente con el
+periodograma. Sobre ella aparecen agujas descendentes en las mismas fechas de
+cada año, que corresponden a festivos de fecha fija como Navidad o Año Nuevo.
+Como la descomposición no conoce el calendario, reparte su efecto entre la
+componente anual, cuando el festivo cae siempre en la misma fecha, y el
+residuo.
+
+Las componentes diaria y semanal no tienen amplitud constante. La diaria es
+mayor en invierno y en verano que en primavera y otoño, es decir, el perfil
+diario cambia con la estación, y la semanal se reduce de forma visible en la
+primavera de 2020, cuando las restricciones de la pandemia redujeron la
+diferencia entre los laborables y el fin de semana. Esta variación tiene
+consecuencias para la modelización: los términos de Fourier imponen un
+patrón que se repite sin cambios (sección~\ref{sec:fourier}), mientras que
+la descomposición muestra que el patrón real cambia a lo largo del año.
+
+La principal limitación de la descomposición es que, con solo seis ciclos
+anuales, la componente anual se estima con poca información y debe
+considerarse aproximada. La descomposición es, además, una herramienta
+descriptiva: no forma parte de ningún modelo de previsión del trabajo.
+
+% ---------------------------------------------------------------------
+\subsection{Estacionariedad}\label{sec:explo-estacionariedad}
+
+Los contrastes de estacionariedad determinan si la serie debe diferenciarse
+antes de modelizarla. Se aplican los contrastes ADF y KPSS
+(sección~\ref{sec:raiz-unitaria}), que tienen hipótesis nulas opuestas, a la
+serie de demanda de 2017-2022. En ambos se incluye una constante, sin
+tendencia lineal. La tabla~\ref{tab:estacionariedad} recoge los resultados.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Contrastes de estacionariedad sobre la demanda horaria, 2017-2022}
+	\label{tab:estacionariedad}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm} >{\raggedright\arraybackslash}X r r}
+		\hline
+		\textbf{Contraste} & \textbf{Hipótesis nula} & \textbf{Estadístico} & \textbf{$p$-valor} \\
+		\hline
+		ADF, 200 retardos elegidos por AIC & Raíz unitaria & $-6{,}96$ & $\approx 0$ \\
+		ADF, 336 retardos fijos & Raíz unitaria & $-5{,}50$ & $\approx 0$ \\
+		KPSS, constante & Estacionariedad en nivel & 6,21 & $< 0{,}01$ \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+El contraste ADF rechaza con claridad la hipótesis de raíz unitaria. El
+número de retardos se eligió por el criterio de Akaike con un máximo de 200,
+y el criterio eligió precisamente ese máximo, lo que indica que podría
+preferir más. Para comprobar que el resultado no depende de ello, se repitió
+el contraste con 336 retardos fijos, dos semanas completas, y el rechazo se
+mantiene. El contraste KPSS, por su parte, rechaza la estacionariedad en
+nivel: su estadístico, 6,21, multiplica por más de ocho el valor crítico al
+1\,\%, que es 0,739. El $p$-valor exacto es inferior a 0,01, el menor valor
+que tabula la implementación empleada.
+
+Que ambos contrastes rechacen su hipótesis nula no es una contradicción. La
+serie no tiene una raíz unitaria, es decir, sus perturbaciones no se
+acumulan indefinidamente, pero tampoco oscila en torno a una media constante:
+su media cambia con la hora, el día de la semana, la estación y la tendencia.
+El criterio de decisión se fijó antes de realizar los contrastes: en este
+caso, en lugar de diferenciar la serie, se modelan explícitamente la
+tendencia, las estacionalidades y el efecto de las variables exógenas, y la
+estacionariedad se vuelve a contrastar sobre los residuos del SARIMAX
+(objetivo~OE3).
+
+Los resultados tienen dos matices. Con más de 52\,000 observaciones, los
+contrastes tienen una potencia tan alta que detectan desviaciones mínimas de
+la hipótesis nula, de modo que un rechazo no implica por sí solo una
+desviación de importancia práctica. Y no se han contrastado las raíces
+unitarias estacionales (sección~\ref{sec:raiz-unitaria}): los contrastes
+aplicados se refieren a la raíz unitaria ordinaria, y no permiten distinguir
+si la estacionalidad es determinista o estocástica. Esta limitación se
+retoma en las conclusiones.
+
+% ---------------------------------------------------------------------
+\subsection{Autocorrelación}\label{sec:explo-acf}
+
+La figura~\ref{fig:acf} muestra las funciones de autocorrelación simple
+(ACF) y parcial (PACF) de la demanda y del residuo de la descomposición MSTL,
+hasta el retardo de 400 horas. En cada panel, el eje horizontal es el
+retardo, en horas, y el vertical el coeficiente de correlación, entre $-1$ y
+1. La banda sombreada indica la región compatible con ausencia de
+correlación al 95\,\%, que con más de 52\,000 observaciones es muy estrecha.
+Las líneas discontinuas marcan los retardos de 24, 168 y 336 horas.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{acf_pacf.png}
+	\caption{Autocorrelación simple (izquierda) y parcial (derecha) de la
+	demanda (arriba) y del residuo de la descomposición MSTL (abajo),
+	2017-2022, hasta 400 horas de retardo. Líneas discontinuas en 24, 168 y
+	336 horas.}
+	\label{fig:acf}
+\end{figure}
+
+La ACF de la demanda oscila con periodo de 24 horas y su envolvente alcanza
+los máximos en los múltiplos de 168. La tabla~\ref{tab:acf} recoge los
+valores en los retardos más relevantes. La correlación con la misma hora de
+la semana anterior (0,90) es mayor que con la misma hora del día anterior
+(0,83): la demanda de un martes a las 10:00 se parece más a la del martes
+anterior a esa hora que a la del lunes. Este resultado respalda el uso del
+ingenuo estacional semanal como modelo de referencia y del retardo de 168
+horas como uno de los más informativos, y tiene especial relevancia porque
+el retardo de 24 horas no está disponible para todas las horas del día
+previsto, al emitirse la previsión a las 12:00 del día anterior.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Autocorrelación simple en retardos seleccionados, 2017-2022}
+	\label{tab:acf}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		\textbf{Serie} & \textbf{1~h} & \textbf{24~h} & \textbf{168~h} & \textbf{336~h} \\
+		\hline
+		Demanda & 0,96 & 0,83 & 0,90 & 0,84 \\
+		Residuo de MSTL & 0,99 & 0,75 & 0,31 & 0,03 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+La PACF de la demanda, que mide la relación directa con cada retardo una vez
+descontados los intermedios, concentra los valores relevantes en tres
+grupos: los retardos de 1 y 2 horas, los de 24 a 26 y los de 168 y 169. La
+serie depende directamente, por tanto, de su pasado inmediato, del mismo
+momento del día anterior y del mismo momento de la semana anterior, lo que
+coincide con la estructura de estacionalidad múltiple identificada en el
+periodograma.
+
+El residuo de la descomposición se comporta de otra forma. Sus picos
+estacionales han desaparecido, señal de que la descomposición ha extraído
+los ciclos regulares, pero su autocorrelación es muy persistente: 0,99 a una
+hora, 0,75 a un día y todavía 0,31 a una semana, con un descenso lento y sin
+oscilaciones. Su PACF, con dos valores destacados en los retardos 1 y 2 y
+casi nada después, corresponde a un proceso autorregresivo de orden dos. La
+interpretación es que, una vez descontados los ciclos, la demanda se aparta
+de su patrón típico en episodios que duran varios días, como una ola de
+frío o de calor o un periodo festivo. La hipótesis que se deriva para el
+objetivo~OE3, todavía sin comprobar, es que la temperatura y el calendario
+absorberán buena parte de esa persistencia, y que lo que quede podrá
+recogerlo un proceso ARMA de orden bajo en los errores del SARIMAX.
+
+% ---------------------------------------------------------------------
+\subsection{Relación con la temperatura}\label{sec:explo-temperatura}
+
+La relación entre la demanda y la temperatura se analiza a escala diaria y
+solo con los días laborables de 2017-2022 fuera del periodo de la pandemia,
+1410 días, para que el efecto del calendario no se confunda con el de la
+temperatura. La figura~\ref{fig:temperatura} representa cada día como un
+punto, con la temperatura media diaria ponderada por población en el eje
+horizontal, en grados Celsius, y la demanda media diaria en el vertical, en
+megavatios. La línea une las medias de la demanda en intervalos de 1~°C.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{demanda_temperatura.png}
+	\caption{Demanda media diaria frente a temperatura media diaria ponderada
+	por población en los días laborables de 2017-2022, excluido el periodo de
+	la pandemia. La línea une las medias por intervalos de 1~°C.}
+	\label{fig:temperatura}
+\end{figure}
+
+La relación tiene forma de U, coherente con la respuesta no lineal de la
+demanda española a la temperatura descrita en la literatura
+\parencite{moralcarcedo2005modelling}. La demanda media alcanza su mínimo en
+torno a 16~°C, con 27\,299~MW, y se mantiene casi plana entre 15 y 20~°C. Por
+debajo y por encima de esa zona crece a un ritmo parecido en ambas ramas,
+del orden de 550 a 600~MW por grado. La dispersión vertical de los puntos
+para una misma temperatura es amplia, de varios miles de megavatios, y
+recoge el efecto de la tendencia entre años, que la figura no descuenta, y de
+otros factores.
+
+La figura~\ref{fig:ajuste-gd} muestra el resultado del procedimiento de
+selección de umbrales descrito en la sección~\ref{sec:datos-gradosdia}. El
+óptimo se alcanza en $T_c = 15{,}5$~°C para la calefacción y
+$T_r = 19{,}5$~°C para la refrigeración, en el interior de la rejilla
+explorada, de modo que se cumple el criterio de validez fijado de antemano.
+La superficie de error es, sin embargo, bastante plana cerca del óptimo: las
+parejas con $T_c$ entre 15 y 16,5~°C y $T_r$ entre 18,5 y 20~°C difieren del
+mínimo en menos de un 0,35\,\% de error, y ese intervalo es el que debe
+considerarse como resultado, más que la pareja exacta. Con los umbrales
+elegidos, cada grado-día ponderado de calefacción aumenta la demanda media
+diaria en unos 610~MW y cada grado-día de refrigeración en unos 596~MW. El
+modelo explica el 71,7\,\% de la varianza de la demanda diaria de los
+laborables ($R^2 = 0{,}717$), cifra que incluye la contribución de las
+variables indicadoras de año.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{demanda_temperatura_ajuste.png}
+	\caption{Demanda media diaria observada y ajustada con grados-día de
+	calefacción y de refrigeración y una variable indicadora por año, en los
+	días laborables de 2017-2022 sin el periodo de la pandemia. Las líneas
+	discontinuas marcan los umbrales $T_c = 15{,}5$~°C y $T_r = 19{,}5$~°C.}
+	\label{fig:ajuste-gd}
+\end{figure}
+
+La figura permite tres observaciones. Los valores ajustados forman bandas
+paralelas, una por año, porque cada año tiene su propio nivel. Entre los dos
+umbrales, el ajuste no es plano, como cabría esperar si la temperatura
+peninsular determinara por sí sola los grados-día: lo que ocurre es que,
+aunque la temperatura media ponderada esté en la zona neutra, algunas
+provincias están fuera de ella. Es la misma situación del ejemplo de la
+sección~\ref{sec:datos-gradosdia} y confirma la utilidad de calcular los
+grados-día por provincia. Por último, en la rama fría, entre 8 y 12~°C,
+numerosos laborables quedan por encima del ajuste. Una posible explicación
+es el mayor uso de iluminación en los días cortos del invierno, y otra, que
+la respuesta al frío no sea exactamente lineal; ninguna de las dos se ha
+comprobado.
+
+% ---------------------------------------------------------------------
+\subsection{Calendario y episodios atípicos}\label{sec:explo-anomalias}
+
+El ajuste anterior permite localizar los días laborables cuya demanda queda
+más lejos de lo que predice la temperatura. Los veinte con mayor déficit
+presentan una demanda entre 4000 y 6300~MW inferior a la ajustada, y todos
+tienen una explicación de calendario: dieciséis pertenecen al periodo
+navideño, entre el 23 de diciembre y el 2 de enero, y los cuatro restantes
+son lunes de Pascua. Ninguno es de agosto, pese a ser el mes de vacaciones
+por excelencia, lo que sugiere que su efecto ya queda recogido por la
+temperatura y por el nivel anual.
+
+Los dos grupos son diferentes desde el punto de vista de la modelización. El
+lunes de Pascua es festivo en varias comunidades, de modo que la fracción de
+población en festivo recoge al menos parte de su efecto; la regresión de la
+sección anterior no incluía esa variable. El periodo navideño, en cambio, no
+lo recoge ninguna variable del conjunto de datos: sus días laborables son
+días de trabajo a efectos legales, pero con una actividad muy inferior a la
+habitual. Esta evidencia, obtenida solo con 2017-2022, justifica la variable
+de periodo navideño que el protocolo de comparación añade a los modelos.
+
+La borrasca Filomena, en enero de 2021, constituye el episodio meteorológico
+más extremo del periodo. Durante doce días, la temperatura media diaria
+ponderada se mantuvo entre 3,3 y 4,8~°C, y la demanda media de los días
+laborables alcanzó entre 34\,000 y 35\,200~MW. El máximo horario de todo el
+periodo, 41\,829~MW, se registró el viernes 8 de enero de 2021 a las 13:00.
+
+El mínimo horario, 16\,117~MW, se registró el domingo 25 de diciembre de 2022
+a las 05:00: una madrugada de domingo, de Navidad y de un año de demanda
+baja. Es, además, uno de los festivos en domingo que el calendario no marca
+(sección~\ref{sec:datos-calendario}). La comprobación de esos festivos
+confirma que las ocho fiestas nacionales de fecha fija que cayeron en
+domingo entre 2017 y 2022 tienen una fracción de población en festivo nula
+en el conjunto de datos.
+
+Ninguno de los valores revisados resulta erróneo. Todos los episodios
+atípicos tienen una causa identificable y real, por lo que se mantienen en el
+conjunto de datos sin corrección (sección~\ref{sec:datos-anomalias}).
+
+% ---------------------------------------------------------------------
+\subsection{Síntesis: implicaciones para la modelización}\label{sec:explo-sintesis}
+
+La tabla~\ref{tab:sintesis-oe2} resume los hallazgos del análisis
+exploratorio y la decisión de modelización que se deriva de cada uno. Todas
+las decisiones se apoyan exclusivamente en datos de entrenamiento.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Hallazgos del análisis exploratorio y sus implicaciones para la modelización}
+	\label{tab:sintesis-oe2}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Hallazgo} & \textbf{Implicación} \\
+		\hline
+		Picos en 24 y 168~h; la potencia anual es inferior a la semestral & Términos de Fourier para los tres periodos, con al menos dos armónicos anuales \\
+		La amplitud de los ciclos diario y semanal cambia con la estación & Los términos de Fourier fijos son una limitación del SARIMAX; se valoran interacciones; los modelos de aprendizaje pueden capturarlo \\
+		ADF rechaza la raíz unitaria y KPSS la estacionariedad en nivel & No se diferencia la serie: se modelan tendencia, estacionalidad y exógenas, y se contrastan los residuos \\
+		La ACF es mayor en 168~h que en 24~h & Ingenuo estacional semanal como referencia; el retardo de 168~h, entre los principales disponibles \\
+		Residuo de MSTL persistente, de tipo AR(2) & Episodios de varios días que deben explicar la temperatura y el calendario; dinámica ARMA en los errores \\
+		Relación en U con la temperatura & Grados-día por provincia con $T_c = 15{,}5$~°C y $T_r = 19{,}5$~°C como exógenas comunes \\
+		Mayores déficits en el periodo navideño y el lunes de Pascua & Variable de periodo navideño; fracción de población en festivo \\
+		Extremos con causa real (Filomena, Navidad) & No se corrigen; se vigilan en el desglose de resultados \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+Con ello se cumple el criterio establecido para el objetivo~OE2 en la
+tabla~\ref{tab:criterios}: la memoria presenta la descomposición de la serie,
+el periodograma con los picos en los tres periodos estacionales, los
+resultados de los contrastes ADF y KPSS y la curva demanda-temperatura
+ajustada con grados-día.

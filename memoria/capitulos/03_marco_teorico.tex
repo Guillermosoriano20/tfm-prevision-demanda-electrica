@@ -1,0 +1,513 @@
+% =====================================================================
+% Capítulo 3. Marco teórico y estado del arte
+% Estado: 3.1, 3.2 y 3.3 redactadas (06/10/2026); 3.4 a 3.8 pendientes.
+% =====================================================================
+
+\chapter{Marco teórico y estado del arte}\label{cap:marco-teorico}
+
+Este capítulo expone los fundamentos sobre los que se apoya el trabajo. Se
+organiza en ocho apartados. Los tres primeros tratan la demanda eléctrica
+como serie temporal, los fundamentos de los modelos clásicos de series
+temporales y su extensión a series con varias estacionalidades. Los
+siguientes presentan los métodos de aprendizaje automático y profundo
+aplicados a la previsión, los criterios de evaluación de previsiones
+puntuales, la previsión probabilística y su calibración, y, por último, el
+estado del arte en previsión de la demanda eléctrica, del que surgen las
+carencias que motivan el trabajo. El capítulo explica en qué consiste cada
+método; las decisiones concretas sobre cómo se aplican se recogen en el
+marco metodológico.
+
+% =====================================================================
+\section{La demanda eléctrica como serie temporal}\label{sec:demanda-serie}
+
+La sección~\ref{sec:contexto} presentó el papel de la previsión de la demanda
+en la operación del sistema y en el mercado. Esta sección se ocupa de la
+demanda como objeto de modelización: qué se mide, de qué depende y qué tipos
+de previsión pueden construirse sobre ella.
+
+\subsection{Qué se mide}\label{sec:que-se-mide}
+
+La demanda eléctrica es la potencia que los consumidores toman de la red en
+cada instante, y se expresa en megavatios (MW). Su integral a lo largo de un
+intervalo es la energía consumida, expresada en megavatios hora (MWh). Las
+series de demanda se publican como valores muestreados cada pocos minutos o
+como valores medios por intervalo; la media de la potencia a lo largo de una
+hora coincide numéricamente con la energía consumida en esa hora, de modo
+que en una serie horaria ambas lecturas son equivalentes.
+
+La demanda que observa el operador del sistema es la que debe cubrirse con
+la generación conectada a la red. Es el agregado de millones de consumos
+individuales, domésticos, comerciales e industriales, cada uno de ellos muy
+irregular. La agregación compensa buena parte de esa irregularidad, y el
+resultado es una serie suave y con regularidades muy marcadas, lo que
+explica que su previsión a corto plazo pueda alcanzar errores relativos de
+pocas unidades porcentuales. Esa misma agregación implica que la serie no
+distingue entre tipos de consumidores, y que los cambios en la composición
+del consumo, como la expansión del autoconsumo, aparecen en ella como
+cambios de nivel o de forma sin una variable que los explique.
+
+\subsection{Determinantes de la demanda}\label{sec:determinantes}
+
+Los factores que influyen en la demanda a corto plazo pueden agruparse en
+cuatro tipos.
+
+El primero es el ritmo de la actividad humana, que genera los ciclos
+regulares de la serie. El ciclo diario refleja la sucesión de un valle
+nocturno, una subida por la mañana con el inicio de la actividad y los
+máximos de mediodía y de última hora de la tarde. El ciclo semanal distingue
+los días laborables, de perfil similar entre sí, del sábado y, sobre todo,
+del domingo, en los que la actividad industrial y comercial se reduce. Como
+la actividad sigue el reloj oficial, estos ciclos se organizan según la hora
+local y no según el tiempo universal.
+
+El segundo es el calendario. Los días festivos se comportan de forma
+parecida a un domingo, y los puentes, días laborables situados entre un
+festivo y un fin de semana, presentan una actividad intermedia. En un país
+con festivos regionales, como España, un festivo autonómico reduce la
+demanda solo en la parte del territorio afectada. Hay además periodos sin
+carácter festivo pero con actividad reducida, como el periodo navideño. Los
+efectos de calendario son difíciles de modelizar porque cada tipo de día
+especial aparece pocas veces al año y su efecto puede variar según el día de
+la semana en que caiga.
+
+El tercero son las condiciones meteorológicas, y en particular la
+temperatura. La demanda aumenta con el frío, por el uso de la calefacción
+eléctrica, y con el calor, por el de la refrigeración, de modo que la
+relación con la temperatura es no lineal, con una zona intermedia de baja
+sensibilidad. Esta forma ha sido documentada para la demanda española
+\parencite{valor2001daily,moralcarcedo2005modelling}. Una forma habitual de
+representarla son los grados-día. Dado un umbral de temperatura $T^{*}$, los
+grados-día de calefacción de un día con temperatura media $T$ son
+$\max(T^{*} - T, 0)$ y los de refrigeración, $\max(T - T^{*}, 0)$, de modo
+que cada variable solo es positiva en su rama y crece linealmente al
+alejarse del umbral. Se pueden emplear dos umbrales distintos para delimitar
+una zona neutra en la que ninguna de las dos se activa. La elección de los
+umbrales depende del clima y de los equipamientos de cada sistema, por lo que
+conviene estimarlos con los datos. Otras variables meteorológicas, como la
+humedad, la nubosidad o la radiación solar, también influyen, la última de
+forma creciente por su efecto sobre el autoconsumo fotovoltaico, aunque su
+peso en la demanda agregada suele ser menor que el de la temperatura.
+
+El cuarto son los factores estructurales: la actividad económica, la
+eficiencia de los equipos, la electrificación de nuevos usos, la difusión
+del autoconsumo o los precios. Evolucionan despacio y se manifiestan en la
+serie como una tendencia o como cambios de nivel entre años. Algunos
+episodios excepcionales, como las restricciones de movilidad de la pandemia
+de 2020, producen además roturas bruscas que interrumpen temporalmente la
+relación entre la demanda y sus determinantes habituales.
+
+\subsection{Horizontes y tipos de previsión}\label{sec:tipos-prevision}
+
+La previsión de la demanda se realiza a horizontes muy distintos, desde
+minutos hasta años, y cada horizonte da protagonismo a determinantes
+diferentes. A pocas horas vista, la demanda reciente es el mejor indicador
+de la próxima. A uno o varios días, dominan el calendario y la temperatura
+prevista, que determinan la forma del perfil diario. A meses o años, pierden
+peso los factores meteorológicos concretos y lo ganan los estructurales y la
+climatología media. Este trabajo se sitúa en el corto plazo, con un horizonte
+de entre 12 y 36 horas (sección~\ref{sec:problema}), en el que la
+temperatura y el calendario son los determinantes principales.
+
+Una previsión emitida en un momento dado para varias horas futuras es una
+previsión multihorizonte: el modelo debe producir de una vez los 24 valores
+del día siguiente, y cada uno de ellos tiene una anticipación distinta. Las
+estrategias para hacerlo, recursiva o directa, se tratan en la
+sección dedicada al aprendizaje profundo.
+
+Por último, una previsión puede ser puntual o probabilística. La previsión
+puntual proporciona un único valor para cada hora, normalmente una
+estimación de la media o de la mediana de la demanda futura. La
+probabilística cuantifica además la incertidumbre, mediante intervalos de
+predicción, cuantiles o la distribución completa de la demanda futura. Los
+conceptos necesarios para evaluar ambas se presentan en las secciones de
+evaluación de previsiones y de previsión probabilística de este capítulo.
+
+% =====================================================================
+\section{Fundamentos de series temporales}\label{sec:fundamentos}
+
+Esta sección resume los conceptos de la teoría clásica de series temporales
+que sostienen el modelo SARIMAX y los contrastes del análisis exploratorio.
+Las referencias generales son los manuales de \textcite{box2015time},
+\textcite{shumway2017time} y \textcite{hyndman2021fpp3}.
+
+\subsection{Procesos estocásticos y estacionariedad}\label{sec:estacionariedad}
+
+Una serie temporal $y_1, y_2, \dots, y_T$ se interpreta como una realización
+de un proceso estocástico, una sucesión de variables aleatorias indexadas
+por el tiempo. Para estudiar el proceso a partir de una única realización es
+necesario suponer que algunas de sus propiedades no cambian con el tiempo.
+Un proceso es estacionario en sentido débil si su media es constante, su
+varianza es finita y la covarianza entre dos observaciones depende solo de
+la distancia entre ellas y no del momento en que se miden:
+\begin{equation}
+	\mathrm{E}(y_t) = \mu, \qquad
+	\mathrm{Cov}(y_t, y_{t-k}) = \gamma_k \quad \text{para todo } t.
+\end{equation}
+La función $\gamma_k$ es la función de autocovarianza, y $\gamma_0$ es la
+varianza del proceso. El caso más sencillo de proceso estacionario es el
+ruido blanco, una sucesión $\varepsilon_t$ de variables con media cero,
+varianza constante $\sigma^2$ y sin correlación entre sí. El ruido blanco no
+contiene ninguna regularidad aprovechable para la previsión, y por eso un
+modelo se considera adecuado cuando sus residuos se comportan como tal.
+
+Una serie de demanda eléctrica no es estacionaria en sentido estricto, porque
+su media cambia con la hora, el día de la semana y la estación. La estrategia
+habitual consiste en eliminar o modelizar esas fuentes de no estacionariedad,
+ya sea mediante componentes deterministas, como términos estacionales o de
+tendencia, o mediante diferenciación, y tratar como estacionario lo que
+queda.
+
+\subsection{Funciones de autocorrelación simple y parcial}\label{sec:acf}
+
+La función de autocorrelación (ACF) normaliza la autocovarianza,
+$\rho_k = \gamma_k / \gamma_0$, y mide la correlación lineal entre
+observaciones separadas $k$ periodos. Se estima a partir de la serie como
+\begin{equation}
+	r_k = \frac{\sum_{t=k+1}^{T} (y_t - \bar{y})(y_{t-k} - \bar{y})}
+	           {\sum_{t=1}^{T} (y_t - \bar{y})^2}.
+\end{equation}
+La función de autocorrelación parcial (PACF), $\phi_{kk}$, mide la
+correlación entre $y_t$ e $y_{t-k}$ una vez descontado el efecto lineal de
+las observaciones intermedias $y_{t-1}, \dots, y_{t-k+1}$. Equivale al último
+coeficiente de una regresión de $y_t$ sobre sus $k$ primeros retardos, y
+permite distinguir las relaciones directas de las que se transmiten a través
+de los retardos intermedios.
+
+Si la serie fuera ruido blanco, los coeficientes estimados se distribuirían
+aproximadamente como una normal de media cero y desviación típica
+$1/\sqrt{T}$, de modo que la banda $\pm 1{,}96/\sqrt{T}$ delimita los valores
+compatibles con la ausencia de correlación al 95\,\%. Con series largas, esa
+banda es muy estrecha: con $T = 52\,583$ observaciones, como en el periodo de
+entrenamiento de este trabajo, es de $\pm 0{,}0085$, y prácticamente
+cualquier correlación resulta significativa. En ese contexto, el valor de
+las funciones interesa más por su forma y su magnitud que por su
+significación.
+
+\subsection{Modelos AR, MA y ARMA}\label{sec:arma}
+
+Un proceso autorregresivo de orden $p$, AR($p$), expresa cada observación
+como una combinación lineal de las $p$ anteriores más una perturbación de
+ruido blanco:
+\begin{equation}
+	y_t = c + \phi_1 y_{t-1} + \dots + \phi_p y_{t-p} + \varepsilon_t.
+\end{equation}
+Un proceso de medias móviles de orden $q$, MA($q$), la expresa como una
+combinación de la perturbación actual y de las $q$ anteriores:
+\begin{equation}
+	y_t = \mu + \varepsilon_t + \theta_1 \varepsilon_{t-1} + \dots + \theta_q \varepsilon_{t-q}.
+\end{equation}
+El modelo ARMA($p,q$) combina ambos. Con el operador de retardo $B$, definido
+por $B y_t = y_{t-1}$, se escribe de forma compacta como
+\begin{equation}
+	\phi(B)\, y_t = c + \theta(B)\, \varepsilon_t,
+\end{equation}
+donde $\phi(B) = 1 - \phi_1 B - \dots - \phi_p B^p$ y
+$\theta(B) = 1 + \theta_1 B + \dots + \theta_q B^q$ son polinomios en $B$.
+El proceso es estacionario si las raíces de $\phi(z) = 0$ están fuera del
+círculo unidad, e invertible, es decir, expresable como un autorregresivo de
+orden infinito, si lo están las de $\theta(z) = 0$.
+
+Cada tipo de proceso deja una huella característica en las funciones de
+autocorrelación. En un AR($p$), la ACF decrece de forma gradual, exponencial
+u oscilante, y la PACF se anula a partir del retardo $p$. En un MA($q$)
+ocurre lo contrario: la ACF se anula a partir del retardo $q$ y la PACF
+decrece gradualmente. En un ARMA, ambas decrecen sin cortarse. Estos patrones
+son la base de la fase de identificación de la metodología Box-Jenkins
+(sección~\ref{sec:box-jenkins}).
+
+\subsection{Tendencia, integración y diferenciación}\label{sec:integracion}
+
+Una serie puede no ser estacionaria por dos motivos de naturaleza distinta.
+En el primero, la serie fluctúa de forma estacionaria alrededor de una
+componente determinista, como una tendencia lineal,
+$y_t = \alpha + \beta t + u_t$ con $u_t$ estacionario: las perturbaciones
+tienen un efecto transitorio y la serie tiende a volver a la tendencia. En
+el segundo, la no estacionariedad es estocástica. El ejemplo más sencillo es
+el paseo aleatorio, $y_t = y_{t-1} + \varepsilon_t$, en el que cada
+perturbación se acumula y tiene un efecto permanente. Se dice que este
+proceso tiene una raíz unitaria, porque su polinomio autorregresivo,
+$1 - B$, se anula en $z = 1$.
+
+Un proceso con raíz unitaria se vuelve estacionario al diferenciarlo,
+$\nabla y_t = (1 - B)\, y_t = y_t - y_{t-1}$. Una serie que necesita $d$
+diferencias para ser estacionaria se denomina integrada de orden $d$, y el
+modelo ARIMA($p,d,q$) aplica un ARMA a la serie diferenciada:
+\begin{equation}
+	\phi(B)\,(1 - B)^d\, y_t = c + \theta(B)\, \varepsilon_t.
+\end{equation}
+La distinción entre los dos tipos de no estacionariedad tiene consecuencias
+prácticas. Diferenciar una serie que solo tiene una tendencia determinista
+introduce en ella una estructura de medias móviles no invertible, lo que se
+conoce como sobrediferenciación; no diferenciar una serie con raíz unitaria
+conduce a modelos con propiedades estadísticas engañosas. De ahí la
+necesidad de contrastes formales.
+
+\subsection{Contrastes de raíz unitaria y de estacionariedad}\label{sec:raiz-unitaria}
+
+El contraste de Dickey-Fuller aumentado (ADF) parte de la regresión
+\begin{equation}
+	\nabla y_t = \alpha + \gamma\, y_{t-1} + \sum_{i=1}^{m} \delta_i\, \nabla y_{t-i} + \varepsilon_t,
+\end{equation}
+y contrasta la hipótesis nula de raíz unitaria, $\gamma = 0$, frente a la
+alternativa de estacionariedad, $\gamma < 0$
+\parencite{dickey1979distribution}. Los retardos de la diferencia absorben la
+autocorrelación de la serie, de modo que el contraste es válido para
+procesos ARMA de orden desconocido si $m$ crece con el tamaño de la muestra
+\parencite{said1984testing}; en la práctica, $m$ se elige con un criterio de
+información. Bajo la hipótesis nula, el estadístico del contraste no sigue
+la distribución $t$ habitual, sino una distribución propia tabulada por
+simulación. La regresión puede incluir solo una constante, como en la
+expresión anterior, o también una tendencia lineal.
+
+El contraste KPSS invierte las hipótesis
+\parencite{kwiatkowski1992testing}. Descompone la serie en una tendencia
+determinista, un paseo aleatorio y un error estacionario, y contrasta la
+hipótesis nula de que la varianza del paseo aleatorio es nula, es decir, de
+que la serie es estacionaria en nivel o alrededor de una tendencia, frente a
+la alternativa de raíz unitaria.
+
+Como sus hipótesis nulas son opuestas, ambos contrastes suelen emplearse
+juntos. Si el ADF rechaza y el KPSS no, la evidencia apunta a una serie
+estacionaria; si ocurre lo contrario, a una raíz unitaria. Si ambos
+rechazan, la serie no se ajusta bien a ninguna de las dos hipótesis, lo que
+es habitual cuando presenta componentes deterministas que cambian en el
+tiempo, como estacionalidades o roturas de nivel. Conviene tener presente,
+además, que con muestras muy grandes ambos contrastes tienen una potencia
+tan alta que rechazan ante desviaciones mínimas, por lo que su resultado
+debe interpretarse junto con el análisis gráfico.
+
+La estacionalidad plantea una cuestión análoga. Puede ser determinista, un
+patrón fijo que se repite con un ruido estacionario alrededor, o
+estocástica, como en el paseo aleatorio estacional
+$y_t = y_{t-s} + \varepsilon_t$, en el que el patrón de cada ciclo hereda el
+del anterior con perturbaciones que se acumulan. En el segundo caso, la
+serie tiene raíces unitarias en las frecuencias estacionales y requiere una
+diferencia estacional, $(1 - B^s)\, y_t$. Existen contrastes específicos para
+esta distinción, como el de \textcite{hylleberg1990seasonal}, que contrasta
+raíces unitarias en cada frecuencia estacional, o el de
+\textcite{canova1995seasonal}, que toma como hipótesis nula una
+estacionalidad determinista estable. Ambos se concibieron para periodos
+estacionales cortos, como los de las series trimestrales o mensuales, y su
+aplicación a periodos de 168 u 8766 horas, con decenas o miles de
+frecuencias estacionales, resulta poco práctica. Los
+contrastes ADF y KPSS se refieren a la raíz unitaria ordinaria y no
+resuelven esta cuestión.
+
+\subsection{Metodología Box-Jenkins}\label{sec:box-jenkins}
+
+La metodología de \textcite{box2015time} organiza la construcción de un
+modelo ARIMA en un ciclo de tres fases que se repite hasta obtener un modelo
+adecuado.
+
+En la \emph{identificación}, se decide si la serie necesita transformaciones
+o diferencias y se proponen órdenes tentativos $p$ y $q$ a partir de la
+forma de la ACF y la PACF. En la \emph{estimación}, los parámetros se
+obtienen por máxima verosimilitud, que en las implementaciones habituales se
+calcula representando el modelo en forma de espacio de estados y aplicando
+el filtro de Kalman. Cuando hay varios modelos candidatos, se comparan con
+criterios de información que penalizan la complejidad, como el de Akaike,
+\begin{equation}
+	\mathrm{AIC} = -2 \log L + 2k,
+\end{equation}
+donde $L$ es la verosimilitud maximizada y $k$ el número de parámetros
+\parencite{akaike1974new}; se prefiere el modelo con menor valor.
+
+En el \emph{diagnóstico}, se comprueba que los residuos se comportan como
+ruido blanco. Además de la inspección de su ACF, se emplea el contraste de
+\textcite{ljung1978measure}, que resume en un único estadístico las
+autocorrelaciones de los residuos hasta el retardo $h$:
+\begin{equation}
+	Q = T(T+2) \sum_{k=1}^{h} \frac{r_k^2}{T-k}.
+\end{equation}
+Bajo la hipótesis nula de ausencia de autocorrelación, $Q$ sigue
+aproximadamente una distribución $\chi^2$ con $h$ menos el número de
+parámetros ARMA estimados como grados de libertad. Un rechazo indica que los
+residuos conservan estructura aprovechable y que el modelo debe revisarse.
+
+Una vez aceptado el modelo, la previsión a $h$ pasos es la esperanza
+condicionada de $y_{T+h}$ dada la información disponible. Si las
+perturbaciones son normales, el modelo proporciona también la varianza del
+error de previsión, que crece con el horizonte, y con ella intervalos de
+predicción analíticos de la forma $\hat{y}_{T+h} \pm z\, \hat{\sigma}_h$.
+Estos intervalos suponen que el modelo está bien especificado, que los
+errores son normales y que los parámetros son conocidos, de modo que tienden
+a ser demasiado estrechos cuando alguna de esas condiciones falla. Por eso su
+calibración debe comprobarse empíricamente.
+
+% =====================================================================
+\section{Estacionalidad múltiple}\label{sec:estacionalidad-multiple}
+
+La demanda horaria superpone tres ciclos, de 24, 168 y unas 8766 horas, y los
+modelos ARIMA estacionales solo admiten uno. Esta sección presenta las
+herramientas para detectar y describir varios ciclos simultáneos, las
+limitaciones del modelo SARIMA y las dos familias de modelos que las
+superan: la regresión con términos de Fourier y errores ARIMA, que es la base
+del SARIMAX de este trabajo, y los modelos de suavizado exponencial con
+estacionalidad compleja.
+
+\subsection{Análisis espectral y periodograma}\label{sec:espectral}
+
+El análisis espectral parte de una idea sencilla: cualquier serie de longitud
+$N$ puede escribirse como suma de ondas sinusoidales de frecuencias
+$\omega_k = k/N$, con $k = 1, \dots, N/2$, llamadas frecuencias de Fourier
+\parencite{shumway2017time}. La frecuencia se mide en ciclos por unidad de
+tiempo, y su inversa es el periodo: una frecuencia de $1/24$ ciclos por hora
+corresponde a un ciclo de 24 horas. El periodograma mide cuánto contribuye
+cada frecuencia a la serie:
+\begin{equation}
+	I(\omega_k) = \frac{1}{N} \left| \sum_{t=1}^{N} (y_t - \bar{y})\, e^{-2\pi i \omega_k t} \right|^2.
+\end{equation}
+Su valor en cada frecuencia es proporcional al cuadrado de la amplitud de la
+onda correspondiente, y la suma de todos sus valores es proporcional a la
+varianza de la serie. El periodograma reparte, por tanto, la varianza entre
+ciclos de distinta duración, y los ciclos importantes aparecen como picos.
+
+Su lectura requiere tener en cuenta tres propiedades. La primera es la
+resolución. Las frecuencias de Fourier están igualmente espaciadas, a
+distancia $1/N$, pero los periodos correspondientes no: cerca de un periodo
+$P$, los periodos contiguos están aproximadamente a $P^2/N$ de distancia, de
+modo que la resolución empeora para los periodos largos. Con unas 52\,600
+observaciones horarias, por ejemplo, los periodos de la rejilla próximos al
+año son de unas 7500, 8760 y 10\,500 horas, y el periodograma no puede
+distinguir ciclos cercanos al anual.
+
+La segunda son los armónicos. Un ciclo de periodo $P$ que no tiene forma
+sinusoidal aparece en el periodograma no solo en $P$, sino también en sus
+divisores $P/2$, $P/3$, etc. Un perfil diario con dos máximos, por ejemplo,
+genera un pico en 12 horas además de en 24. Es la misma idea que permite
+representar cualquier patrón periódico con términos de Fourier
+(sección~\ref{sec:fourier}): cuanto más se aleja su forma de una sinusoide,
+más armónicos hacen falta.
+
+La tercera es la fuga espectral. Cuando una componente de la serie no
+coincide exactamente con una frecuencia de Fourier, o cuando la serie tiene
+tendencia o cambios de nivel, su potencia se reparte entre las frecuencias
+vecinas, sobre todo hacia las más bajas. Existen técnicas de suavizado y de
+ventaneo que reducen este efecto y la elevada variabilidad del periodograma
+bruto, que no disminuye al aumentar la longitud de la serie
+\parencite{shumway2017time}; para localizar los picos dominantes, sin
+embargo, el periodograma bruto suele ser suficiente.
+
+\subsection{Descomposición STL y MSTL}\label{sec:mstl}
+
+Las técnicas de descomposición separan una serie en componentes
+interpretables. En la descomposición aditiva, la serie es la suma de una
+tendencia $T_t$, una componente estacional $S_t$ y un residuo $R_t$:
+$y_t = T_t + S_t + R_t$. El método STL \parencite{cleveland1990stl} realiza
+esta separación mediante regresiones locales ponderadas, denominadas LOESS,
+aplicadas de forma iterativa a la tendencia y a cada posición del ciclo
+estacional. Tiene dos propiedades que lo hacen adecuado para series
+largas: la componente estacional puede evolucionar lentamente a lo largo de
+la serie, con una velocidad que regula el tamaño de la ventana de suavizado,
+y el procedimiento admite una versión robusta que reduce la influencia de los
+valores atípicos.
+
+STL solo admite un periodo estacional. El método MSTL
+\parencite{bandara2025mstl} lo extiende a varios periodos aplicando STL de
+forma iterativa a cada uno de ellos, empezando por el más corto, y
+refinando las estimaciones en varias pasadas. El resultado es una
+componente estacional por periodo, además de la tendencia y el residuo.
+
+En este trabajo, la descomposición es una herramienta descriptiva: permite
+ver cómo evoluciona cada ciclo y qué parte de la variabilidad no explican los
+ciclos regulares. Tiene, no obstante, limitaciones que condicionan su
+lectura. Las estimaciones son menos fiables en los extremos de la serie,
+donde el suavizado dispone de datos solo por un lado; una componente con
+pocos ciclos completos, como la anual en una serie de pocos años, queda poco
+determinada; y la descomposición aditiva supone que la amplitud de los ciclos
+no depende del nivel de la serie.
+
+\subsection{El modelo SARIMA y su limitación}\label{sec:sarima}
+
+El modelo ARIMA estacional, SARIMA$(p,d,q)(P,D,Q)_s$, incorpora la
+estacionalidad de periodo $s$ mediante polinomios en $B^s$
+\parencite{box2015time}:
+\begin{equation}
+	\phi(B)\, \Phi(B^s)\, (1 - B)^d\, (1 - B^s)^D\, y_t = c + \theta(B)\, \Theta(B^s)\, \varepsilon_t,
+\end{equation}
+donde $\Phi$ y $\Theta$ son polinomios autorregresivo y de medias móviles
+estacionales, de órdenes $P$ y $Q$, y $(1 - B^s)^D$ es la diferencia
+estacional. El modelo relaciona cada observación con las del mismo momento
+de los ciclos anteriores y es muy eficaz con series mensuales o trimestrales.
+
+Su limitación fundamental para la demanda horaria es que admite un único
+periodo $s$. Con $s = 24$ recoge el ciclo diario, pero no el semanal ni el
+anual. Con $s = 168$, los polinomios estacionales relacionan cada hora con la
+misma hora de las semanas anteriores, pero la estimación con periodos tan
+largos resulta poco práctica \parencite{hyndman2021fpp3}; con el periodo
+anual, de 8766 horas, es inviable, y además ese periodo no es entero en
+días, porque un año medio tiene 365,25. Encadenar varias diferencias
+estacionales tampoco resuelve el problema: cada una supone que la
+estacionalidad correspondiente es estocástica y reduce la información
+disponible.
+
+\subsection{Regresión con errores ARIMA y términos de Fourier}\label{sec:fourier}
+
+Una forma de superar la limitación anterior es separar la estacionalidad de
+la dinámica de corto plazo. La regresión con errores ARIMA modela la serie
+como una regresión lineal sobre un conjunto de variables explicativas
+$\mathbf{x}_t$, con un error que sigue un proceso ARIMA en lugar de ser ruido
+blanco \parencite{hyndman2021fpp3}:
+\begin{equation}
+	y_t = \boldsymbol{\beta}^{\top} \mathbf{x}_t + \eta_t,
+	\qquad \phi(B)\, (1-B)^d\, \eta_t = \theta(B)\, \varepsilon_t.
+\end{equation}
+Las variables explicativas recogen los efectos deterministas y externos,
+como la estacionalidad, el calendario o la temperatura, y el proceso ARIMA
+de los errores recoge la dependencia de corto plazo que queda tras ellos. El
+modelo SARIMAX de la librería statsmodels, empleado en este trabajo, se
+formula de esta manera, como una regresión con errores SARIMA.
+
+Para representar la estacionalidad se emplean términos de Fourier. Para un
+periodo $m$, se definen $K$ parejas de variables
+\begin{equation}
+	s_k(t) = \sin\!\left(\frac{2\pi k t}{m}\right),
+	\qquad
+	c_k(t) = \cos\!\left(\frac{2\pi k t}{m}\right),
+	\qquad k = 1, \dots, K,
+\end{equation}
+con $K \le m/2$. Una combinación lineal de estas variables puede reproducir
+cualquier patrón periódico de periodo $m$: con $K = m/2$ la representación es
+exacta, y con valores menores se obtiene una aproximación suave, tanto más
+fiel cuanto mayor es $K$. Los términos de Fourier tienen tres ventajas sobre
+el SARIMA. Admiten varios periodos a la vez, basta con incluir los términos
+de cada uno; admiten periodos no enteros, como el anual; y necesitan pocos
+parámetros, $2K$ por periodo, frente a los $m - 1$ de un conjunto de
+variables indicadoras. El modelo que combina términos de Fourier con errores
+ARIMA se conoce como regresión armónica dinámica
+\parencite{hyndman2021fpp3}.
+
+El número de armónicos $K$ de cada periodo controla el compromiso entre
+flexibilidad y sobreajuste, y se elige con un criterio de información o con
+el error en un periodo de validación. Su principal limitación es que el
+patrón estacional es fijo: los coeficientes de los términos de Fourier son
+constantes, de modo que el modelo impone la misma forma del ciclo diario en
+enero que en julio. Cuando el perfil cambia a lo largo del año, solo puede
+recogerse añadiendo interacciones, por ejemplo entre los términos diarios y
+la temperatura o la estación, a costa de multiplicar el número de
+parámetros.
+
+\subsection{Suavizado exponencial y TBATS}\label{sec:tbats}
+
+La otra gran familia de modelos clásicos es la del suavizado exponencial,
+que construye la previsión como una media ponderada de las observaciones
+pasadas con pesos que decrecen exponencialmente con la antigüedad. En su
+formulación moderna, como modelos de espacio de estados con componentes de
+error, tendencia y estacionalidad, proporciona también intervalos de
+predicción \parencite{hyndman2021fpp3}. El método de Holt-Winters, su versión
+estacional más conocida, admite un único periodo. \textcite{taylor2003short}
+lo extendió a dos estacionalidades, la diaria y la semanal, precisamente para
+la previsión de la demanda eléctrica a corto plazo.
+
+El modelo TBATS \parencite{delivera2011forecasting} generaliza esta idea a un
+número arbitrario de periodos, incluidos los no enteros. Combina una
+transformación de Box-Cox, errores ARMA, una tendencia y componentes
+estacionales trigonométricas, análogas a los términos de Fourier, pero cuyos
+coeficientes son estados del modelo y evolucionan en el tiempo. Esa es su
+principal ventaja frente a la regresión armónica: la forma de cada ciclo
+puede cambiar lentamente a lo largo de la serie, en lugar de repetirse
+invariable. Su inconveniente es el coste computacional, que crece con la
+longitud de la serie y con el número y la duración de los periodos
+estacionales y que, en una serie horaria de varios años con un periodo
+anual, puede ser elevado. Las consecuencias de este coste para el diseño del
+trabajo se discuten en el marco metodológico.
