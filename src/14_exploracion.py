@@ -29,6 +29,7 @@ print("Horas en exploración:", len(explo))
 print("Desde", explo["hora_local"].min(), "hasta", explo["hora_local"].max())
 print("Horas COVID dentro:", int(explo["excluir_covid"].sum()))
 
+
 # --- 1b. Periodograma ---
 y = explo["demanda_mw"].to_numpy()
 frec, potencia = periodogram(y - y.mean(), fs=1.0)  # fs=1: frecuencia en ciclos por hora
@@ -49,6 +50,7 @@ fig.tight_layout()
 fig.savefig(FIGURAS / "periodograma.png", dpi=150)
 plt.close(fig)
 
+
 # --- 1b bis. Peso del ciclo anual frente al semestral ---
 pot = pd.Series(potencia, index=periodo)
 p_anual = min(pot.index, key=lambda p: abs(p - 8766))
@@ -56,6 +58,7 @@ p_semestral = min(pot.index, key=lambda p: abs(p - 4383))
 puesto = int((pot > pot[p_anual]).sum()) + 1
 print(f"Anual: periodo {p_anual:.1f} h, puesto {puesto} de {len(pot)}")
 print(f"Potencia anual / semestral: {pot[p_anual] / pot[p_semestral]:.3f}")
+
 
 # --- 1c. Descomposición MSTL (24, 168 y 8766 h), guardada en disco ---
 PERIODOS = (24, 168, 8766)
@@ -83,6 +86,7 @@ fig.tight_layout()
 fig.savefig(FIGURAS / "descomposicion_mstl.png", dpi=150)
 plt.close(fig)
 
+
 # --- 2a. Contrastes de estacionariedad: ADF y KPSS ---
 y_serie = explo["demanda_mw"].to_numpy()
 adf_est, adf_p, adf_lags, *_ = adfuller(y_serie, maxlag=200, autolag="AIC", result_object=False)
@@ -91,6 +95,7 @@ print(f"ADF:  estadístico {adf_est:.2f}, p-valor {adf_p:.4f}, retardos {adf_lag
 print(f"KPSS: estadístico {kpss_est:.2f}, p-valor {kpss_p:.4f}, retardos {kpss_lags}")
 adf336 = adfuller(y_serie, maxlag=336, autolag=None, result_object=False)
 print(f"ADF (336 retardos fijos): estadístico {adf336[0]:.2f}, p-valor {adf336[1]:.4f}")
+
 
 # --- 2b. ACF y PACF: demanda original y residuo de MSTL ---
 for nombre, s in [("demanda", serie), ("residuo", comp["residuo"])]:
@@ -107,6 +112,7 @@ for ax in axes.flat:
 fig.tight_layout()
 fig.savefig(FIGURAS / "acf_pacf.png", dpi=150)
 plt.close(fig)
+
 
 # --- 3a. Curva demanda-temperatura (días laborables, sin COVID) ---
 diario = explo.groupby("fecha_local").agg(
@@ -130,6 +136,7 @@ ax.set_title("Demanda frente a temperatura, laborables 2017-2022 sin COVID")
 fig.tight_layout()
 fig.savefig(FIGURAS / "demanda_temperatura.png", dpi=150)
 plt.close(fig)
+
 
 # --- 3b. Umbrales de grados-día (por provincia, ponderados después) ---
 pesos = pd.read_csv(RAIZ / "referencia" / "pesos_poblacion_2021.csv", dtype={"cod_provincia": str})
@@ -177,3 +184,25 @@ ax.legend()
 fig.tight_layout()
 fig.savefig(FIGURAS / "demanda_temperatura_ajuste.png", dpi=150)
 plt.close(fig)
+
+
+# --- 4a. Fiestas nacionales de fecha fija que caen en domingo (solo calendario) ---
+FIJAS = ["01-01", "01-06", "05-01", "08-15", "10-12", "11-01", "12-06", "12-08", "12-25"]
+fechas = pd.to_datetime([f"{a}-{md}" for a in range(2017, 2025) for md in FIJAS])
+domingos = fechas[fechas.dayofweek == 6]
+print(f"Fiestas nacionales fijas en domingo ({len(domingos)}):", [f.strftime("%d/%m/%Y") for f in domingos])
+
+frac = explo.groupby("fecha_local")["fraccion_festivo"].first()
+print(frac.reindex(domingos[domingos < FIN_EXPLORACION]).to_string())
+
+
+# --- 4b. Laborables con demanda muy por debajo de la que predice la temperatura ---
+resid_lab = pd.Series(yd - ajuste, index=lab.index)
+peores = resid_lab.nsmallest(20)
+print(pd.DataFrame({"residuo_MW": peores.round(0), "dia": peores.index.day_name()}).to_string())
+
+# --- 4c. Filomena (enero de 2021) y extremos horarios ---
+print(diario.loc["2021-01-04":"2021-01-17", ["demanda", "temp", "tipo"]].round(1).to_string())
+for nombre, idx in [("máximo", explo["demanda_mw"].idxmax()), ("mínimo", explo["demanda_mw"].idxmin())]:
+    fila = explo.loc[idx]
+    print(f"{nombre}: {fila['hora_local']}, {fila['demanda_mw']:.0f} MW, {fila['t_ponderada']:.1f} °C, {fila['tipo_dia']}")
