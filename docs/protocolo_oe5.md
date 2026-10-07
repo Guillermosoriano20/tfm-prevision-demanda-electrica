@@ -306,3 +306,23 @@ entrenamiento (apartado 3.2): no gasta las 20 configuraciones evaluadas en 2023.
      constante). Presupuesto total: 1 + 15 = 16 de 20. Los armónicos del apartado 9 se
      mantienen aunque se eligieron sin `nivel` (se declara). La prueba de fuga se repite
      con ARMA(2,1) con `nivel` antes de evaluar las 15.
+9. **Enmienda del 7 de octubre de 2026, antes de lanzar las 15 configuraciones:
+   retardos de 48 y 168 horas.**
+   - *Hecho:* ARMA(2,1) con `nivel`, evaluada en 2023 tras superar la prueba de fuga:
+     **MAE 1.314,8 MW** (0,939 del ingenuo), sesgo −629 MW. Cuenta en el presupuesto.
+   - *Diagnóstico con 2017-2022 (no con 2023):* los residuos estandarizados del ajuste
+     tienen autocorrelación 0,69 a 24 h, 0,50 a 48 h y 0,76 a 168 h; el modelo repite
+     errores a la misma hora del día y de la semana anteriores, algo que ningún ARMA de
+     la rejilla (*p* ≤ 5) puede recoger.
+   - *Comprobación con 2017-2022:* añadir como exógenas la demanda en *t* − 48 y en
+     *t* − 168 sube la log-verosimilitud de −373.485 a −347.623 y deja la autocorrelación
+     de los residuos en 0,38 (24 h), 0,14 (48 h) y −0,04 (168 h).
+   - *Decisión del autor:* las 15 configuraciones llevan `nivel` y las exógenas
+     `y_48` (demanda en *t* − 48) e `y_168` (demanda en *t* − 168): 68 columnas más la
+     constante. Retardos ≥ 37 h (apartado 1.5); las horas en las que falta alguno ya
+     quedan excluidas por `nivel`, cuya ventana los contiene. La decisión se justifica
+     con el diagnóstico de 2017-2022; se declara que antes se habían visto los MAE de
+     2023 de las dos configuraciones de referencia.
+   - *Presupuesto:* 2 configuraciones de referencia ya evaluadas (ARMA(2,1) sin y con
+     `nivel`) + 15 = 17 de 20. La prueba de fuga se repite con ARMA(2,1) con `nivel` y
+     retardos antes de evaluar las 15.
