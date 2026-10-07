@@ -227,7 +227,10 @@ El criterio de decisión se fijó antes de realizar los contrastes: en este
 caso, en lugar de diferenciar la serie, se modelan explícitamente la
 tendencia, las estacionalidades y el efecto de las variables exógenas, y la
 estacionariedad se vuelve a contrastar sobre los residuos del SARIMAX
-(objetivo~OE3).
+(objetivo~OE3). Como el protocolo de comparación no admite variables de
+tendencia o de año, la tendencia se recoge mediante una variable de nivel
+construida con la demanda de los días anteriores a cada previsión, que se
+describe en el capítulo~\ref{cap:metodologia}.
 
 Los resultados tienen dos matices. Con más de 52\,000 observaciones, los
 contrastes tienen una potencia tan alta que detectan desviaciones mínimas de
@@ -436,7 +439,7 @@ las decisiones se apoyan exclusivamente en datos de entrenamiento.
 		\hline
 		Picos en 24 y 168~h; la potencia anual es inferior a la semestral & Términos de Fourier para los tres periodos, con al menos dos armónicos anuales \\
 		La amplitud de los ciclos diario y semanal cambia con la estación & Los términos de Fourier fijos son una limitación del SARIMAX; se valoran interacciones; los modelos de aprendizaje pueden capturarlo \\
-		ADF rechaza la raíz unitaria y KPSS la estacionariedad en nivel & No se diferencia la serie: se modelan tendencia, estacionalidad y exógenas, y se contrastan los residuos \\
+		ADF rechaza la raíz unitaria y KPSS la estacionariedad en nivel & No se diferencia la serie: se modelan tendencia (mediante una variable de nivel construida con la demanda pasada), estacionalidad y exógenas, y se contrastan los residuos \\
 		La ACF es mayor en 168~h que en 24~h & Ingenuo estacional semanal como referencia; el retardo de 168~h, entre los principales disponibles \\
 		Residuo de MSTL persistente, de tipo AR(2) & Episodios de varios días que deben explicar la temperatura y el calendario; dinámica ARMA en los errores \\
 		Relación en U con la temperatura & Grados-día por provincia con $T_c = 15{,}5$~°C y $T_r = 19{,}5$~°C como exógenas comunes \\
