@@ -185,12 +185,13 @@ ejecutar ninguna medición**.
      el origen y prever 37 pasos), medido sobre 10 orígenes de 2023 y promediado.
    - La prueba solo mide tiempos: no calcula errores ni se miran previsiones de 2023.
 2. **Configuración medida: la más pesada prevista.** Errores ARMA(2,1); términos de
-   Fourier sobre la hora local con 10 armónicos diarios (24 h), 10 semanales (168 h) y
+   Fourier sobre la hora local con 10 armónicos diarios (24 h), 10 semanales (168 h; del
+   1 al 11 sin el 7, que tiene periodo de 24 h y repetiría el primero diario) y
    4 anuales (8766 h); exógenas comunes del apartado 4 (grados-día de calefacción y de
    refrigeración, `t_ponderada`, `fraccion_festivo`, `puente`, `navidad`) y 6 columnas de
-   interacción temperatura × hora. Unas 60 columnas exógenas, estimadas por máxima
-   verosimilitud. Si la rejilla que se registre después resultara más pesada, se vuelve
-   a medir.
+   interacción temperatura × hora. Unas 60 columnas exógenas (método de estimación:
+   punto 6, que sustituye a la máxima verosimilitud conjunta). Si la rejilla que se
+   registre después resultara más pesada, se vuelve a medir.
 3. **Criterio de "cabe" con la ventana completa:**
    20 × (*t_ajuste* + 365 × *t_origen*) × 1,2 ≤ 10 horas
    (20 configuraciones del apartado 3; 10 horas = una noche de cálculo; 1,2 = margen de
@@ -207,3 +208,27 @@ ejecutar ninguna medición**.
    *T_final* = 12 × *t_ajuste* × 1,3 + 366 × *t_origen* (1,3: la ventana de 2024 llega a
    unas 70.000 horas, un 30 % más). Si *T_final* > 8 horas, reajuste trimestral para los
    cuatro modelos. Supuesto declarado: el tiempo crece en proporción a las horas.
+6. **Método de estimación (modificación del 7 de octubre de 2026, tras la primera
+   medición).** Con la máxima verosimilitud conjunta de statsmodels (los 60 coeficientes
+   de la regresión y los del ARMA a la vez), el ajuste no converge: agota el límite de
+   15.000 evaluaciones de la verosimilitud en unas 195 iteraciones (18 min en el entorno
+   del asistente) y, relanzado desde ese punto, la log-verosimilitud aún mejora en 1046
+   (de −386.918 a −385.872, 36 min en total, sin converger). Según el punto 4.3 se
+   replanteó con el autor, que decidió estimar el **mismo modelo** (regresión con errores
+   ARMA) por **mínimos cuadrados generalizados factibles iterados (FGLS)**, el
+   procedimiento clásico para este modelo (en statsmodels, `ARIMA(..., gls=True)`, que no
+   admite las horas vacías del COVID):
+   1. Regresión por mínimos cuadrados ordinarios, sin las horas COVID.
+   2. ARMA de los residuos por máxima verosimilitud en espacio de estados (el filtro de
+      Kalman salta las horas COVID).
+   3. Regresión por mínimos cuadrados generalizados: la demanda y cada columna exógena
+      se blanquean con el filtro de Kalman del ARMA estimado (mismas horas saltadas) y se
+      reestiman los coeficientes.
+   4. Se repiten 2 y 3 hasta que la log-verosimilitud del modelo completo cambie menos de
+      0,1 entre dos vueltas (máximo 20 vueltas; si no se alcanza, se informa).
+   Previsiones e intervalos analíticos: el SARIMAX de statsmodels con los parámetros
+   estimados fijos. En la misma configuración pesada, el FGLS alcanzó una
+   log-verosimilitud de −377.659 en unos 2 minutos (estable desde la quinta vuelta),
+   más alta que la del ajuste conjunto tras 36 minutos. **La prueba de tiempos del punto 3
+   se repite con este método**, con el mismo criterio; *t_ajuste* es el tiempo del FGLS
+   completo hasta cumplir la regla de parada.
