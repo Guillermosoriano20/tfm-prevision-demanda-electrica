@@ -32,7 +32,8 @@ def fourier(posicion, periodo, armonicos, prefijo):
     columnas = {}
     for k in armonicos:
         angulo = 2 * np.pi * k * posicion / periodo
-        columnas[f"{prefijo}_sen{k}"] = np.sin(angulo)
+        if 2 * k != periodo:  # en k = periodo/2 el seno vale siempre 0: solo el coseno
+            columnas[f"{prefijo}_sen{k}"] = np.sin(angulo)
         columnas[f"{prefijo}_cos{k}"] = np.cos(angulo)
     return pd.DataFrame(columnas, index=posicion.index)
 
