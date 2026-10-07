@@ -171,3 +171,39 @@ Misma información para SARIMAX, LightGBM y N-HiTS; cada familia la codifica a s
 6. **Previsiones guardadas** hora a hora en `data/predicciones/<modelo>_<conjunto>.parquet`
    (columnas `hora_utc`, `fecha_objetivo`, `real`, `prevision`, `modelo`), fuera de git,
    para Diebold-Mariano, OE8 y ACI.
+
+## 8. Prueba de tiempos de SARIMAX (criterio fijado el 7 de octubre de 2026, antes de medir)
+
+Concreta la regla del apartado 2.1 ("si SARIMAX no cabe con la ventana completa") y
+aplica la regla de las 8 horas del apartado 2.4. Se fijó y se registró en git **antes de
+ejecutar ninguna medición**.
+
+1. **Qué se mide.**
+   - *t_ajuste*: tiempo de reloj de un ajuste completo de SARIMAX con la ventana completa
+     (1/1/2017 hasta el 31/12/2022 12:00, unas 52.600 horas; horas COVID como vacías).
+   - *t_origen*: tiempo de una previsión con parámetros fijos (incorporar los datos hasta
+     el origen y prever 37 pasos), medido sobre 10 orígenes de 2023 y promediado.
+   - La prueba solo mide tiempos: no calcula errores ni se miran previsiones de 2023.
+2. **Configuración medida: la más pesada prevista.** Errores ARMA(2,1); términos de
+   Fourier sobre la hora local con 10 armónicos diarios (24 h), 10 semanales (168 h) y
+   4 anuales (8766 h); exógenas comunes del apartado 4 (grados-día de calefacción y de
+   refrigeración, `t_ponderada`, `fraccion_festivo`, `puente`, `navidad`) y 6 columnas de
+   interacción temperatura × hora. Unas 60 columnas exógenas, estimadas por máxima
+   verosimilitud. Si la rejilla que se registre después resultara más pesada, se vuelve
+   a medir.
+3. **Criterio de "cabe" con la ventana completa:**
+   20 × (*t_ajuste* + 365 × *t_origen*) × 1,2 ≤ 10 horas
+   (20 configuraciones del apartado 3; 10 horas = una noche de cálculo; 1,2 = margen de
+   seguridad del 20 % por medir una sola vez).
+4. **Si no cabe, en este orden:**
+   1. Acortar la ventana **solo de SARIMAX** por años naturales completos: inicio en 2018
+      y, si sigue sin caber, en 2019. **Mínimo: inicio en 2019** (cuatro años, unos 3,7
+      sin COVID). Supuesto: el tiempo de ajuste crece en proporción al número de horas.
+   2. Si con 2019-2022 sigue sin caber: 12 configuraciones para SARIMAX (se declara).
+   3. Si tampoco cabe: se detiene el trabajo y se replantea con el autor (por ejemplo,
+      estimación en dos etapas). Un ajuste que falla por falta de memoria cuenta como
+      "no cabe".
+5. **Regla de las 8 horas (apartado 2.4) con la misma medición:**
+   *T_final* = 12 × *t_ajuste* × 1,3 + 366 × *t_origen* (1,3: la ventana de 2024 llega a
+   unas 70.000 horas, un 30 % más). Si *T_final* > 8 horas, reajuste trimestral para los
+   cuatro modelos. Supuesto declarado: el tiempo crece en proporción a las horas.
