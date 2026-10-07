@@ -232,3 +232,31 @@ ejecutar ninguna medición**.
    más alta que la del ajuste conjunto tras 36 minutos. **La prueba de tiempos del punto 3
    se repite con este método**, con el mismo criterio; *t_ajuste* es el tiempo del FGLS
    completo hasta cumplir la regla de parada.
+
+## 9. Armónicos de Fourier e interacciones de SARIMAX (fijado el 7 de octubre de 2026, antes de medir)
+
+Decisiones 3 y 4 pendientes del archivo de alcance. Es una elección interna al
+entrenamiento (apartado 3.2): no gasta las 20 configuraciones evaluadas en 2023.
+
+1. **Datos:** la ventana del ajuste de selección (1/1/2017 a 31/12/2022 12:00, horas
+   COVID vacías). 2023 no interviene.
+2. **Método:** FGLS iterado (apartado 8.6) con errores **ARMA(2,1) fijos** durante esta
+   búsqueda; el orden del ARMA se elige después, entre las configuraciones evaluadas en
+   2023.
+3. **Exógenas siempre presentes:** grados-día de calefacción y de refrigeración,
+   `t_ponderada`, `fraccion_festivo`, `puente` y `navidad`.
+4. **Candidatos (rejilla completa, 96 ajustes):** armónicos diarios 4, 6, 8 o 10;
+   semanales 4, 6, 8 o 10 (sin los múltiplos de 7); anuales 2, 3 o 4 (mínimo 2 por el
+   periodograma); interacciones temperatura × hora: ninguna o 6 columnas (los 3 primeros
+   armónicos diarios multiplicados por `t_ponderada`).
+5. **Elección:** AIC mínimo, con AIC = −2 × log-verosimilitud + 2 × número de parámetros
+   (coeficientes de la regresión con la constante, parámetros del ARMA y varianza). Se
+   guardan también la log-verosimilitud, el BIC y el tiempo de cada candidato, pero no
+   deciden.
+6. **Regla de borde:** si el ganador cae en el máximo de una dimensión (10 diarios,
+   10 semanales o 4 anuales), esa dimensión se amplía una sola vez hasta 12, 12 o 6 y se
+   repite la búsqueda solo en ella, con las demás fijas en el ganador. Si vuelve a caer en
+   el borde, se acepta y se declara. (El armónico diario 12 aporta una sola columna: su
+   seno es siempre cero.)
+7. **Limitaciones declaradas:** la elección depende del ARMA(2,1) fijado; con unas 52.000
+   horas el AIC tiende a favorecer los modelos grandes.
