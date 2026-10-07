@@ -326,3 +326,25 @@ entrenamiento (apartado 3.2): no gasta las 20 configuraciones evaluadas en 2023.
    - *Presupuesto:* 2 configuraciones de referencia ya evaluadas (ARMA(2,1) sin y con
      `nivel`) + 15 = 17 de 20. La prueba de fuga se repite con ARMA(2,1) con `nivel` y
      retardos antes de evaluar las 15.
+10. **Resultado y decisiones del autor tras la evaluación (7 de octubre de 2026, commit
+    `51bcf0c`).**
+    - *Ganadora:* **ARMA(5,1) con `nivel` y retardos**, MAE 943,4 MW en 2023 (0,674 del
+      ingenuo), RMSE 1.414,4 MW, MAPE 3,67 %, MASE 0,710, sesgo −346 MW. Las seis mejores
+      configuraciones quedan entre 943 y 954 MW (menos de un 1,2 % de diferencia): el
+      orden del ARMA es un ajuste fino; lo decisivo fueron `nivel` y los retardos (1.888 →
+      1.315 → 943 MW). Cinco configuraciones forman un segundo grupo (1.059-1.112 MW, sesgo
+      positivo); hipótesis sin comprobar: el FGLS llega a una solución distinta.
+    - *Borde:* la ganadora tiene *p* = 5, el máximo de la rejilla, que no tiene regla de
+      borde. **No se amplía** (quedan 3 configuraciones del presupuesto y la diferencia
+      entre las seis mejores es menor del 1,2 %); se declara como limitación.
+    - *Avisos de convergencia interna:* en varias configuraciones de orden alto
+      (probablemente también la ganadora), el ajuste del ARMA dentro de alguna vuelta del
+      FGLS emitió `ConvergenceWarning`; el FGLS cumplió su regla de parada y la
+      configuración es válida según el punto 6. **Se mantiene la ganadora** (cambiarla por
+      una más sencilla sería elegir a la vista de los resultados) y se declaran los
+      avisos.
+    - *Diagnóstico (punto 7), residuos 2017-2022:* Ljung-Box rechaza el ruido blanco a 24
+      y 168 h (autocorrelación 0,36 a 24 h, −0,04 a 168 h); ADF rechaza la raíz unitaria
+      (−36,6); KPSS rechaza la estacionariedad en nivel (2,9; p < 0,01). Limitación
+      declarada: dependencia diaria residual no recogida (el término estacional a 24 h no
+      cabe en tiempo de cálculo, punto 3).
