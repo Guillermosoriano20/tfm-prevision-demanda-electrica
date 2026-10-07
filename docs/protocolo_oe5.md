@@ -260,3 +260,28 @@ entrenamiento (apartado 3.2): no gasta las 20 configuraciones evaluadas en 2023.
    seno es siempre cero.)
 7. **Limitaciones declaradas:** la elección depende del ARMA(2,1) fijado; con unas 52.000
    horas el AIC tiende a favorecer los modelos grandes.
+
+## 10. Rejilla de SARIMAX evaluada en 2023 (fijada el 7 de octubre de 2026, antes de lanzarla)
+
+1. **Fijo** (apartado 9, commit `ba24f06`): 12 armónicos diarios, 12 semanales y 3 anuales,
+   interacciones temperatura × hora y exógenas comunes (65 columnas más la constante);
+   estimación por FGLS iterado (apartado 8.6).
+2. **Varía:** el orden del ARMA de los errores, ARMA(*p*, *q*) con *p* = 1, 2, 3, 4, 5 y
+   *q* = 0, 1, 2: **15 configuraciones**. Configuración de referencia: ARMA(2,1), la usada
+   para elegir los armónicos.
+3. **Excluido:** términos ARMA estacionales (a 24 o 168 horas). En una prueba en el entorno
+   del asistente, un FGLS con un AR estacional de orden 1 a 24 horas no terminó en
+   28 minutos (el filtro de Kalman pasa de unos 3 a unos 27 estados). Se declara como
+   limitación computacional; la persistencia la recogen la parte autorregresiva y las
+   exógenas.
+4. **Evaluación** (apartado 2.3): cada configuración se ajusta una vez con los datos hasta
+   el 31/12/2022 12:00 y prevé los 365 orígenes de 2023 actualizando los datos con
+   parámetros fijos. Decide el **menor MAE** sobre las 8.760 horas; se guardan RMSE, MAPE,
+   MASE y tiempos.
+5. **Prueba de fuga** (`validacion.comprobar_fuga`) con la configuración de referencia en
+   los 365 orígenes, antes de evaluar las 15. Si detecta fuga, se detiene todo.
+6. **Fallos:** una configuración que no converge (20 vueltas del FGLS) o da error se
+   registra como fallida; no se sustituye por otra.
+7. **Diagnóstico de la ganadora (OE3), informativo, no decide:** Ljung-Box sobre los
+   residuos estandarizados del ajuste 2017-2022 en los retardos 24 y 168, y ADF y KPSS
+   sobre esos residuos.
