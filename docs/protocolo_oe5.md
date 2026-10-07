@@ -285,3 +285,24 @@ entrenamiento (apartado 3.2): no gasta las 20 configuraciones evaluadas en 2023.
 7. **Diagnóstico de la ganadora (OE3), informativo, no decide:** Ljung-Box sobre los
    residuos estandarizados del ajuste 2017-2022 en los retardos 24 y 168, y ADF y KPSS
    sobre esos residuos.
+8. **Enmienda del 7 de octubre de 2026, tras evaluar la configuración de referencia:
+   variable de nivel.**
+   - *Hecho:* ARMA(2,1) sin variable de nivel, evaluada en 2023 tras superar la prueba de
+     fuga (0 días con fuga): **MAE 1.888,2 MW**, frente a 1.400 MW del ingenuo estacional.
+     Sesgo medio de −1.660 MW (sobreestima la demanda todos los meses); descontado el
+     sesgo, el MAE sería de 1.381 MW. Causa: el nivel del modelo queda fijado en el de
+     2017-2022 (no hay variable de tendencia, apartado 5.4), la parte ARMA lo olvida en
+     pocas horas y la demanda media de 2023 (26.174 MW) es inferior. Esta configuración
+     cuenta como **1 de las 20 del presupuesto** y se informa como resultado.
+   - *Descartado:* diferenciar (*d* = 1). Con 2017-2022, ARIMA(2,1,1) estima un MA de
+     −0,99 (señal de sobrediferenciación) y el FGLS falla numéricamente.
+   - *Decisión del autor:* se añade la exógena **`nivel`**: media de la demanda de las
+     168 horas UTC que terminan 37 horas antes de cada hora (de *t* − 204 a *t* − 37, ambas
+     incluidas). Solo usa demanda con retardo ≥ 37 h (apartado 1.5), la misma información
+     de la que disponen los demás modelos. Las horas cuya ventana incluye alguna hora del
+     periodo COVID o anterior al inicio de la serie se excluyen del ajuste (apartado 5.6).
+     Es la forma de recoger la tendencia compatible con el apartado 5.4.
+   - *Rejilla:* las mismas 15 configuraciones del punto 2, con `nivel` (66 columnas más la
+     constante). Presupuesto total: 1 + 15 = 16 de 20. Los armónicos del apartado 9 se
+     mantienen aunque se eligieron sin `nivel` (se declara). La prueba de fuga se repite
+     con ARMA(2,1) con `nivel` antes de evaluar las 15.
