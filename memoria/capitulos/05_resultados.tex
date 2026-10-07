@@ -1,8 +1,8 @@
 % =====================================================================
 % Capítulo 5. Desarrollo, análisis y resultados
 % Estado: 5.1 redactada (06/10/2026); 5.2 en adelante pendientes.
-% Figuras de 5.1: versiones provisionales de figuras/exploracion
-% (pendiente regenerarlas con calidad de impresión y rótulos en español).
+% Figuras de 5.1: definitivas (07/10/2026), generadas por src/14_exploracion.py
+% directamente en memoria/figuras/.
 % =====================================================================
 
 \chapter{Desarrollo, análisis y resultados}\label{cap:resultados}
@@ -28,8 +28,8 @@ laborables fuera del periodo de la pandemia, los cálculos emplean la serie
 completa de 2017-2022, porque las herramientas utilizadas requieren una serie
 continua.
 
-% Cifras calculadas el 06/10/2026 con el dataset oficial (huella comprobada)
-% y pandas 2.3.3; PENDIENTE incorporarlas a src/14_exploracion.py.
+% Cifras generadas por src/14_exploracion.py (bloque 0, estadísticos
+% descriptivos), con el dataset oficial (huella comprobada) y pandas 2.3.3.
 En el periodo, la demanda tiene una media de 28\,049~MW y una desviación
 típica de 4560~MW; excluido el periodo de la pandemia, la media sube a 28\,251~MW. El
 valor horario mínimo, 16\,117~MW, y el máximo, 41\,829~MW, se analizan en la
@@ -60,8 +60,9 @@ El primer paso es identificar qué ciclos contiene la serie y cuánto pesa cada
 uno. La figura~\ref{fig:periodograma} muestra el periodograma de la demanda
 horaria, que reparte la varianza de la serie entre ciclos de distinta
 duración (sección~\ref{sec:espectral}). El eje horizontal indica la duración
-del ciclo, en horas, y el vertical la potencia espectral, proporcional al
-cuadrado de la amplitud del ciclo; ambos ejes están en escala logarítmica.
+del ciclo, en horas, y el vertical la potencia espectral, que es proporcional al
+cuadrado de la amplitud del ciclo y se mide en MW$^{2}\cdot$h; ambos ejes
+están en escala logarítmica.
 Las líneas discontinuas señalan los periodos de 24, 168 y 8766 horas, es
 decir, el día, la semana y el año medio de 365,25 días.
 
@@ -244,8 +245,13 @@ La figura~\ref{fig:acf} muestra las funciones de autocorrelación simple
 (ACF) y parcial (PACF) de la demanda y del residuo de la descomposición MSTL,
 hasta el retardo de 400 horas. En cada panel, el eje horizontal es el
 retardo, en horas, y el vertical el coeficiente de correlación, entre $-1$ y
-1. La banda sombreada indica la región compatible con ausencia de
-correlación al 95\,\%, que con más de 52\,000 observaciones es muy estrecha.
+1. La banda sombreada delimita, al 95\,\%, los valores compatibles con una
+correlación nula en cada retardo. En los paneles de la PACF es la banda de
+ruido blanco de la sección~\ref{sec:acf}, de $\pm 0{,}0085$, tan estrecha que
+apenas se distingue. En los de la ACF, la implementación empleada aplica la
+fórmula de Bartlett, que acumula la incertidumbre de las correlaciones de los
+retardos anteriores, por lo que la banda se ensancha con el retardo hasta unos
+$\pm 0{,}08$ para la demanda y $\pm 0{,}10$ para el residuo a 400 horas.
 Las líneas discontinuas marcan los retardos de 24, 168 y 336 horas.
 
 \begin{figure}[htbp]
