@@ -1,11 +1,43 @@
 % =====================================================================
 % Capítulo 1. Introducción
-% Estado: capítulo completo (secciones 1.1 a 1.4).
+% Estado: capítulo completo, reorganizado el 13/10/2026 según la plantilla de
+% la UAX en dos apartados (justificación y presentación). El texto de las
+% antiguas secciones 1.1 a 1.4 se conserva sin cambios, salvo dos referencias
+% cruzadas. Párrafo de motivación personal al comienzo de la sección de
+% justificación, redactado por el autor (13/10/2026).
 % =====================================================================
 
 \chapter{Introducción}\label{cap:introduccion}
 
-\section{Contexto y motivación}\label{sec:contexto}
+Este trabajo compara distintos modelos para prever, con un día de antelación,
+la demanda horaria de electricidad del sistema peninsular español. Los modelos
+van desde un método ingenuo y un modelo estadístico clásico de series
+temporales hasta un modelo de \textit{gradient boosting} y una red neuronal, y
+se comparan bajo unas mismas reglas, de modo que las diferencias observadas
+puedan atribuirse a los propios métodos. La evaluación no se limita a medir
+cuánto se equivoca cada modelo: comprueba también si los intervalos de
+predicción que acompañan a sus previsiones son fiables, es decir, si contienen
+el valor observado con la frecuencia que anuncian.
+
+El capítulo se organiza en dos apartados. El primero justifica el trabajo:
+expone el contexto que hace relevante el problema y las carencias de la
+literatura que el trabajo pretende cubrir. El segundo presenta el proyecto:
+delimita el problema abordado, formula la pregunta de investigación y las
+aportaciones del trabajo, y describe la organización del resto del documento.
+
+\section{Justificación del proyecto realizado}\label{sec:justificacion}
+
+La elección del tema responde, en primer lugar, al interés por los modelos predictivos y por la contribución de las matemáticas a la resolución de problemas reales, que desarrollé en mi formación del grado en Matemáticas. Durante este grado realicé trabajos de predicción de resultados deportivos en los que se emplearon modelos de aprendizaje automático, como los bosques aleatorios (random forest) y XGBoost, de la misma familia de gradient boosting que LightGBM, junto con modelos de regresión de Poisson y exponencial negativa. El descubrimiento posterior de las series temporales, en las que el orden de las observaciones y la dependencia entre ellas forman parte del propio problema, despertó mi interés por trabajar con este tipo de datos. Además, el sector energético se me presentó como el ámbito más adecuado para hacerlo, por tratarse de un sector fundamental en el presente y en el futuro del planeta.
+
+La justificación del trabajo se apoya en dos argumentos, que se desarrollan a
+continuación. El primero es la relevancia práctica del problema: la previsión
+de la demanda condiciona la operación del sistema eléctrico y la participación
+en el mercado, y las transformaciones recientes del sector han aumentado su
+exigencia. El segundo es su interés científico: la literatura que compara
+modelos estadísticos y de aprendizaje automático presenta carencias que dejan
+abierta la cuestión de cuál de ellos conviene emplear en este problema.
+
+\subsection{Contexto y relevancia del problema}\label{sec:contexto}
 
 El sistema eléctrico presenta una particularidad que lo distingue de la mayoría
 de los mercados de bienes: la producción y el consumo deben igualarse en cada
@@ -81,7 +113,58 @@ relevancia operativa y económica directa, la disponibilidad de datos públicos
 de calidad publicados por el propio operador del sistema y una necesidad
 creciente de cuantificar, y no solo de reducir, el error de previsión.
 
-\section{Planteamiento y delimitación del problema}\label{sec:problema}
+\subsection{Carencias de la literatura}\label{sec:carencias}
+
+La previsión de la demanda eléctrica cuenta con una literatura extensa, en la
+que conviven los modelos estadísticos clásicos con un número creciente de
+propuestas basadas en aprendizaje automático y profundo. La evidencia sobre
+el rendimiento relativo de ambos enfoques, sin embargo, es menos concluyente
+de lo que ese volumen de publicaciones podría sugerir.
+\textcite{makridakis2018statistical} señalaron la escasez de evidencia al
+respecto y, al comparar varios métodos populares de aprendizaje automático con
+ocho métodos estadísticos tradicionales sobre 1045 series mensuales de la
+competición M3, encontraron que los primeros quedaban por detrás en todas las
+métricas y horizontes analizados, con un coste computacional
+considerablemente mayor. Aunque este resultado procede de series mensuales y
+no puede trasladarse sin más a la demanda horaria, muestra que la ventaja de
+los métodos más complejos no puede darse por supuesta y debe demostrarse en
+cada problema.
+
+La revisión de la literatura que se desarrolla en el marco teórico pone de
+manifiesto dos limitaciones recurrentes en los estudios que comparan ambas
+familias de modelos. La primera es la falta de equidad en las condiciones de
+comparación. Cuando un modelo estadístico se emplea en su configuración por
+defecto frente a una red neuronal cuidadosamente ajustada, o cuando los
+modelos no disponen de las mismas variables explicativas ni del mismo
+horizonte, las diferencias observadas no pueden atribuirse al método, porque
+pueden deberse simplemente a un esfuerzo de ajuste desigual. La segunda es la
+restricción de la evaluación al error puntual. La literatura de previsión de
+la demanda se ha centrado mayoritariamente en la previsión puntual
+\parencite{hong2016probabilistic}, a pesar de que, como se ha expuesto en la
+sección~\ref{sec:contexto}, las decisiones de operación requieren conocer
+también la incertidumbre asociada a la previsión.
+
+Evaluar esa incertidumbre exige, además, comprobar que los intervalos de
+predicción son fiables. El criterio de referencia consiste en maximizar la
+nitidez de las previsiones probabilísticas, es decir, obtener intervalos lo
+más estrechos posible, con la condición de que estén calibrados
+\parencite{gneiting2007probabilistic}. La predicción conforme ofrece un
+mecanismo para recalibrar los intervalos que produce cualquier modelo sin
+imponer supuestos sobre la distribución de sus errores. Su aplicación a series
+temporales, en las que no se cumple la intercambiabilidad de los datos que
+exige la teoría conforme clásica, ha dado lugar a variantes específicas, entre
+ellas la inferencia conforme adaptativa (ACI), diseñada para mantener la
+cobertura a largo plazo aunque la distribución de los datos cambie con el
+tiempo \parencite{gibbs2021adaptive}.
+
+\section{Presentación del proyecto y sus contenidos}\label{sec:presentacion}
+
+Este apartado describe el problema que aborda el trabajo y cómo contribuye a
+resolverlo. En primer lugar se delimita el problema de previsión; a
+continuación se formulan la pregunta de investigación y las aportaciones del
+trabajo, y por último se presenta la organización del documento.
+
+\subsection{Planteamiento y delimitación del problema}\label{sec:problema}
 
 El objeto de estudio es la demanda horaria de energía eléctrica del sistema
 peninsular español, entendida como la media, en cada hora, de la demanda real
@@ -139,52 +222,10 @@ una previsión meteorológica perfecta. Los resultados deben interpretarse, por
 tanto, como una cota superior del rendimiento alcanzable en operación, y esta
 limitación se retoma al discutir los resultados.
 
-\section{Carencias de la literatura y aportación del trabajo}\label{sec:aportacion}
+\subsection{Pregunta de investigación y aportación del trabajo}\label{sec:aportacion}
 
-La previsión de la demanda eléctrica cuenta con una literatura extensa, en la
-que conviven los modelos estadísticos clásicos con un número creciente de
-propuestas basadas en aprendizaje automático y profundo. La evidencia sobre
-el rendimiento relativo de ambos enfoques, sin embargo, es menos concluyente
-de lo que ese volumen de publicaciones podría sugerir.
-\textcite{makridakis2018statistical} señalaron la escasez de evidencia al
-respecto y, al comparar varios métodos populares de aprendizaje automático con
-ocho métodos estadísticos tradicionales sobre 1045 series mensuales de la
-competición M3, encontraron que los primeros quedaban por detrás en todas las
-métricas y horizontes analizados, con un coste computacional
-considerablemente mayor. Aunque este resultado procede de series mensuales y
-no puede trasladarse sin más a la demanda horaria, muestra que la ventaja de
-los métodos más complejos no puede darse por supuesta y debe demostrarse en
-cada problema.
-
-La revisión de la literatura que se desarrolla en el marco teórico pone de
-manifiesto dos limitaciones recurrentes en los estudios que comparan ambas
-familias de modelos. La primera es la falta de equidad en las condiciones de
-comparación. Cuando un modelo estadístico se emplea en su configuración por
-defecto frente a una red neuronal cuidadosamente ajustada, o cuando los
-modelos no disponen de las mismas variables explicativas ni del mismo
-horizonte, las diferencias observadas no pueden atribuirse al método, porque
-pueden deberse simplemente a un esfuerzo de ajuste desigual. La segunda es la
-restricción de la evaluación al error puntual. La literatura de previsión de
-la demanda se ha centrado mayoritariamente en la previsión puntual
-\parencite{hong2016probabilistic}, a pesar de que, como se ha expuesto en la
-sección~\ref{sec:contexto}, las decisiones de operación requieren conocer
-también la incertidumbre asociada a la previsión.
-
-Evaluar esa incertidumbre exige, además, comprobar que los intervalos de
-predicción son fiables. El criterio de referencia consiste en maximizar la
-nitidez de las previsiones probabilísticas, es decir, obtener intervalos lo
-más estrechos posible, con la condición de que estén calibrados
-\parencite{gneiting2007probabilistic}. La predicción conforme ofrece un
-mecanismo para recalibrar los intervalos que produce cualquier modelo sin
-imponer supuestos sobre la distribución de sus errores. Su aplicación a series
-temporales, en las que no se cumple la intercambiabilidad de los datos que
-exige la teoría conforme clásica, ha dado lugar a variantes específicas, entre
-ellas la inferencia conforme adaptativa (ACI), diseñada para mantener la
-cobertura a largo plazo aunque la distribución de los datos cambie con el
-tiempo \parencite{gibbs2021adaptive}.
-
-A partir de estas limitaciones, el trabajo se plantea la siguiente pregunta de
-investigación:
+A partir de las limitaciones expuestas en la sección~\ref{sec:carencias}, el
+trabajo se plantea la siguiente pregunta de investigación:
 
 \begin{quote}
 \itshape
@@ -220,7 +261,7 @@ SARIMAX, ese resultado constituye un hallazgo del trabajo con implicaciones
 prácticas directas, puesto que un modelo más sencillo es también más barato de
 mantener y más fácil de interpretar.
 
-\section{Estructura del documento}\label{sec:estructura}
+\subsection{Estructura del documento}\label{sec:estructura}
 
 El resto del documento se organiza en cinco capítulos. El capítulo 2 formula
 el objetivo general y los objetivos específicos del trabajo, junto con los
@@ -232,7 +273,7 @@ estacionalidad múltiple, los métodos de aprendizaje automático y profundo
 aplicados a la previsión, los criterios de evaluación de las previsiones
 puntuales y probabilísticas, y la revisión de la literatura sobre previsión de
 la demanda eléctrica de la que surgen las carencias señaladas en la
-sección~\ref{sec:aportacion}.
+sección~\ref{sec:carencias}.
 
 El capítulo 4 describe el marco metodológico: las fuentes de datos y la
 construcción del conjunto de datos, el protocolo de comparación equitativa, la
