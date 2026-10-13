@@ -27,6 +27,16 @@ def grados_dia(datos):
     return gd.reindex(datos["fecha_local"]).set_axis(datos.index)
 
 
+def navidad(datos):
+    """1 del 23/12 al 6/1 (fecha local), ambos incluidos; 0 el resto (protocolo, apartado 4).
+
+    Común a SARIMAX y LightGBM (protocolo, apartado 11.1.9).
+    """
+    f = datos["fecha_local"]
+    return (((f.dt.month == 12) & (f.dt.day >= 23))
+            | ((f.dt.month == 1) & (f.dt.day <= 6))).astype(float)
+
+
 def fourier(posicion, periodo, armonicos, prefijo):
     """Pares seno/coseno de los armónicos indicados para una posición dentro del ciclo."""
     columnas = {}
@@ -60,12 +70,21 @@ def exogenas_sarimax(datos, k_dia, k_semana, k_anio, k_interaccion):
         "t_ponderada": datos["t_ponderada"],
         "fraccion_festivo": datos["fraccion_festivo"],
         "puente": datos["puente"].astype(float),
-        "navidad": (((datos["fecha_local"].dt.month == 12) & (datos["fecha_local"].dt.day >= 23))
-                    | ((datos["fecha_local"].dt.month == 1) & (datos["fecha_local"].dt.day <= 6))
-                    ).astype(float),
+        "navidad": navidad(datos),
     }, index=datos.index)
     partes.append(otras)
     if k_interaccion:
         base = fourier(hora, 24, range(1, k_interaccion + 1), "dia")
         partes.append(base.mul(datos["t_ponderada"], axis=0).add_prefix("t_x_"))
     return pd.concat(partes, axis=1)
+
+
+if __name__ == "__main__":
+    # Comprobación del apartado 11.1.9: la matriz de SARIMAX (configuración ganadora)
+    # debe ser idéntica a la de antes de extraer `navidad` a una función.
+    import validacion as v
+    datos = v.cargar_datos()
+    X = exogenas_sarimax(datos, k_dia=12, k_semana=12, k_anio=3, k_interaccion=3)
+    print(f"Matriz de SARIMAX: {X.shape[0]} horas x {X.shape[1]} columnas")
+    print(f"Huella: {pd.util.hash_pandas_object(X).sum()}")
+    print(f"Horas con navidad = 1 (2017-2023): {int(X['navidad'].sum())}")
