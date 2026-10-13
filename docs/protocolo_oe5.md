@@ -403,3 +403,38 @@ Concreta los apartados 4 y 5.3 (la "lista concreta de retardos" pendiente del ap
 
 Pendiente en este apartado, antes de evaluar en 2023: intervalos de LightGBM (capa
 probabilística) y espacio de búsqueda (apartado 3), cada uno registrado con commit.
+
+### 11.2 Intervalos propios (fijado el 13 de octubre de 2026, antes de escribir su código)
+
+Decisión del autor entre las dos opciones del archivo de alcance: **regresión cuantílica**,
+como fijan el archivo de alcance y el capítulo 2 (OE7). Se descarta la alternativa barata
+(cuantiles empíricos del error de 2023): daría intervalos de anchura fija y su calibración
+en 2023 se mediría dentro de muestra.
+
+1. **Cuantiles 0,05 y 0,95** (intervalo central del 90 %, nivel nominal de referencia).
+   Un modelo por cuantil, con el objetivo `quantile` de LightGBM (pérdida pinball),
+   independiente del modelo puntual.
+2. **Hiperparámetros:** los de la configuración ganadora de la búsqueda del modelo puntual
+   (elegida por MAE, apartado 3.4); solo cambian el objetivo y `alpha` (0,05 o 0,95). No
+   se buscan hiperparámetros por cuantil y estos modelos no consumen presupuesto (no se
+   elige nada con 2023, apartado 3.2).
+3. **Número de árboles:** parada temprana con la pérdida pinball de su cuantil sobre el
+   mismo conjunto de control que el modelo puntual (últimas 8 semanas de la ventana de
+   entrenamiento, apartado 2.5) y con las mismas reglas de parada.
+4. **Previsión puntual:** la del modelo ganador, no la de un modelo de la mediana. No se
+   fuerza a quedar dentro del intervalo; se informa en cuántas horas queda fuera.
+5. **Cruce de cuantiles:** si en una hora el límite inferior supera al superior, se
+   intercambian; se cuenta el número de horas con cruce y se informa.
+6. **Igual que el modelo puntual:** variables, filas y exclusión COVID (11.1), semilla 42,
+   modo determinista y reajuste mensual en 2024. La prueba de fuga se aplica también a sus
+   previsiones.
+7. **Coste:** 2 ajustes más en la selección y 2 × 12 en la evaluación final. Sin prueba de
+   tiempos propia; se mide y se informa el tiempo.
+8. **Capa probabilística (fase 2):** si el CRPS exige una rejilla de cuantiles, se decide
+   al diseñarla para los cuatro modelos y antes de medir ninguna calibración; añadir
+   cuantiles no cambia la elección del modelo puntual.
+9. **Riesgo declarado:** los hiperparámetros se eligen para el centro de la distribución y
+   pueden no ser los mejores para las colas; si los intervalos propios salen mal
+   calibrados, se informa tal cual (es lo que ACI debe corregir).
+
+Pendiente en el apartado 11, antes de evaluar en 2023: espacio de búsqueda (11.3).
