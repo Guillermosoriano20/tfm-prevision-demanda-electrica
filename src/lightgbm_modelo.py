@@ -22,6 +22,8 @@ COLUMNAS = ([f"y_{L}" for L in RETARDOS] + ["nivel", "y_ultima", "y_media24", "a
             "dia_semana", "dia_anio", "fraccion_festivo", "puente", "navidad"])
 FIJOS = {"seed": 42, "deterministic": True, "force_row_wise": True, "num_threads": 4,
          "verbose": -1}                            # protocolo 3.5: semilla 42, determinista
+HORAS_CONTROL = 8 * 168                             # últimas 8 semanas (protocolo 2.5, 11.3)
+MAX_ARBOLES, PACIENCIA = 10_000, 100               # parada temprana (11.3)
 
 
 def _en(serie, instantes):
@@ -83,6 +85,26 @@ def ajustar(X, y, parametros, alpha=None, num_arboles=100):
     if alpha is not None:
         p.update(objective="quantile", alpha=alpha)
     return lgb.train(p, lgb.Dataset(X, label=y), num_boost_round=num_arboles)
+
+
+def entrenar(X, y, fin, parametros, alpha=None):
+    """Procedimiento del apartado 11.3: parada temprana y reajuste con toda la ventana.
+
+    1. Árboles por parada temprana: entrena con las filas anteriores a las últimas
+       8 semanas y para tras 100 árboles sin mejora en ellas (MAE en el modelo puntual,
+       pinball en los cuantiles); máximo 10.000. 2023 no interviene.
+    2. Reajuste con todas las filas (incluidas esas 8 semanas) y ese número de árboles.
+    Devuelve el modelo reajustado y el número de árboles.
+    """
+    control = X.index >= fin - HORAS_CONTROL * v.UNA_HORA
+    p = {**parametros, **FIJOS, "metric": "l1" if alpha is None else "quantile"}
+    if alpha is not None:
+        p.update(objective="quantile", alpha=alpha)
+    previo = lgb.train(p, lgb.Dataset(X[~control], label=y[~control]), MAX_ARBOLES,
+                       valid_sets=[lgb.Dataset(X[control], label=y[control])],
+                       callbacks=[lgb.early_stopping(PACIENCIA, verbose=False)])
+    arboles = previo.best_iteration
+    return ajustar(X, y, parametros, alpha=alpha, num_arboles=arboles), arboles
 
 
 def hacer_prever(modelo):

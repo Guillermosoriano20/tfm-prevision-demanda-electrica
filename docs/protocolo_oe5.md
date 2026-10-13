@@ -438,3 +438,88 @@ en 2023 se mediría dentro de muestra.
    calibrados, se informa tal cual (es lo que ACI debe corregir).
 
 Pendiente en el apartado 11, antes de evaluar en 2023: espacio de búsqueda (11.3).
+
+### 11.3 Búsqueda de hiperparámetros (fijado el 13 de octubre de 2026, antes de lanzarla)
+
+Decisiones del autor sobre la propuesta del asistente: reajuste final con toda la ventana,
+objetivo L1/L2 dentro de la búsqueda y sin prueba de tiempos formal.
+
+1. **Procedimiento de entrenamiento de cada configuración (fijo, no se busca):**
+   1. *Número de árboles por parada temprana* (apartado 2.5): conjunto de control = las
+      últimas 8 semanas de la ventana (1.344 horas objetivo antes del 31/12/2022 12:00);
+      se entrena con las filas anteriores (47.628) y se para tras **100 árboles sin
+      mejora** del MAE en el control (pinball de su cuantil en los modelos del 11.2);
+      **máximo 10.000 árboles**. Si una configuración llega al tope (más de 9.900
+      árboles), se informa y no se amplía.
+   2. *Reajuste* con todas las filas de la ventana (48.972, incluidas esas 8 semanas) y el
+      número de árboles elegido. Motivo: son los datos más recientes, que SARIMAX y
+      N-HiTS también ven. El número de árboles se eligió con un 3 % menos de filas
+      (efecto despreciable, se declara). Alternativa descartada: sin reajuste.
+   3. *Fijos:* semilla 42 (`seed`, del que derivan las de muestreo), `deterministic`,
+      `force_row_wise`, **4 hilos** (`num_threads`; el determinismo de LightGBM exige el
+      mismo número de hilos), profundidad libre, `max_bin` por defecto. En 2024, cada
+      reajuste mensual repite este procedimiento con su propia ventana.
+2. **Espacio:** 19 configuraciones sorteadas con `ParameterSampler` de scikit-learn
+   (`random_state=42`) más la de referencia (apartado 3.1): **20 en total**.
+
+   | Hiperparámetro | Valores |
+   |---|---|
+   | `objective` | `regression` (L2) o `regression_l1` (L1) |
+   | `learning_rate` | log-uniforme entre 0,02 y 0,2 |
+   | `num_leaves` | 15, 31, 63, 127 o 255 |
+   | `min_data_in_leaf` | 20, 50, 100, 200 o 500 |
+   | `feature_fraction` | uniforme entre 0,5 y 1 |
+   | `bagging_fraction` | uniforme entre 0,5 y 1 (con `bagging_freq` = 1) |
+   | `lambda_l2` | log-uniforme entre 0,001 y 10 |
+
+   Referencia (c00): valores por defecto de LightGBM (L2, tasa 0,1, 31 hojas, 20 filas por
+   hoja, sin muestreo ni penalización) con el mismo procedimiento del punto 1. El objetivo
+   entra en la búsqueda porque se elige por MAE y el objetivo L1 prevé la mediana,
+   coherente con la pinball de la capa probabilística, aunque L2 suele converger mejor.
+   El mínimo de la tasa (0,02) y el tope de árboles se fijaron tras medir **solo el
+   tiempo** del caso más caro (tasa 0,01 y 255 hojas: unos 4.200-5.000 árboles, casi en el
+   tope de 5.000 usado en esa medición); no se calculó ningún error.
+3. **Las 20 configuraciones** (generadas antes del commit; el script comprueba que el
+   sorteo las reproduce; valores redondeados a 4 decimales):
+
+   | Config. | Objetivo | `learning_rate` | `num_leaves` | `min_data_in_leaf` | `feature_fraction` | `bagging_fraction` | `lambda_l2` |
+   |---|---|---|---|---|---|---|---|
+   | c00 (referencia) | L2 | 0,1000 | 31 | 20 | 1 | 1 (sin muestreo) | 0 |
+   | c01 | L2 | 0,0794 | 63 | 50 | 0,9754 | 0,6873 | 0,8472 |
+   | c02 | L1 | 0,1021 | 31 | 500 | 0,9331 | 0,5290 | 0,2538 |
+   | c03 | L1 | 0,0305 | 31 | 200 | 0,6062 | 0,9162 | 0,0053 |
+   | c04 | L1 | 0,0502 | 127 | 200 | 0,5115 | 0,5035 | 0,1256 |
+   | c05 | L2 | 0,0482 | 15 | 200 | 0,5453 | 0,6164 | 0,2975 |
+   | c06 | L1 | 0,0206 | 127 | 20 | 0,8402 | 0,9300 | 0,0634 |
+   | c07 | L2 | 0,0967 | 127 | 200 | 0,6523 | 0,9042 | 0,0025 |
+   | c08 | L1 | 0,0304 | 31 | 200 | 0,5867 | 0,9166 | 0,0367 |
+   | c09 | L1 | 0,1865 | 127 | 50 | 0,7734 | 0,7600 | 0,0055 |
+   | c10 | L1 | 0,0424 | 15 | 200 | 0,9633 | 0,6976 | 0,8111 |
+   | c11 | L1 | 0,1348 | 15 | 50 | 0,6943 | 0,6627 | 0,0122 |
+   | c12 | L1 | 0,0293 | 15 | 20 | 0,6380 | 0,8035 | 0,0153 |
+   | c13 | L2 | 0,0316 | 63 | 100 | 0,6467 | 0,6974 | 0,0011 |
+   | c14 | L1 | 0,1644 | 127 | 20 | 0,9632 | 0,8030 | 0,4021 |
+   | c15 | L2 | 0,0927 | 63 | 200 | 0,6854 | 0,5477 | 0,4735 |
+   | c16 | L2 | 0,1153 | 63 | 50 | 0,5598 | 0,7361 | 0,7128 |
+   | c17 | L2 | 0,0318 | 127 | 20 | 0,5554 | 0,8553 | 0,0572 |
+   | c18 | L1 | 0,0515 | 255 | 100 | 0,9538 | 0,7543 | 0,0099 |
+   | c19 | L1 | 0,1519 | 255 | 50 | 0,7994 | 0,9714 | 0,6014 |
+
+4. **Coste (sin prueba de tiempos formal):** caso más caro medido en el entorno del
+   asistente (2 núcleos) en unos 4 min por ajuste; en el PC del autor, unas 4-5 veces más
+   rápido según la prueba de fuga, el peor caso rondaría 2-3 min por configuración
+   (parada temprana, reajuste y 365 previsiones) y menos de 1 h las 20, muy por debajo de
+   las 10 h del criterio de SARIMAX (apartado 8.3). Se mide y se informa el tiempo de cada
+   configuración (apartado 3.6).
+5. **Selección:** menor MAE sobre las 8.760 horas de 2023 (apartado 3.4). RMSE, MAPE,
+   MASE, sesgo, número de árboles y tiempo se guardan, pero no deciden. Una configuración
+   que dé error se registra como fallida y no se sustituye.
+6. **Tras elegir la ganadora:** sus modelos de los cuantiles 0,05 y 0,95 (11.2) con el
+   procedimiento del punto 1; sus previsiones de 2023 se guardan, con la regla de cruce
+   aplicada, para la capa probabilística (fase 2). Aquí solo se informa del número de
+   cruces y de horas con la previsión puntual fuera del intervalo; la cobertura y la
+   calibración se evalúan en la fase 2, con su diseño fijado antes. Se informa también,
+   como descripción, la importancia de cada variable por ganancia (no decide nada).
+7. **Prueba de fuga:** la del paso anterior (commit `ffa8803`) cubre todas las
+   configuraciones: las variables y `prever` son el mismo código; los hiperparámetros no
+   intervienen en qué datos se leen.
