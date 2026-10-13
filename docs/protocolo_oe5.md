@@ -523,3 +523,43 @@ objetivo L1/L2 dentro de la búsqueda y sin prueba de tiempos formal.
 7. **Prueba de fuga:** la del paso anterior (commit `ffa8803`) cubre todas las
    configuraciones: las variables y `prever` son el mismo código; los hiperparámetros no
    intervienen en qué datos se leen.
+
+### 11.4 Resultado y decisiones del autor (13 de octubre de 2026, tras la búsqueda del commit `fe2c59a`)
+
+1. **Resultado:** las 20 configuraciones válidas (ninguna fallida, ninguna en el tope de
+   árboles), entre 0,2 y 0,7 min cada una en el PC del autor. MAE de 2023 entre 585,2 y
+   656,3 MW; las siete mejores entre 585 y 596 MW (menos de un 2 %): la configuración es un
+   ajuste fino. Lo que más pesa es la tasa de aprendizaje (las cinco mejores, de 0,029 a
+   0,032; las tres peores, de 0,15 a 0,19); objetivo L1 o L2 sin diferencia clara.
+2. **Ganadora: `c17`** (objetivo L2, `learning_rate` 0,0318, `num_leaves` 127,
+   `min_data_in_leaf` 20, `feature_fraction` 0,5554, `bagging_fraction` 0,8553,
+   `lambda_l2` 0,0572; 1.203 árboles por parada temprana): **MAE 585,2 MW**, RMSE 790,7 MW,
+   MAPE 2,25 %, MASE 0,441, sesgo −142 MW, 0,418 del ingenuo (SARIMAX: 943,4 MW, 0,674).
+3. **Anticipación del asistente, fijada antes de lanzar:** MAE de 700 a 1.050 MW (fallida:
+   el resultado es mejor); sesgo entre −400 y 0 MW, dispersión menor que en SARIMAX y
+   ninguna configuración en el tope (cumplidas).
+4. **Reconstrucción antes de aceptar la cifra** (entorno del asistente, mismas versiones):
+   `c17` reentrenada desde cero da el mismo MAE y previsiones **idénticas bit a bit** a las
+   del PC del autor; prueba de fuga con `c17`: 0 días; **prueba de fuga reforzada**
+   (demanda posterior al origen borrada, no desplazada, para detectar también variables
+   que combinaran valores futuros de forma que el desplazamiento se anulara): 0 días. El
+   error crece con la anticipación (MAE 360 MW de 00 a 05 h del día D+1; 824 MW de 12 a
+   17 h), sin rastro de fuga.
+5. **Borde:** `min_data_in_leaf` = 20 es el mínimo del espacio. El apartado 11.3 no tiene
+   regla de borde y el presupuesto está agotado (20 de 20): **no se amplía** y se declara
+   como limitación (como el borde *p* = 5 de SARIMAX, apartado 10.10).
+6. **Modelos de los cuantiles 0,05 y 0,95** con los hiperparámetros de `c17` (573 y 601
+   árboles): 0 horas con cuantiles cruzados; previsión puntual fuera del intervalo en
+   543 de 8.760 horas (6,2 %), consecuencia de modelos independientes (riesgo declarado en
+   11.2.9). Intervalos guardados en
+   `data/predicciones/lightgbm_intervalos_validacion.parquet`; la cobertura se evalúa en la
+   fase 2.
+7. **Observaciones para la discusión (no deciden nada; sin comprobar):** sesgo de
+   −411 MW de 12 a 17 h (hipótesis: autoconsumo solar creciente en 2023, ausente del
+   entrenamiento); agosto, el peor mes; los peores días son festivos (1 de mayo, Viernes
+   Santo, Navidad). Importancia por ganancia: `y_168` 58,7 %, `y_336` 11,5 %; la
+   temperatura suma un 3 %, lo que no mide su efecto (la demanda retardada ya contiene el
+   nivel de temperatura de entonces).
+8. **Decisión del autor:** los desgloses por anticipación, mes y día que se citen en la
+   memoria saldrán de **un solo script común a los cuatro modelos**, que se escribirá con
+   la tabla de validación, cuando N-HiTS esté validado.
