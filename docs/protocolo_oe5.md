@@ -348,3 +348,58 @@ entrenamiento (apartado 3.2): no gasta las 20 configuraciones evaluadas en 2023.
       (−36,6); KPSS rechaza la estacionariedad en nivel (2,9; p < 0,01). Limitación
       declarada: dependencia diaria residual no recogida (el término estacional a 24 h no
       cabe en tiempo de cálculo, punto 3).
+
+## 11. LightGBM (fijado el 13 de octubre de 2026, antes de escribir su código y de evaluar nada en 2023)
+
+### 11.1 Variables
+
+Concreta los apartados 4 y 5.3 (la "lista concreta de retardos" pendiente del apartado 6).
+
+1. **Esquema:** modelo directo, un solo modelo para todas las anticipaciones. Una fila por
+   hora objetivo *t*, con su origen (las 12:00 locales del día anterior al día local de
+   *t*); cada hora del histórico aparece una sola vez. Objetivo: `demanda_mw` sin
+   transformar.
+2. **Retardos respecto a *t*, en horas UTC (todos ≥ 37 h, apartado 1.5):** `y_48`, `y_72`,
+   `y_96`, `y_120`, `y_144`, `y_168` e `y_336` (demanda en *t* − 48 … *t* − 336), y
+   **`nivel`**: media de la demanda de *t* − 204 a *t* − 37, ambas incluidas (misma
+   definición que en SARIMAX, apartado 10.8). Justificación con 2017-2022 (OE2): ACF de
+   0,83 a 24 h (que solo puede recogerse a partir de 48 h), 0,90 a 168 h y 0,84 a 336 h.
+   *Limitación declarada:* al contarse en horas UTC, como en SARIMAX, durante los días
+   posteriores a cada cambio de hora los retardos apuntan a una hora local desplazada en
+   una (el ingenuo trabaja en hora local). Alternativa descartada: retardos en hora local
+   con las reglas del ingenuo (más código y más riesgo de error).
+3. **Variables tomadas en el origen** (iguales en todas las filas de un mismo origen):
+   - `y_ultima`: demanda de la hora UTC que empieza en origen − 1 h (de 11:00 a 12:00
+     locales del día D);
+   - `y_media24`: media de las 24 horas UTC de origen − 24 h a origen − 1 h;
+   - `anticipacion`: horas entre el origen y el inicio de *t* (de 12 a 36).
+4. **Exógenas comunes (apartado 4), codificación de LightGBM:** `gd_calefaccion` y
+   `gd_refrigeracion` (`exogenas.grados_dia`), `t_ponderada`, `hora_del_dia` (hora local,
+   entero 0-23), `dia_semana` (entero 0-6), `dia_anio` (día del año local, entero 1-366),
+   `fraccion_festivo`, `puente` y `navidad`. Todas numéricas, sin tratamiento categórico;
+   sin términos de Fourier ni interacciones explícitas (los árboles cortan por la hora y
+   combinan variables por sí mismos). `anticipacion` y `hora_del_dia` casi coinciden
+   (anticipación = hora + 12, salvo los días de cambio de hora); se mantienen las dos.
+5. **Total: 20 variables.** No se dan a LightGBM: las 47 temperaturas provinciales,
+   `festivo`, `tipo_dia`, `excluir_covid` (apartado 4); retardos de la temperatura
+   (información que SARIMAX no recibe); el retardo de 24 h y la variable "misma hora del
+   día más reciente conocida" (24 h para las horas 0-11 y 48 h para las 12-23): no tiene
+   fuga, pero rompería la regla de retardos ≥ 37 h del apartado 5.3; valorada y
+   descartada por el autor.
+6. **COVID estricto (apartado 5.6):** todas las entradas de una fila están entre
+   *t* − 336 h y *t* − 12 h, así que se excluye toda fila con alguna hora del periodo
+   COVID entre *t* − 336 h y *t*, ambas incluidas (en la práctica, objetivos hasta
+   aproximadamente el 14/07/2020). También se excluyen las filas con alguna entrada
+   ausente (las primeras 336 horas de 2017); no se rellenan valores.
+7. **Filas del ajuste de selección:** las de horas objetivo ya terminadas en el origen del
+   ajuste (31/12/2022 12:00 locales): `t + 1 h ≤ origen`.
+8. **Cálculo sin fuga:** en `prever(datos, origen)` las variables de demanda se calculan a
+   partir de los datos recibidos, no de columnas precalculadas con los datos sin alterar
+   (si no, la prueba de fuga saldría limpia aunque la hubiera). Ventanas móviles siempre
+   hacia atrás.
+9. **Código común:** la definición de `navidad` se extrae a una función de
+   `src/exogenas.py` usada por SARIMAX y LightGBM; antes de aceptarlo se comprueba que la
+   matriz exógena de SARIMAX es idéntica a la anterior (si no lo es, no se toca).
+
+Pendiente en este apartado, antes de evaluar en 2023: intervalos de LightGBM (capa
+probabilística) y espacio de búsqueda (apartado 3), cada uno registrado con commit.
