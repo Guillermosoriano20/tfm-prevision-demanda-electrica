@@ -736,3 +736,59 @@ el código de NeuralForecast 3.2.2 (`losses/pytorch.py`, `common/_base_model.py`
     más red de cuantiles con los hiperparámetros de la ganadora (doble coste por
     entrenamiento); rejilla de 19 cuantiles fijada ya (adelantaría la decisión de la
     fase 2 y la mediana pesaría 1/19 de la pérdida).
+
+### 12.3 Prueba de fuga y comprobaciones del escalado (fijado el 14 de octubre de 2026, antes de escribir su código)
+
+Concreta para N-HiTS los apartados 5.5 y 10.5 y los puntos 12.1.4, 12.1.7 y 12.2.8.
+Decisiones del autor sobre la propuesta del asistente: criterios de la tabla del punto 3 y
+versión reforzada de la prueba de fuga incorporada a `src/validacion.py`.
+
+1. **Archivos:** `src/nhits_modelo.py` (módulo sin número: subclase de N-HiTS con las
+   exógenas sin escalar, tabla de entrada de NeuralForecast, ajuste con sus
+   comprobaciones y función `prever`); `src/21_nhits_fuga.py` (esta prueba); y en
+   `src/validacion.py`, un parámetro `modo` en `comprobar_fuga`: `"desplazar"` (valor por
+   defecto, el comportamiento actual: +10.000 MW a la demanda posterior al origen) o
+   `"borrar"` (versión reforzada: la demanda posterior al origen se deja vacía). El valor
+   por defecto no cambia nada para los scripts existentes: se comprueba que la salida de
+   `python src/validacion.py` es idéntica a la anterior.
+2. **Modelo de referencia (no consume presupuesto: no se calcula ningún error de 2023):**
+   arquitectura por defecto de N-HiTS en NeuralForecast 3.2.2, *L* = 336, 100 pasos de
+   entrenamiento, semilla 42, con todo lo fijado en 12.1 y 12.2 (pérdida multicuantil con
+   pesos del horizonte, escalado `robust` por ventana, exógenas sin escalar, COVID
+   estricto). Ajuste con los datos hasta el 31/12/2022 12:00. Como los 100 árboles de
+   LightGBM en su prueba de fuga: no tiene que prever bien, sino reaccionar a sus
+   entradas.
+3. **Comprobaciones y criterios (anticipación del asistente):**
+
+   | # | Comprobación | Criterio |
+   |---|---|---|
+   | a | Pesos del horizonte | 37 valores: 12 ceros y 25 unos |
+   | b | `local_scaler_type` es `None`, sin escaladores globales tras el ajuste y escalado del modelo `robust` | Se cumple |
+   | c | Datos del ajuste | Última hora: de 11:00 a 12:00 del 31/12/2022 (local) |
+   | d | Ventanas de entrenamiento válidas contadas a mano frente a las de la librería | Iguales |
+   | e | Ventanas de validación de la parada temprana | Ninguna toca el periodo COVID |
+   | f | Prueba de fuga (`modo="desplazar"`) en las tres salidas, 365 orígenes de 2023 | 0 días con fuga |
+   | g | Prueba de fuga reforzada (`modo="borrar"`) en las tres salidas | 0 días con fuga |
+   | h | Control positivo: ventana de entrada que termina 24 h después del origen | Fuga los 365 días |
+   | i | Demanda de 2017-2021 multiplicada por 2 (modelo ya ajustado) | Previsiones de los 365 orígenes de 2023 idénticas bit a bit |
+   | j | +1.000 MW a toda la ventana de entrada, 10 orígenes | Las tres salidas suben 1.000 MW (tolerancia ±1 MW, precisión de 32 bits de la red) |
+   | k | +5 °C a `t_ponderada` en entrada y horizonte, 10 orígenes | Las previsiones cambian |
+
+   Qué demuestra cada grupo: (f)-(h), que la previsión no usa demanda posterior al origen
+   y que la prueba detecta una fuga real en este montaje; (i), que al prever no interviene
+   ninguna estadística de la serie completa; (j), que la demanda se normaliza por ventana
+   (desplazar la entrada desplaza la salida en lo mismo); (k), que las exógenas no se
+   normalizan (si se normalizaran por ventana, sumar una constante no cambiaría nada).
+4. **Regla:** si falla cualquiera de las comprobaciones, se detiene todo y se revisa con
+   el autor antes de seguir; no se cambia el criterio a la vista del resultado.
+   Excepciones previstas: si (j) queda fuera de ±1 MW, se informa del desvío antes de
+   decidir (no sería una fuga, sino redondeo); si (d) no puede hacerse con la librería, se
+   sustituye por una comprobación más débil (entrenar con las horas COVID vacías y
+   comprobar que no da error) y se declara.
+5. **Pruebas en el entorno del asistente:** con el `dataset.parquet` del autor (huella
+   comprobada al cargarlo); solo se comparan previsiones entre sí, no se calcula ningún
+   error de 2023. Se mide el tiempo para avisar al autor antes de lanzarlo. Las cifras de
+   referencia son las del PC del autor (torch 2.14.1+cpu; el asistente usa la compilación
+   de PyPI de la misma versión).
+6. **Registro:** el código y su resultado se versionan juntos tras ejecutarlo en el PC del
+   autor; el resultado se anota en este apartado.
