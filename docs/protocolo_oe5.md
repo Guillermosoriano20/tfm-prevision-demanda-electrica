@@ -661,3 +661,27 @@ verificó leyendo su código fuente en esa versión y se comprueba además en el
     librería conserva los pesos del último paso, no los del mejor; para imitar el
     procedimiento de LightGBM (parada temprana con las últimas 8 semanas y reajuste con
     toda la ventana) habrá que leer el mejor paso y reentrenar.
+11. **Corrección del punto 1 (14 de octubre de 2026, después del commit `258a19a` y antes
+    de escribir ningún código).**
+    - *Qué estaba mal:* el punto 1 afirma que NeuralForecast no permite pesar de forma
+      distinta las posiciones del horizonte. Es falso: todas las funciones de pérdida de la
+      versión 3.2.2 (las puntuales, como `MAE`, y las de cuantiles, como `MQLoss`) admiten
+      `horizon_weight`, un peso por cada uno de los *h* pasos que multiplica la pérdida de
+      ese paso (comprobado en el código de `losses/pytorch.py`: `_compute_weights`). El
+      error es del asistente, que no había leído ese archivo al redactar el punto 1.
+    - *Decisión del autor:* **pesos 0 en los pasos 1 a 12 y 1 en los pasos 13 a 37.** El
+      paso *k* empieza *k* − 1 horas después del inicio del horizonte, así que la red se
+      entrena solo en anticipaciones de 12 a 36 horas, las que se evalúan (las de LightGBM,
+      apartado 11.1.3). Como las ventanas de entrenamiento empiezan en cualquier hora
+      (punto 3), cada ventana enseña a prever entre 12 y 36 horas por delante. Los mismos
+      pesos se aplican a la pérdida de control de la parada temprana, si se usa (12.5), y a
+      la pérdida de los cuantiles (12.2).
+    - *Consecuencias:* desaparece la limitación declarada en el punto 1 (la pérdida ya no
+      incluye la tarde del día D). El paso 37 (anticipación de 36 h) solo se evalúa el día de
+      25 horas, pero se entrena con peso 1 en todas las ventanas. La red sigue produciendo
+      los 12 primeros pasos (por la interpolación de N-HiTS), sin supervisión; no se evalúan.
+    - *Riesgo declarado:* se pierde la supervisión de los pasos más fáciles, que podría
+      ayudar a fijar el nivel; no se comparan ambas opciones (gastaría presupuesto de la
+      búsqueda). Alternativa no elegida: los 37 pasos con el mismo peso.
+    - *Comprobación en el script:* el vector de pesos tiene 37 elementos, los 12 primeros
+      valen 0 y el resto 1.
