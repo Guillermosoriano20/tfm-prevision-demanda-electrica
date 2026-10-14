@@ -563,3 +563,101 @@ objetivo L1/L2 dentro de la búsqueda y sin prueba de tiempos formal.
 8. **Decisión del autor:** los desgloses por anticipación, mes y día que se citen en la
    memoria saldrán de **un solo script común a los cuatro modelos**, que se escribirá con
    la tabla de validación, cuando N-HiTS esté validado.
+
+## 12. N-HiTS (fijado el 14 de octubre de 2026, antes de escribir su código y de evaluar nada en 2023)
+
+### 12.1 Diseño: horizonte, ventanas, COVID, exógenas y escalado
+
+Concreta los apartados 1.3, 4, 5.1, 5.5 y 5.6 para N-HiTS. Librería: NeuralForecast 3.2.2
+(`requirements.txt`). El comportamiento de la librería en que se apoya este apartado se
+verificó leyendo su código fuente en esa versión y se comprueba además en el script.
+
+1. **Horizonte:** *h* = 37 pasos UTC desde el origen, todos los días; las 23, 24 o 25
+   horas de D+1 se recortan con `validacion.recortar` (apartado 1.3), como en SARIMAX.
+   La pérdida de entrenamiento promedia los 37 pasos, incluidas las 12 horas de la tarde
+   del día D, que no se evalúan: NeuralForecast no permite pesar de forma distinta las
+   posiciones del horizonte. Limitación declarada.
+2. **Ventana de entrada:** su longitud *L* es un hiperparámetro, con candidatos **168,
+   336, 504 y 672 horas** (una a cuatro semanas); el valor se elige en la búsqueda (12.5).
+   Mínimo de 168 h para que la misma hora de la semana anterior (ACF de 0,90 en OE2) esté
+   dentro de la ventana para todas las horas de D+1; con *L* ≥ 336 entra también la de dos
+   semanas antes. La ventana termina en el origen: su última hora es la de 11:00 a 12:00
+   locales del día D (apartado 1.2). N-HiTS usa directamente las últimas horas de demanda
+   conocidas, como SARIMAX con el filtro de Kalman y LightGBM con `y_ultima` (apartado
+   5.1). La regla de retardos ≥ 37 h (apartado 1.5) se refiere a retardos sueltos; aquí la
+   ausencia de fuga la garantiza que la ventana no pase del origen, y se comprueba con la
+   prueba de fuga (12.3).
+3. **Ventanas de entrenamiento:** todas las que caben en los datos del ajuste, empezando
+   en cualquier hora (`step_size` = 1); en cada paso de entrenamiento se sortea un lote de
+   ellas (`windows_batch_size`). Los datos del ajuste son las horas con
+   `hora_utc + 1 h ≤ origen del ajuste` (31/12/2022 12:00 locales en la selección); 2023
+   no entra. Diferencia de procedimiento, no de información, con LightGBM (solo filas con
+   origen a las 12:00): se declara. Alternativa descartada: solo ventanas que terminan a las
+   12:00 locales (unas 2.000, pocas para una red; además, un salto fijo en horas UTC no
+   sigue los cambios de hora).
+4. **COVID estricto (apartado 5.6):** columna `available_mask` = 1 − `excluir_covid` y
+   `training_data_availability_threshold = [1.0, 1.0]`: la librería descarta toda ventana
+   de entrenamiento con alguna hora no disponible en la entrada o en el horizonte (método
+   `_create_windows`). Los valores de esas horas no se modifican; nunca se usan.
+   Comprobaciones en el script: (a) el número de ventanas válidas contado a mano coincide
+   con el de la librería; (b) las ventanas de validación de la parada temprana, que no
+   pasan por ese filtro, no tocan el periodo COVID. Alternativa si la librería no se
+   comportara así: construir las ventanas a mano.
+5. **Exógenas comunes (apartado 4), todas futuras** (`futr_exog_list`: N-HiTS las lee en
+   la ventana de entrada y en el horizonte), calculadas con las funciones de
+   `src/exogenas.py`:
+
+   | Información | Columnas de N-HiTS | Codificación |
+   |---|---|---|
+   | Grados-día | `gd_calefaccion`, `gd_refrigeracion` | `exogenas.grados_dia`, sin transformar |
+   | Temperatura | `t_ponderada` | Sin transformar (°C) |
+   | Hora local | `hora_sen`, `hora_cos` | Seno y coseno de 2π · `hora_del_dia` / 24 |
+   | Día de la semana | `dia_semana` | Categórica (0-6), con *embedding* de la librería (`cat_exog_list`) |
+   | Posición en el año | `anio_sen`, `anio_cos` | Seno y coseno de 2π · (día del año local − 1) / 365,25 |
+   | Calendario | `fraccion_festivo`, `puente`, `navidad` | Numéricas 0-1 (`navidad` con `exogenas.navidad`) |
+
+   Total: 11 columnas (10 numéricas y una categórica). Sin exógenas históricas (la demanda
+   pasada es la propia ventana de entrada y la temperatura pasada ya está en las futuras)
+   ni estáticas (una sola serie). No se dan a N-HiTS las mismas variables excluidas en el
+   apartado 4. El vocabulario de la variable categórica (los valores 0-6) lo construye la
+   librería al ajustar; es una tabla de categorías, no un escalado.
+6. **Escalado (apartado 5.5):**
+   - **Demanda: normalización por ventana** con `scaler_type = "robust"` (mediana y
+     desviación absoluta mediana de la parte de entrada de cada ventana; el horizonte no
+     interviene: la librería anula su máscara antes de calcular). `robust` y no `standard`
+     porque un festivo dentro de la ventana distorsiona menos la mediana que la media.
+   - **`local_scaler_type = None`**: en NeuralForecast ese parámetro es el escalado
+     ajustado por serie sobre todos los datos del ajuste, el que excluye el apartado 5.5
+     (con los datos cortados en el origen no sería fuga estricta, pero el protocolo lo
+     excluye para N-HiTS).
+   - **Exógenas sin escalar**, mediante una subclase mínima de `NHITS` que sustituye el
+     método interno `_get_temporal_exogenous_cols` (su único uso en la librería es elegir
+     las columnas que pasan por la normalización por ventana) para que solo la demanda se
+     normalice. Motivo: la librería normaliza por ventana también las exógenas numéricas,
+     lo que convierte las lentas (posición en el año) en una rampa casi igual en todas las
+     ventanas y amplifica los grados-día cuando la ventana de entrada es templada y el
+     horizonte no. Sin escalar no se ajusta nada, así que no puede haber fuga. Riesgo:
+     método interno de la librería (versiones fijadas); el script comprueba que la demanda
+     llega normalizada y las exógenas no. Alternativa no elegida: hora, día de la semana,
+     `puente` y `navidad` como categóricas, mes categórico en lugar del día del año y
+     temperatura y grados-día escalados por ventana.
+7. **Comprobaciones contra el escalado global (apartado 5.5), en el script:**
+   (a) `local_scaler_type` es `None` y, tras el ajuste, no hay escaladores globales
+   (`scalers_` vacío); (b) el normalizador del modelo es `robust`, por ventana; (c) los
+   datos del ajuste terminan en el origen del ajuste; (d) prueba funcional: con el modelo
+   ya ajustado, multiplicar por 2 la demanda de 2017-2021 no cambia ninguna previsión de
+   los 365 orígenes de 2023 (idénticas bit a bit).
+8. **Interfaz común `prever(datos, origen)`:** toma las últimas *L* horas con
+   `hora_utc + 1 h ≤ origen` (no lee demanda posterior al origen), construye las exógenas
+   de las 37 horas siguientes, prevé y devuelve una serie de 37 valores indexada por hora
+   UTC.
+9. **Reproducibilidad:** `random_seed` = 42, 4 hilos de torch (`torch.set_num_threads`,
+   como los 4 de LightGBM), entrenamiento determinista en CPU, sin registros ni puntos de
+   control en disco. La coincidencia bit a bit solo se espera en el mismo sistema; las
+   cifras de referencia son las del PC del autor.
+10. **Pendiente en este apartado, cada uno con commit antes de medir o lanzar:**
+    intervalos (12.2), prueba de fuga (12.3), prueba de tiempos (12.4) y procedimiento de
+    entrenamiento y espacio de búsqueda (12.5). Aviso para 12.5: la parada temprana de la
+    librería conserva los pesos del último paso, no los del mejor; para imitar el
+    procedimiento de LightGBM (parada temprana con las últimas 8 semanas y reajuste con
+    toda la ventana) habrá que leer el mejor paso y reentrenar.
