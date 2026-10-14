@@ -998,3 +998,47 @@ tiempos (12.4.7). Script: `src/23_nhits_validacion.py`; procedimiento en
    configuraciones en el tope (no se amplía *P*: no cabe en el presupuesto de tiempo; se
    declara); la métrica de control multicuantil puede elegir un paso algo peor para la
    mediana (efecto pequeño, declarado).
+
+### 12.6 Resultado y decisiones del autor (14 de octubre de 2026, tras la búsqueda del commit `d66e589`)
+
+1. **Resultado:** las 20 configuraciones válidas (ninguna fallida), entre 1,8 y 13,6 min cada
+   una en el PC del autor (82 min en total; con las semillas, unos 95 min). MAE de 2023 de la
+   mediana entre 716,4 y 936,6 MW; las ocho mejores entre 716 y 767 MW. **12 de 20 llegan al
+   tope de 1.000 pasos.** Ninguna configuración tiene cuantiles cruzados. **Todas tienen
+   sesgo positivo** (entre +91 y +562 MW: N-HiTS se queda corto), al contrario que SARIMAX y
+   LightGBM; sin explicación comprobada (se revisará en el script común de desgloses).
+2. **Ganadora: `c13`** (*L* = 336, `learning_rate` 0,00119, anchura 256, 1.024 ventanas por
+   lote, escalas B, `dropout_prob_theta` 0,1; 1.000 pasos, en el tope): **MAE 716,4 MW**,
+   RMSE 926,5 MW, MAPE 2,73 %, MASE 0,539, sesgo +188 MW, 0,512 del ingenuo (SARIMAX
+   943,4 MW, 0,674; LightGBM 585,2 MW, 0,418). Razón RMSE/MAE 1,29, la menor de los cuatro
+   modelos. **Resultado:** N-HiTS mejora al SARIMAX un 24 % y queda un 22 % por detrás de
+   LightGBM.
+3. **Intervalos de la ganadora:** 0 horas con cuantiles cruzados; 0 horas con la mediana fuera
+   del intervalo 0,05-0,95 (LightGBM: 543). Guardados en
+   `data/predicciones/nhits_intervalos_validacion.parquet`; la cobertura se evalúa en la
+   fase 2. **Prueba de fuga reforzada con la ganadora: 0 días.**
+4. **Ruido entre semillas (12.5.6):** MAE 716,4 MW (semilla 42, 1.000 pasos), 771,1 MW (43,
+   600 pasos) y 704,6 MW (44, 900 pasos): rango 66,4 MW, desviación típica 35,5 MW, media
+   730,7 MW. La distancia entre la ganadora y la segunda (`c07`, 723,4 MW) es de 7,0 MW,
+   menor que el rango: **el orden entre las mejores configuraciones está dentro del ruido**
+   y se declara. La media de las tres semillas se informa como referencia del rendimiento
+   esperado de la configuración; no sustituye a la previsión oficial.
+5. **Anticipación del asistente (12.5.8):** cumplida en el MAE (620-800 MW) y en la posición
+   respecto a LightGBM y SARIMAX; **fallida** en el ruido entre semillas (esperaba 10-30 MW;
+   fue 66,4 MW), en la observación de las tasas bajas (`c07`, con 0,00012, queda segunda y
+   `c18`, con 0,00013, quinta; `c08`, `c16`, `c03`, `c02` y `c09` sí quedan entre las peores)
+   y en el tiempo (esperaba 3-5 h; fueron 1,6 h). Acertó el sentido de "varias en el tope",
+   pero fueron 12 de 20.
+6. **Decisiones del autor:**
+   - **Borde:** la ganadora llega al tope de *P* = 1.000 pasos. **No se amplía**
+     (presupuesto de 20 configuraciones agotado; tope fijado por el criterio de tiempos del
+     12.4.7) y se declara como limitación, como el borde *p* = 5 de SARIMAX (10.10) y
+     `min_data_in_leaf` = 20 de LightGBM (11.4.5). Se declara también que la búsqueda real
+     tardó 1,6 h frente al techo de 7,3 h del criterio (peor caso), así que en la práctica
+     habría cabido un tope mayor; ampliarlo ahora sería decidir a la vista de 2023.
+   - **Se mantiene la ganadora `c13` con la semilla 42 como previsión oficial**
+     (`data/predicciones/nhits_validacion.parquet`), aunque el orden entre las mejores esté
+     dentro del ruido: cambiarla por otra configuración o por la media de semillas sería
+     elegir con 2023.
+7. **Para la evaluación final (2024):** 12 reentrenamientos mensuales de `c13` con el
+   procedimiento de 12.5.1 (semilla 42); según 12.4.7, por debajo de 4,3 h.
