@@ -901,3 +901,100 @@ asistente: configuración medida, fórmulas, límites y orden de recortes de est
      cabe con *P* = 1.000) pero se quedó corta en las cifras (1,6 s frente a 2,1 s y 0,4 s
      frente a 0,49 s): el PC del autor fue unas 1,7 veces más rápido que el entorno del
      asistente con redes grandes, no 2,2 veces como en N3, donde el arranque pesaba más.
+
+### 12.5 Búsqueda de hiperparámetros (fijado el 14 de octubre de 2026, antes de lanzarla)
+
+Decisiones del autor sobre la propuesta del asistente: procedimiento, espacio, referencia y
+semillas de este apartado. Máximos del espacio y tope de pasos fijados por la prueba de
+tiempos (12.4.7). Script: `src/23_nhits_validacion.py`; procedimiento en
+`nhits_modelo.entrenar`.
+
+1. **Procedimiento de entrenamiento de cada configuración (fijo, no se busca):**
+   1. *Parada temprana* (apartado 2.5): control = últimas 8 semanas de la ventana (1.344
+      horas antes del 31/12/2022 12:00); la red se entrena con lo anterior, evalúa el
+      control cada **100 pasos** y para tras **3 evaluaciones seguidas sin mejora**;
+      máximo ***P* = 1.000 pasos**. La librería conserva los pesos del último paso, así que
+      el **mejor paso** se lee de su historial de evaluaciones. Si es el tope, se informa y
+      no se amplía.
+   2. *Reentrenamiento* con todas las horas de la ventana (incluidas esas 8 semanas)
+      durante el mejor paso, con la misma semilla. Motivo: los datos más recientes, como
+      LightGBM (11.3.1). Alternativa descartada: sin reentrenamiento (mitad de coste).
+   3. *Métrica de control:* la pérdida multicuantil en MW con los pesos del horizonte
+      (12.2.7), no el MAE de la mediana; se declara.
+   4. *Se declara además:* la librería reparte 3 bajadas de la tasa de aprendizaje a lo
+      largo de los pasos de cada entrenamiento; en el reentrenamiento, más corto, las
+      bajadas llegan antes.
+   5. *Fijos:* semilla 42, 4 hilos, escalado `robust` por ventana, tres pilas con un bloque
+      cada una (12.4.7), un lote de series de una sola serie, todo lo de 12.1 y 12.2.
+2. **Espacio:** 19 configuraciones sorteadas con `ParameterSampler` de scikit-learn
+   (`random_state=42`) más la de referencia: **20 en total**.
+
+   | Hiperparámetro | Valores |
+   |---|---|
+   | Ventana de entrada *L* (`input_size`) | 168, 336 o 504 |
+   | `learning_rate` | log-uniforme entre 0,0001 y 0,003 |
+   | Anchura de las capas (`mlp_units` = 3 × [*w*, *w*]) | *w* = 128, 256 o 512 |
+   | Ventanas por lote (`windows_batch_size`) | 256, 512 o 1.024 |
+   | Escalas por pila (`n_pool_kernel_size` / `n_freq_downsample`) | A: [2, 2, 1] / [4, 2, 1] (por defecto); B: [4, 4, 1] / [12, 4, 1]; C: [8, 4, 1] / [24, 12, 1] |
+   | `dropout_prob_theta` | 0 o 0,1 |
+
+   Referencia (c00): arquitectura por defecto de la librería, la de la prueba de fuga
+   (12.3.2): *L* = 336, tasa 0,001, anchura 512, 1.024 ventanas por lote, escalas A, sin
+   *dropout*.
+3. **Las 20 configuraciones** (generadas antes del commit; el script comprueba que el
+   sorteo las reproduce; tasas redondeadas a 5 decimales):
+
+   | Config. | *L* | `learning_rate` | Anchura | Ventanas por lote | Escalas | `dropout_prob_theta` |
+   |---|---|---|---|---|---|---|
+   | c00 (referencia) | 336 | 0,00100 | 512 | 1.024 | A | 0 |
+   | c01 | 504 | 0,00121 | 512 | 256 | A | 0,1 |
+   | c02 | 504 | 0,00014 | 128 | 1.024 | B | 0 |
+   | c03 | 336 | 0,00012 | 128 | 512 | C | 0,1 |
+   | c04 | 168 | 0,00028 | 256 | 512 | A | 0,1 |
+   | c05 | 168 | 0,00060 | 128 | 1.024 | A | 0,1 |
+   | c06 | 336 | 0,00014 | 256 | 512 | C | 0,1 |
+   | c07 | 168 | 0,00012 | 512 | 1.024 | C | 0,1 |
+   | c08 | 504 | 0,00010 | 512 | 256 | A | 0 |
+   | c09 | 168 | 0,00011 | 256 | 512 | B | 0,1 |
+   | c10 | 168 | 0,00170 | 512 | 1.024 | C | 0,1 |
+   | c11 | 336 | 0,00042 | 256 | 512 | B | 0 |
+   | c12 | 168 | 0,00271 | 256 | 512 | B | 0,1 |
+   | c13 | 336 | 0,00119 | 256 | 1.024 | B | 0,1 |
+   | c14 | 336 | 0,00030 | 256 | 256 | A | 0 |
+   | c15 | 336 | 0,00267 | 256 | 256 | A | 0 |
+   | c16 | 168 | 0,00013 | 128 | 1.024 | C | 0 |
+   | c17 | 504 | 0,00160 | 128 | 256 | A | 0,1 |
+   | c18 | 504 | 0,00013 | 512 | 1.024 | A | 0 |
+   | c19 | 168 | 0,00083 | 256 | 512 | C | 0 |
+
+   *Observación hecha al generar el sorteo, antes de medir nada:* 8 de las 19 tasas
+   sorteadas son menores que 0,0002; con 1.000 pasos como máximo, se espera que lleguen al
+   tope y queden poco entrenadas. Es una propiedad del espacio aprobado y no se cambia.
+4. **Selección:** menor MAE de la mediana sobre las 8.760 horas de 2023 (apartado 3.4).
+   RMSE, MAPE, MASE, sesgo, MAE relativo al ingenuo, mejor paso, pérdida de control,
+   número de horas con cuantiles cruzados y tiempo se guardan, pero no deciden. Una
+   configuración que dé error (por ejemplo, divergencia con tasas altas) se registra como
+   fallida y no se sustituye.
+5. **Ganadora:** previsión en el formato común (`data/predicciones/nhits_validacion.parquet`)
+   e intervalos 0,05-0,95 con la regla de cruce (`nhits_intervalos_validacion.parquet`);
+   se informa de las horas con cruce y con la mediana fuera del intervalo. **Prueba de fuga
+   reforzada** con la ganadora; si detecta fuga, se detiene todo.
+6. **Ruido entre semillas (apartado 3.5):** la ganadora se reentrena con las semillas 43 y
+   44 con el mismo procedimiento. Se informa del MAE de cada semilla, el rango y la
+   desviación típica. **La previsión oficial es la de la semilla 42** (elegir la mejor
+   semilla sería elegir con 2023). Si el rango supera la distancia entre la ganadora y la
+   segunda, se declara que el orden entre ellas está dentro del ruido.
+7. **Robustez:** cada configuración se guarda al terminar
+   (`data/predicciones/nhits_cXX_validacion.parquet` y `data/interim/nhits_busqueda.parquet`);
+   al relanzar, no se repiten. Probado en el entorno del asistente con un arnés que
+   sustituye la demanda de 2023 por la de 364 días antes (ninguna cifra mostrada dice nada
+   de 2023), 3 configuraciones y 30 pasos.
+8. **Anticipación del asistente (antes de lanzar):** MAE de la ganadora entre **620 y
+   800 MW**, probablemente peor que LightGBM (585,2 MW) y muy por debajo del SARIMAX
+   (943,4 MW); si saliera mejor que LightGBM, se reconstruye antes de aceptarlo. Rango
+   entre semillas de 10 a 30 MW. Varias configuraciones en el tope de pasos, sobre todo las
+   de tasa baja. Tiempo real de 3 a 5 horas (techo de 7,3 h según 12.4.7).
+9. **Riesgos:** divergencia con tasas altas (configuración fallida); muchas
+   configuraciones en el tope (no se amplía *P*: no cabe en el presupuesto de tiempo; se
+   declara); la métrica de control multicuantil puede elegir un paso algo peor para la
+   mediana (efecto pequeño, declarado).

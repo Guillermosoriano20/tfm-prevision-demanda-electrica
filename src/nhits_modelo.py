@@ -1,7 +1,8 @@
 """N-HiTS: tabla de entrada de NeuralForecast, modelo, ajuste y previsión.
 
-Implementa docs/protocolo_oe5.md, apartados 12.1 (diseño, commits 258a19a y 4dc9142),
-12.2 (intervalos, commit 44a9ab5) y las comprobaciones de 12.3 (commit 2013525). Módulo
+Implementa docs/protocolo_oe5.md, apartados 12.1 (diseño, commits 258a19a, 4dc9142 y
+31c371e), 12.2 (intervalos, commit 44a9ab5), las comprobaciones de 12.3 (commit 2013525)
+y el procedimiento de entrenamiento de 12.5. Módulo
 sin número porque se importa, como validacion.py y lightgbm_modelo.py.
 
 Modelo de trayectoria: la ventana de entrada son las últimas L horas de demanda hasta el
@@ -33,6 +34,13 @@ EXOGENAS = NUMERICAS + CATEGORICAS
 SERIE = "peninsula"
 HILOS = 4                                            # como LightGBM (12.1.9)
 SEMILLA = 42
+P_MAX, CONTROL_CADA, PACIENCIA = 1000, 100, 3        # 12.4.7 y 12.5.1
+HORAS_CONTROL = 8 * 168                              # últimas 8 semanas (2.5)
+ESCALAS = {                                          # n_pool_kernel_size / n_freq_downsample
+    "A": ([2, 2, 1], [4, 2, 1]),                     # valores por defecto de la librería
+    "B": ([4, 4, 1], [12, 4, 1]),
+    "C": ([8, 4, 1], [24, 12, 1]),                   # una pila a escala diaria
+}
 
 # Lightning escribe varias líneas en cada ajuste y en cada previsión; solo errores. El
 # aviso interno de LeafSpec (pytorch-lightning 2.5.6 con torch 2.14.1) sale en cada
@@ -124,6 +132,33 @@ def ajustar(datos, fin, modelo, val_size=0):
     nf.fit(df=df, val_size=val_size)
     comprobar_escalado(nf)
     return nf
+
+
+def arquitectura(ancho, escalas, **resto):
+    """Hiperparámetros de 12.5.2 en el formato de la librería (un bloque por pila, 12.4.7)."""
+    pool, freq = ESCALAS[escalas]
+    return {"mlp_units": 3 * [[ancho, ancho]], "n_blocks": [1, 1, 1],
+            "n_pool_kernel_size": pool, "n_freq_downsample": freq, **resto}
+
+
+def entrenar(datos, fin, L, semilla=SEMILLA, **hiper):
+    """Procedimiento de 12.5.1. Devuelve el modelo reentrenado, el mejor paso y su pérdida.
+
+    1. Parada temprana: entrena con todo lo anterior a las últimas 8 semanas, evalúa el
+       control (pérdida multicuantil en MW) cada 100 pasos y para tras 3 evaluaciones sin
+       mejora; máximo 1.000 pasos. La librería conserva los pesos del último paso, así que
+       el mejor paso se lee del historial de evaluaciones. 2023 no interviene.
+    2. Reentrenamiento con todas las horas de la ventana y ese número de pasos.
+    """
+    previo = crear_modelo(L, P_MAX, semilla, val_check_steps=CONTROL_CADA,
+                          early_stop_patience_steps=PACIENCIA, num_sanity_val_steps=0,
+                          **hiper)
+    ajustado = ajustar(datos, fin, previo, val_size=HORAS_CONTROL).models[0]   # copia
+    historial = [(int(paso), float(perdida)) for paso, perdida in ajustado.valid_trajectories]
+    assert historial and all(paso % CONTROL_CADA == 0 for paso, _ in historial)
+    paso, perdida = min(historial, key=lambda x: x[1])
+    nf = ajustar(datos, fin, crear_modelo(L, paso, semilla, val_check_steps=paso, **hiper))
+    return nf, paso, perdida
 
 
 def exogenas_futuras(datos, futuras, origen):
