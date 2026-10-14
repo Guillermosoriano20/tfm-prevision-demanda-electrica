@@ -881,3 +881,23 @@ asistente: configuración medida, fórmulas, límites y orden de recortes de est
 6. **Riesgos:** el peor caso supone que la parada temprana llega siempre al tope (puede
    sobreestimar mucho); otros programas abiertos en el PC durante la medición la
    falsearían. Alternativa más barata no elegida: fijar los máximos bajos sin medir.
+7. **Resultado (14 de octubre de 2026, PC del autor, 12 núcleos lógicos, 4 hilos; commit
+   del criterio `0de601b`):**
+
+   | Configuración | Parámetros | 200 pasos | *t_paso* | *t_prever* | Búsqueda + semillas (*P* = 1.000) | Evaluación final | Veredicto |
+   |---|---|---|---|---|---|---|---|
+   | Más pesada prevista (*L* 672, 3 × [1.024, 1.024], [2, 2, 2]) | 69.769.579 | 423,2 s | 2,116 s | 0,034 s | 31,13 h | 18,34 h | No cabe ni con *P* = 500 |
+   | Reducida, paso 2 (*L* 504, 3 × [512, 512], [1, 1, 1]) | 12.073.171 | 98,0 s | 0,490 s | 0,030 s | **7,27 h** | **4,25 h** | **Cabe con *P* = 1.000** |
+
+   - **Consecuencia (por el criterio del punto 4, sin decisión a la vista de resultados):**
+     los máximos del espacio de búsqueda (12.5) son los de la configuración reducida
+     (*L* ≤ 504, `mlp_units` hasta 3 × [512, 512], `n_blocks` [1, 1, 1], 1.024 ventanas por
+     lote) y el tope de pasos es *P* = 1.000. El candidato *L* = 672 del punto 12.1.2 queda
+     fuera del espacio; se declara como limitación computacional (como la ventana y el ARMA
+     estacional de SARIMAX).
+   - **Anticipación del asistente:** la primera (0,5-1,5 s, antes de escribir el script)
+     falló para la configuración más pesada (2,1 s). La actualizada tras la prueba del
+     script acertó el veredicto de las dos configuraciones (la pesada no cabe; la reducida
+     cabe con *P* = 1.000) pero se quedó corta en las cifras (1,6 s frente a 2,1 s y 0,4 s
+     frente a 0,49 s): el PC del autor fue unas 1,7 veces más rápido que el entorno del
+     asistente con redes grandes, no 2,2 veces como en N3, donde el arranque pesaba más.
