@@ -61,17 +61,23 @@ def recortar(prevision, origen):
     return recorte
 
 
-def comprobar_fuga(prever, datos, origenes):
+def comprobar_fuga(prever, datos, origenes, modo="desplazar"):
     """Prueba de fuga: alterar la demanda posterior al origen no debe cambiar nada.
 
     prever(datos, origen) es la función de previsión de un modelo; devuelve una
-    serie indexada por hora UTC. Se devuelven las fechas objetivo con fuga.
+    serie (o una tabla) indexada por hora UTC. Se devuelven las fechas objetivo con fuga.
+    modo="desplazar": se suman 10.000 MW a la demanda posterior al origen.
+    modo="borrar" (versión reforzada, protocolo 12.3): esa demanda se deja vacía, lo que
+    detecta también variables que combinaran valores futuros de forma que el
+    desplazamiento se anulara (por ejemplo, una diferencia entre dos horas futuras).
     """
+    assert modo in ("desplazar", "borrar")
     alterados = datos.copy()
     con_fuga = []
     for origen in origenes.itertuples():
         futuro = datos.index >= origen.origen_utc  # horas aún no terminadas
-        alterados["demanda_mw"] = datos["demanda_mw"].where(~futuro, datos["demanda_mw"] + 10_000)
+        nuevo = datos["demanda_mw"] + 10_000 if modo == "desplazar" else np.nan
+        alterados["demanda_mw"] = datos["demanda_mw"].where(~futuro, nuevo)
         real = recortar(prever(datos, origen), origen)
         alterada = recortar(prever(alterados, origen), origen)
         if not real.equals(alterada):

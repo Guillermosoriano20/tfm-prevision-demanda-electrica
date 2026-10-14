@@ -809,3 +809,25 @@ versión reforzada de la prueba de fuga incorporada a `src/validacion.py`.
    de PyPI de la misma versión).
 6. **Registro:** el código y su resultado se versionan juntos tras ejecutarlo en el PC del
    autor; el resultado se anota en este apartado.
+7. **Resultado (14 de octubre de 2026, PC del autor, 12 núcleos lógicos, 4 hilos; tras la
+   enmienda 12.1.12, commit `31c371e`):** todas las comprobaciones cumplen el criterio, sin
+   ninguna excepción del punto 4.
+   - (a) 37 pesos: 12 ceros y 25 unos. (b) Sin escalado de la serie completa; demanda
+     normalizada por ventana (`robust`); exógenas sin escalar. (c) 52.571 horas de ajuste;
+     la última, de 11:00 a 12:00 del 31/12/2022.
+   - (d) Ventanas de 373 h (336 + 37): 52.199 posibles, 48.900 válidas contadas a mano y
+     48.900 según la librería; 3.299 descartadas por el COVID (las 2.927 horas del periodo
+     más las 372 posiciones adicionales en que una ventana de 373 h lo solapa).
+   - (e) Las horas que pueden usar las ventanas de control (desde el 08/10/2022 13:00) no
+     tocan el periodo COVID.
+   - (f) 0 días con fuga; (g) reforzada: 0 días; (h) control positivo: fuga los 365 días.
+   - (i) Demanda de 2017-2021 multiplicada por 2: 0 de 365 orígenes con alguna diferencia.
+   - (j) +1.000 MW en la ventana: las tres salidas suben 1.000 MW con un desvío máximo de
+     0,0039 MW (redondeo de 32 bits). (k) +5 °C en `t_ponderada`: cambio máximo de 921 MW
+     (1.066 MW en el entorno del asistente: compilaciones distintas de torch y una red
+     apenas entrenada; el criterio solo exige que cambie).
+   - `python src/validacion.py` da la misma salida que antes del parámetro `modo`.
+   - Tiempos (solo informativos; la prueba de tiempos es la del apartado 12.4): ajuste del
+     modelo de referencia con 100 pasos, 28 s; cada prueba de fuga (730 previsiones),
+     unos 19 s.
+   - **Anticipación del asistente cumplida** en las once comprobaciones.
