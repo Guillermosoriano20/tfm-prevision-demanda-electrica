@@ -685,3 +685,54 @@ verificó leyendo su código fuente en esa versión y se comprueba además en el
       búsqueda). Alternativa no elegida: los 37 pasos con el mismo peso.
     - *Comprobación en el script:* el vector de pesos tiene 37 elementos, los 12 primeros
       valen 0 y el resto 1.
+
+### 12.2 Intervalos propios (fijado el 14 de octubre de 2026, antes de escribir su código)
+
+Concreta para N-HiTS la decisión de OE7 (archivo de alcance, capítulo 2): regresión
+cuantílica con pérdida pinball. Decisión del autor sobre la propuesta del asistente: una sola
+red para la previsión puntual y los cuantiles. Comportamiento de la librería comprobado en
+el código de NeuralForecast 3.2.2 (`losses/pytorch.py`, `common/_base_model.py`).
+
+1. **Una sola red con pérdida multicuantil** (`MQLoss(quantiles=[0.05, 0.5, 0.95])`): la
+   red produce tres trayectorias de 37 pasos y se entrena con la media de las tres
+   pérdidas pinball, con los pesos del horizonte del punto 12.1.11 (0 en los pasos 1-12,
+   1 en los 13-37).
+2. **Previsión puntual = salida del cuantil 0,5 (mediana).** Es la que se evalúa con el
+   MAE y la que decide la búsqueda (apartado 3.4); prever la mediana es coherente con
+   ese criterio (la pinball en 0,5 es la mitad del error absoluto).
+3. **Intervalo propio = salidas de los cuantiles 0,05 y 0,95** (intervalo central del 90 %,
+   nivel nominal de referencia; mismos cuantiles que LightGBM, apartado 11.2.1).
+4. **Cuantiles fijados antes de la búsqueda.** A diferencia de LightGBM, la previsión
+   puntual y los cuantiles comparten red: cambiar el conjunto de cuantiles cambiaría la
+   previsión puntual. Por eso este conjunto queda fijo para la búsqueda (12.5), el
+   reentrenamiento con 3 semillas (apartado 3.5) y la evaluación final.
+5. **Cruce de cuantiles:** `MQLoss` no impone el orden de los cuantiles. Misma regla que
+   LightGBM (11.2.5): si en una hora el límite inferior supera al superior, se
+   intercambian y se cuenta el número de horas con cruce. **La previsión puntual no se
+   modifica nunca.** Se informa también del número de horas con la mediana fuera del
+   intervalo.
+6. **Escala de la pérdida (se declara):** la pérdida de entrenamiento se calcula en la
+   escala normalizada de cada ventana (12.1.6), así que las ventanas con más variabilidad
+   pesan algo menos por cada MW de error. No es fuga. La pérdida de control de la parada
+   temprana, en cambio, la calcula la librería en MW (deshace la normalización).
+7. **Parada temprana (se fija en 12.5):** la pérdida de control de la librería sería la
+   multicuantil, no el MAE de la mediana. No vale `valid_loss=MAE()`: con tres salidas,
+   la librería promediaría el error absoluto de las tres trayectorias, no el de la
+   mediana.
+8. **Igual que la previsión puntual:** misma red, mismas ventanas, exclusión COVID y
+   exógenas (12.1); la prueba de fuga (12.3) se aplica a las tres salidas.
+9. **Coste:** solo se triplica la capa de salida; ningún entrenamiento adicional (LightGBM
+   necesitó dos modelos más). Se mide en la prueba de tiempos (12.4).
+10. **Capa probabilística (fase 2):** si el CRPS exige una rejilla de cuantiles
+    (pendiente 11.2.8), a N-HiTS no se le añaden cuantiles a esta red (cambiaría su
+    previsión puntual): se entrenaría una segunda red con la rejilla y los
+    hiperparámetros de la ganadora, usada solo para el CRPS, como los modelos de cuantiles
+    de LightGBM (un entrenamiento más en 2023 y 12 en la evaluación final). Se decide al
+    diseñar la fase 2, antes de medir ninguna calibración.
+11. **Riesgos declarados:** (a) compartir la red con las colas podría empeorar algo la
+    mediana (pesa un tercio de la pérdida); no se compara con una red puntual aparte
+    (gastaría presupuesto); (b) si los intervalos propios salen mal calibrados, se informa
+    tal cual (es lo que ACI debe corregir). Alternativas no elegidas: red puntual con `MAE`
+    más red de cuantiles con los hiperparámetros de la ganadora (doble coste por
+    entrenamiento); rejilla de 19 cuantiles fijada ya (adelantaría la decisión de la
+    fase 2 y la mediana pesaría 1/19 de la pérdida).
