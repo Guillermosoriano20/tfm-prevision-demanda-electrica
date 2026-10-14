@@ -685,6 +685,23 @@ verificó leyendo su código fuente en esa versión y se comprueba además en el
       búsqueda). Alternativa no elegida: los 37 pasos con el mismo peso.
     - *Comprobación en el script:* el vector de pesos tiene 37 elementos, los 12 primeros
       valen 0 y el resto 1.
+12. **Enmienda (14 de octubre de 2026, tras probar el código de 12.3 en el entorno del
+    asistente y antes de ejecutarlo en el PC del autor): exógenas de horas que no están en
+    los datos.**
+    - *Hecho:* N-HiTS prevé siempre 37 pasos y necesita las exógenas de los 37 (la red lee
+      las del horizonte completo). Para el último origen de cada conjunto, el paso 37 cae
+      fuera de los datos: el 30/12/2023 apunta al 1/1/2024 a las 00:00 locales (la carga de
+      validación corta 2024, apartado 2.7) y el 30/12/2024, al 1/1/2025 (fuera del
+      dataset). SARIMAX no tiene el problema porque solo prevé hasta el final de D+1.
+    - *Decisión del autor:* las horas del horizonte que no están en los datos toman las
+      exógenas de la última hora disponible (`nhits_modelo.exogenas_futuras`). El código
+      comprueba que son siempre horas posteriores al día objetivo (nunca evaluadas). Afecta
+      a un origen por conjunto y a un solo paso.
+    - *Riesgo declarado:* como la red lee las exógenas de todo el horizonte, las horas
+      evaluadas de ese origen pueden variar mínimamente respecto a usar el valor real.
+    - *Alternativa descartada:* leer el calendario y la temperatura de esa hora del año
+      siguiente: rompe la salvaguarda del apartado 2.7 en validación y es imposible en la
+      evaluación final (no hay datos de 2025).
 
 ### 12.2 Intervalos propios (fijado el 14 de octubre de 2026, antes de escribir su código)
 
