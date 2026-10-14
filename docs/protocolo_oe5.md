@@ -831,3 +831,53 @@ versión reforzada de la prueba de fuga incorporada a `src/validacion.py`.
      modelo de referencia con 100 pasos, 28 s; cada prueba de fuga (730 previsiones),
      unos 19 s.
    - **Anticipación del asistente cumplida** en las once comprobaciones.
+
+### 12.4 Prueba de tiempos en CPU (fijado el 14 de octubre de 2026, antes de medir en el PC del autor)
+
+Concreta para N-HiTS el riesgo 1 del plan de trabajo (tiempo de cálculo en CPU), con el
+mismo esquema que SARIMAX (apartado 8). Decisiones del autor sobre la propuesta del
+asistente: configuración medida, fórmulas, límites y orden de recortes de este apartado.
+
+1. **Qué cuesta una configuración** (procedimiento que se fijará en 12.5, como LightGBM en
+   11.3): entrenamiento con parada temprana de hasta *P* pasos (control: últimas 8
+   semanas), reentrenamiento con toda la ventana con el número de pasos elegido (peor caso:
+   *P*) y 365 previsiones de 2023. Lo que manda es el tiempo de un paso de entrenamiento,
+   *t_paso*; el de una previsión, *t_prever*, es pequeño (unos 0,026 s en N3).
+2. **Qué se mide** (`src/22_nhits_tiempos.py`), en el PC del autor con 4 hilos y semilla 42:
+   - Configuración **más pesada prevista** para el espacio de 12.5: *L* = 672,
+     `mlp_units` 3 × [1.024, 1.024], `n_blocks` [2, 2, 2], 1.024 ventanas por lote, pérdida
+     multicuantil y 11 exógenas (unos 70 millones de parámetros). Si el espacio que se
+     registre en 12.5 resultara más pesado, se vuelve a medir.
+   - *t_paso* = tiempo de reloj de un entrenamiento de 200 pasos con la ventana completa
+     hasta el 31/12/2022 12:00, con el control de 8 semanas evaluado cada 100 pasos, dividido
+     entre 200 (incluye arranque y control: estimación conservadora).
+   - *t_prever* = media de 10 previsiones de 2023, **solo tiempo**: no se calcula ni se mira
+     ningún error.
+3. **Criterio de "cabe"**, con *P* = tope de pasos, provisionalmente **1.000** (valor por
+   defecto de la librería; se fija en 12.5):
+   - *T_conf* = 2 × *P* × *t_paso* + 365 × *t_prever* (peor caso de una configuración).
+   - Búsqueda y semillas: 22 × *T_conf* × 1,2 ≤ **10 horas** (20 configuraciones más 2
+     reentrenamientos de la ganadora con otras semillas, apartado 3.5; 1,2 = margen de
+     seguridad, como en 8.3).
+   - Evaluación final de 2024: 12 × 2 × *P* × *t_paso* × 1,3 + 366 × *t_prever* ≤
+     **8 horas** (regla de 2.4; 1,3 por el crecimiento de la serie, que la librería recorre
+     entera en cada paso).
+4. **Si no cabe, en este orden** (se aplica el primer paso que haga cumplir las dos
+   condiciones):
+   1. Bajar *P* en múltiplos de 100, como mínimo hasta 500.
+   2. Bajar los máximos del espacio: *L* = 504, `mlp_units` 3 × [512, 512], `n_blocks`
+      [1, 1, 1] (1.024 ventanas por lote), y volver a medir con el mismo criterio y el
+      mismo paso 1. Para no repetir la ejecución, el script mide esta configuración
+      reducida a continuación si la más pesada no cabe ni con *P* = 500.
+   3. Pasar a 12 configuraciones (apartado 3.1), solo por decisión del autor.
+5. **Anticipación del asistente.** Fijada antes de escribir el script (por razonamiento a
+   partir de N3): *t_paso* entre 0,5 y 1,5 s; la búsqueda cabe con *P* = 1.000 solo si
+   *t_paso* ≤ 0,68 s. Actualizada tras probar el script en el entorno del asistente (solo
+   tiempos, 2 núcleos; esos tiempos no cuentan para el criterio): 3,6 s por paso con la
+   configuración más pesada y 0,9 s con la reducida; con la proporción observada en N3
+   (PC del autor unas 2,2 veces más rápido), se espera en el PC del autor unos **1,6 s**
+   (fuera del intervalo anticipado: **no cabría ni con *P* = 500**) y unos **0,4 s** con la
+   reducida (**cabría con *P* = 1.000**, búsqueda de unas 6 h).
+6. **Riesgos:** el peor caso supone que la parada temprana llega siempre al tope (puede
+   sobreestimar mucho); otros programas abiertos en el PC durante la medición la
+   falsearían. Alternativa más barata no elegida: fijar los máximos bajos sin medir.
