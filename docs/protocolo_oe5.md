@@ -1042,3 +1042,126 @@ tiempos (12.4.7). Script: `src/23_nhits_validacion.py`; procedimiento en
      elegir con 2023.
 7. **Para la evaluación final (2024):** 12 reentrenamientos mensuales de `c13` con el
    procedimiento de 12.5.1 (semilla 42); según 12.4.7, por debajo de 4,3 h.
+
+## 13. Tabla de validación y desgloses de los cuatro modelos (fijado el 15 de octubre de 2026, antes de escribir su código y de calcular nada nuevo)
+
+Cumple la decisión del autor del 13/10 (11.4.8): **un solo script común**,
+`src/24_validacion_desgloses.py`, con la tabla de validación de 2023 y los desgloses de los
+cuatro modelos. Solo lee previsiones ya guardadas: no entrena, no reajusta y no prevé nada.
+
+### 13.1 Alcance y regla de uso
+
+1. **Entradas:** `data/predicciones/ingenuo_validacion.parquet`, `sarimax_validacion.parquet`,
+   `lightgbm_validacion.parquet` y `nhits_validacion.parquet` (las cuatro previsiones
+   oficiales); además, solo para 13.4.5, `nhits_c13_s43_validacion.parquet` y
+   `nhits_c13_s44_validacion.parquet`.
+2. **No decide nada.** SARIMAX (10.10), LightGBM (11.4) y N-HiTS (12.6) están cerrados hasta
+   la evaluación final: ningún resultado de este apartado cambia una ganadora, una
+   variable, un hiperparámetro ni el procedimiento de 2024. Lo que se observe va a la
+   memoria (5.2 y 5.7) como descripción o como hipótesis sin comprobar. Si alguna
+   observación sugiriera un cambio de modelo, sería una extensión fuera del núcleo, a
+   decidir por el autor y declarada como tomada a la vista de 2023.
+3. **Solo 2023.** La carga de datos mantiene el corte de 2024 (`cargar_datos()` por
+   defecto). Las funciones reciben el conjunto como parámetro para reutilizarlas en el
+   desglose de OE8 sobre 2024 (fase 4), pero el script solo se ejecuta sobre `validacion`.
+4. **Descriptivo, sin contrastes.** Con 4 modelos y decenas de celdas, alguna diferencia
+   saldrá llamativa por azar; las reglas de lectura se fijan en 13.5.
+
+### 13.2 Controles (el script se detiene si falla alguno)
+
+1. Cada archivo tiene 8.760 filas, sin nulos, con las mismas horas UTC y los mismos días
+   objetivo. La hora UTC se lleva a la misma precisión antes de cruzar (SARIMAX la guarda
+   en nanosegundos; los demás, en microsegundos).
+2. La columna `real` es idéntica bit a bit en los cuatro archivos y a `demanda_mw` del
+   dataset (`cargar_datos` comprueba la huella).
+3. N-HiTS guarda `prevision` en `float32`: se convierte a `float64` al leerla (redondeo de
+   unos 0,004 MW a 40.000 MW; se declara).
+4. La escala del MASE recalculada (`validacion.escala_mase`) vale 1.328,2 MW (± 0,05).
+5. Se reproducen los MAE registrados: ingenuo 1.400 MW (± 0,5, registrado sin decimales),
+   SARIMAX 943,4, LightGBM 585,2 y N-HiTS 716,4 MW (± 0,05); semillas 43 y 44 de N-HiTS,
+   771,1 y 704,6 MW (± 0,05).
+
+### 13.3 Tabla de validación de 2023 (una fila por modelo)
+
+MAE, RMSE, MAPE y MASE (`validacion.metricas`, apartado 7); **sesgo** = media de
+(real − previsto), positivo si el modelo se queda corto; **MAE relativo al ingenuo**;
+**razón RMSE/MAE**; **percentil 95 del error absoluto** (`numpy.percentile`, interpolación
+lineal por defecto).
+
+### 13.4 Desgloses (MAE y sesgo de cada modelo)
+
+1. **Anticipación** *a* = hora UTC prevista − origen UTC, en horas (origen de
+   `validacion.generar_origenes`: 12:00 locales del día anterior al objetivo). Valores de
+   12 a 36, con el número de horas de cada valor (12-34: 365; 35: 364; 36: 1, el día de
+   25 horas). **Bloques de 6 h:** 12-17, 18-23, 24-29 y 30-36, que fuera de los días de
+   cambio de hora son las horas locales 00-05, 06-11, 12-17 y 18-23 del día objetivo.
+2. **Mes** del día objetivo (12 filas).
+3. **Día:** MAE diario (media de las horas del día local objetivo); los **10 peores días
+   de cada modelo** con día de la semana, `tipo_dia`, `fraccion_festivo` y si está en el
+   periodo `navidad`; resumen por **día de la semana** y por **`tipo_dia`** (laborable,
+   fin de semana, festivo, puente). `tipo_dia` se usa solo como etiqueta para agrupar,
+   nunca como entrada de un modelo (como en OE8).
+4. **Sesgo cruzado bloque × mes** (4 × 12) para los cuatro modelos.
+5. **N-HiTS con las semillas 43 y 44:** sesgo total, por bloque y por mes, junto a la
+   semilla 42.
+6. **Comparación entre modelos:** correlación de Pearson de los errores horarios (matriz
+   4 × 4) y porcentaje de días en que cada modelo tiene el menor MAE diario (si hay
+   empate, cuenta para todos los empatados y se informa del número de empates).
+7. **Dos figuras para 5.2**, en `memoria/figuras/` con el estilo del script 14 (16 cm de
+   ancho, 300 ppp, sin título, coma decimal, rótulos en español): MAE por anticipación
+   (una línea por modelo, *a* de 12 a 35; la anticipación 36, con una sola hora, se omite
+   y se declara) y MAE por mes.
+8. **Salidas:** tablas en CSV en `data/resultados/validacion/` (fuera de git; se regeneran
+   con el script) y resumen en pantalla.
+
+### 13.5 Reglas de lectura (fijadas antes de ver los desgloses)
+
+1. Una diferencia de sesgo entre dos grupos de bloques o de meses se lee como
+   **apreciable** solo si supera **150 MW**. Es orientativo: el error medio de un mes
+   promedia unas 730 horas fuertemente autocorrelacionadas, así que su incertidumbre es
+   mucho mayor que la que daría la fórmula para horas independientes. En N-HiTS se compara
+   además con la diferencia entre semillas.
+2. **Sesgo propio de la configuración de N-HiTS** (no de la semilla): las tres semillas
+   tienen el mismo signo de sesgo total y el mismo orden de bloques (de mayor a menor
+   sesgo), con a lo sumo un intercambio entre bloques contiguos.
+3. **Autoconsumo solar (LightGBM, de 12 a 17 h):** la observación es **compatible** con la
+   hipótesis si el sesgo del bloque 24-29 es más negativo en abril-septiembre que en
+   noviembre-febrero en más de 150 MW, y **la debilita** si no. Ninguna de las dos
+   lecturas la comprueba: no hay datos de autoconsumo en el trabajo, y en verano se
+   confunde con la refrigeración. Se informa como hipótesis.
+
+### 13.6 Anticipación del asistente (fijada antes de escribir el código)
+
+Las cifras de LightGBM por franja (13/10, 11.4.7) ya se vieron en el entorno del asistente;
+para ellas solo se anticipa que se reproducen.
+
+1. **Controles:** pasan todos.
+2. **Tabla:** razón percentil 95 / MAE entre 2,3 y 3,2 en los cuatro modelos (2,5 con
+   errores normales; 3,0 con errores de Laplace).
+3. **Anticipación:** en SARIMAX, LightGBM y N-HiTS el MAE es máximo en el bloque 24-29
+   (12-17 h); el ingenuo es el más plano (cociente entre su bloque peor y su bloque mejor
+   menor que el de los otros tres). LightGBM, bloque 24-29: sesgo de −411 ± 15 MW
+   (reproducción; difiere solo en los días de cambio de hora).
+4. **Sesgo de N-HiTS:** positivo en al menos 9 de los 12 meses; **mayor en los bloques
+   diurnos (24-29 y 30-36) que en el de madrugada (12-17)**, con una diferencia de más de
+   150 MW, y el bloque de madrugada entre −150 y +150 MW. Hipótesis en que se apoya:
+   entrenamiento incompleto (la ganadora y 12 de 20 configuraciones en el tope de pasos)
+   que encoge la previsión hacia el nivel central de la ventana de entrada; las horas por
+   encima de ese nivel (día) se quedan cortas y las de por debajo (noche), no. Si es así,
+   la semilla 43, que paró antes (600 pasos), tendrá el sesgo total más alto de las tres.
+   La hipótesis rival (una deriva de nivel aprendida) predice un sesgo parecido en los
+   cuatro bloques; si la diferencia entre bloques es menor de 150 MW, la anticipación
+   habrá fallado. Confianza baja (en torno al 50 %). Sesgo propio de la configuración
+   (13.5.2): sí.
+5. **Sesgo de LightGBM de 12 a 17 h:** negativo en al menos 10 de 12 meses y compatible con
+   el autoconsumo según 13.5.3 (confianza en torno al 60 %). N-HiTS, cuya entrada son las
+   últimas horas observadas, no tiene sesgo negativo en ese bloque; SARIMAX sí lo tiene, y
+   más negativo que su sesgo total (−346 MW).
+6. **Mes:** el peor mes de cada modelo es agosto o diciembre.
+7. **Días:** en cada modelo, al menos 5 de sus 10 peores días son festivos (`tipo_dia`
+   festivo) o caen en el periodo `navidad`; el sesgo medio de los festivos es negativo en
+   los cuatro (se prevé más demanda de la que hay).
+8. **Comparación:** todas las correlaciones de errores son positivas; las más bajas, las del
+   ingenuo; LightGBM-SARIMAX, 0,60 (ya visto el 13/10); la pareja más correlacionada,
+   LightGBM-N-HiTS, entre 0,55 y 0,80. Días con el menor MAE: LightGBM 45-65 %, N-HiTS
+   20-35 %, SARIMAX 10-25 %, ingenuo menos del 8 %.
