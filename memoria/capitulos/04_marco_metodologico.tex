@@ -706,7 +706,8 @@ defecto de especificación que impida a un modelo aprovechar información que
 el protocolo pone a disposición de todos. Nunca se admite para ajustar
 hiperparámetros, la arquitectura o el procedimiento de entrenamiento, que se
 eligen exclusivamente dentro del presupuesto de búsqueda. Las dos enmiendas
-del SARIMAX (sección~\ref{sec:esp-sarimax}) son del primer tipo, y por la
+del SARIMAX (sección~\ref{sec:esp-sarimax}) corrigen un defecto de
+especificación de este tipo, y por la
 misma regla no se modificó N-HiTS tras ver su comportamiento en 2023
 (sección~\ref{sec:val-perfil}).
 
@@ -1142,11 +1143,10 @@ tomaran después de ver 2023 hace que el error de validación del SARIMAX sea
 algo optimista, y así figura entre las limitaciones
 (tabla~\ref{tab:limitaciones-modelos}).
 
-Los armónicos de Fourier no se volvieron a elegir tras las enmiendas. Se
-consideró que el nivel y los retardos recogen el nivel y la persistencia de la
-demanda, y que no deberían cambiar la forma del ciclo diario y semanal que
-describen los armónicos. No se comprobó, y también figura entre las
-limitaciones.
+Los armónicos de Fourier no se volvieron a elegir tras las enmiendas, de
+modo que su número se fijó sin el nivel ni los retardos en el modelo. No se
+ha comprobado si una nueva selección los habría cambiado, y figura entre las
+limitaciones (tabla~\ref{tab:limitaciones-modelos}).
 
 \paragraph{Estimación.} El método de estimación se decidió antes de las dos
 enmiendas anteriores, con la configuración más pesada prevista para la prueba
