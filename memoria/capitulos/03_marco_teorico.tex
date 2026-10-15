@@ -1,6 +1,7 @@
 % =====================================================================
 % Capítulo 3. Marco teórico y estado del arte
-% Estado: 3.1, 3.2 y 3.3 redactadas (06/10/2026); 3.4 a 3.8 pendientes.
+% Estado: 3.1, 3.2 y 3.3 redactadas (06/10/2026); 3.4, 3.5 y 3.6 redactadas
+% (15/10/2026, sesión R1); 3.7 y 3.8 pendientes (R2 y R3).
 % =====================================================================
 
 \chapter{Marco teórico y estado del arte}\label{cap:marco-teorico}
@@ -105,14 +106,15 @@ de la próxima. A uno o varios días, dominan el calendario y la temperatura
 prevista, que determinan la forma del perfil diario. A meses o años, pierden
 peso los factores meteorológicos concretos y lo ganan los estructurales y la
 climatología media. Este trabajo se sitúa en el corto plazo, con un horizonte
-de entre 12 y 36 horas (sección~\ref{sec:problema}), en el que la
+de entre 12 y 35 horas, o 36 el día del cambio de hora de octubre
+(sección~\ref{sec:problema}), en el que la
 temperatura y el calendario son los determinantes principales.
 
 Una previsión emitida en un momento dado para varias horas futuras es una
 previsión multihorizonte: el modelo debe producir de una vez los 24 valores
 del día siguiente, y cada uno de ellos tiene una anticipación distinta. Las
-estrategias para hacerlo, recursiva o directa, se tratan en la
-sección dedicada al aprendizaje profundo.
+estrategias para hacerlo se tratan en la
+sección~\ref{sec:ml-supervisado}.
 
 Por último, una previsión puede ser puntual o probabilística. La previsión
 puntual proporciona un único valor para cada hora, normalmente una
@@ -462,9 +464,22 @@ blanco \parencite{hyndman2021fpp3}:
 \end{equation}
 Las variables explicativas recogen los efectos deterministas y externos,
 como la estacionalidad, el calendario o la temperatura, y el proceso ARIMA
-de los errores recoge la dependencia de corto plazo que queda tras ellos. El
-modelo SARIMAX de la librería statsmodels, empleado en este trabajo, se
-formula de esta manera, como una regresión con errores SARIMA.
+de los errores recoge la dependencia de corto plazo que queda tras ellos.
+Entre las variables explicativas pueden figurar también valores pasados de
+la propia serie, siempre que se conozcan en el momento de emitir la
+previsión. El modelo SARIMAX de la librería statsmodels, empleado en este
+trabajo, se formula de esta manera, como una regresión con errores SARIMA.
+
+Los coeficientes de la regresión y los parámetros del proceso de los
+errores pueden estimarse conjuntamente por máxima verosimilitud. Una
+alternativa clásica procede por etapas: se estima la regresión por mínimos
+cuadrados ordinarios, se identifica y estima un proceso ARMA para sus
+residuos y se vuelve a estimar la regresión por mínimos cuadrados
+generalizados con esa estructura de los errores
+\parencite{shumway2017time}. Repetir las dos últimas etapas hasta que las
+estimaciones se estabilizan da lugar a los mínimos cuadrados generalizados
+factibles iterados. El procedimiento empleado en el trabajo y su
+justificación se recogen en la sección~\ref{sec:esp-sarimax}.
 
 Para representar la estacionalidad se emplean términos de Fourier. Para un
 periodo $m$, se definen $K$ parejas de variables
@@ -518,4 +533,418 @@ invariable. Su inconveniente es el coste computacional, que crece con la
 longitud de la serie y con el número y la duración de los periodos
 estacionales y que, en una serie horaria de varios años con un periodo
 anual, puede ser elevado. Las consecuencias de este coste para el diseño del
-trabajo se discuten en el marco metodológico.
+trabajo se discuten en la sección~\ref{sec:especificacion}.
+
+% =====================================================================
+\section{Aprendizaje automático aplicado a la previsión}\label{sec:ml}
+
+Los modelos de las secciones anteriores parten de una especificación
+estadística explícita: el analista decide qué estacionalidades, qué variables
+y qué estructura de dependencia tiene la serie, y los datos estiman los
+parámetros. Los métodos de aprendizaje automático invierten el reparto. El
+analista proporciona un conjunto de variables de entrada y el algoritmo
+aprende de los datos una función que las relaciona con la demanda, sin una
+forma funcional fijada de antemano. Esta sección presenta cómo se reformula
+la previsión para aplicar estos métodos, los árboles de decisión y el
+\textit{gradient boosting}, la implementación LightGBM empleada en el trabajo
+y el problema de elegir sus hiperparámetros.
+
+\subsection{La previsión como aprendizaje supervisado}\label{sec:ml-supervisado}
+
+Un algoritmo de aprendizaje supervisado aprende a partir de ejemplos
+formados por un vector de entradas $\mathbf{x}$ y una salida $y$, y no tiene
+noción del orden temporal. Para aplicarlo a una serie temporal, la serie se
+transforma en una tabla en la que cada fila corresponde a un instante que se
+quiere prever. La salida es el valor de la serie en ese instante, y las
+entradas son variables que se conocen en el momento de emitir la previsión:
+valores pasados de la propia serie, llamados retardos, resúmenes de esos
+valores, como medias móviles, y variables exógenas conocidas de antemano,
+como el calendario o una previsión meteorológica. La estructura temporal que
+un modelo ARIMA recoge en su especificación debe expresarse aquí en forma de
+variables.
+
+Esta reformulación obliga a una condición estricta: cada variable de entrada
+debe estar disponible en el momento en que se emite la previsión. Si la
+previsión para una hora se emite 30 horas antes, un retardo de 24 horas
+apuntaría a un valor que todavía no se ha observado, y un modelo que lo usara
+obtendría en la evaluación un rendimiento que no podría alcanzar en la
+práctica. Esta fuga de información es el error más característico de la
+previsión con aprendizaje automático, porque la tabla de ejemplos no la
+impide por sí misma.
+
+Cuando hay que prever varios instantes a la vez, como las 24 horas del día
+siguiente, existen varias estrategias \parencite{bentaieb2012review}. La
+estrategia \emph{recursiva} entrena un único modelo para prever un paso por
+delante y lo aplica de forma repetida, usando cada previsión como entrada de
+la siguiente; es sencilla, pero los errores se acumulan a lo largo del
+horizonte. La estrategia \emph{directa} entrena un modelo distinto para cada
+anticipación, o un único modelo que recibe la anticipación como variable de
+entrada, de modo que ninguna previsión depende de otra; no acumula errores,
+pero cada previsión ignora las demás. La estrategia de \emph{salida múltiple}
+emplea un modelo que produce de una vez el vector completo del horizonte, lo
+que le permite aprender la relación entre los valores sucesivos de la
+trayectoria. En su comparación sobre las series de la competición NN5,
+\textcite{bentaieb2012review} encontraron los mejores resultados con las
+estrategias de salida múltiple. En este
+trabajo, LightGBM emplea la estrategia directa con un único modelo y N-HiTS
+la de salida múltiple (sección~\ref{sec:especificacion}).
+
+\subsection{Árboles de decisión y \textit{gradient boosting}}\label{sec:boosting}
+
+Un árbol de regresión divide el espacio de las variables de entrada en
+regiones mediante una sucesión de preguntas binarias sobre una variable cada
+vez, del tipo «¿la temperatura es menor que 12~°C?», y asigna a cada región,
+llamada hoja, un valor constante: la media de los ejemplos de entrenamiento
+que caen en ella. Las divisiones se eligen de forma voraz, escogiendo en cada
+paso la que más reduce el error de entrenamiento. Los árboles recogen de
+forma natural relaciones no lineales e interacciones entre variables, como
+que el efecto de la temperatura dependa de la hora, y no se ven afectados
+por la escala de las variables. Un árbol aislado, sin embargo, es poco
+preciso: si es profundo, se ajusta en exceso a los datos de entrenamiento, y
+si es poco profundo, no recoge la complejidad del problema.
+
+El \textit{gradient boosting} \parencite{friedman2001greedy} combina muchos
+árboles poco profundos de forma aditiva. El modelo se construye por etapas:
+\begin{equation}
+	F_m(\mathbf{x}) = F_{m-1}(\mathbf{x}) + \nu \, h_m(\mathbf{x}),
+	\qquad m = 1, \dots, M,
+\end{equation}
+donde cada nuevo árbol $h_m$ se ajusta al gradiente negativo de la función
+de pérdida evaluado en las previsiones del modelo anterior, $F_{m-1}$, y
+$\nu \in (0, 1]$ es la tasa de aprendizaje. Con la pérdida cuadrática, el
+gradiente negativo es simplemente el residuo, de modo que cada árbol aprende
+a corregir lo que los anteriores no han explicado. El procedimiento equivale
+a un descenso por gradiente en el espacio de las funciones, y admite
+cualquier pérdida para la que pueda calcularse un gradiente o, donde no es
+derivable, un subgradiente: la cuadrática conduce a estimar la media
+condicionada; la absoluta, la mediana; y la pérdida por cuantiles, un
+cuantil cualquiera, lo que permite construir intervalos de predicción.
+
+La tasa de aprendizaje y el número de árboles regulan conjuntamente la
+complejidad del modelo. Una tasa pequeña hace que cada árbol aporte poco y
+exige más árboles, pero suele generalizar mejor. El número de árboles se
+fija habitualmente mediante parada temprana: se reserva un conjunto de
+control, se evalúa el error sobre él a medida que se añaden árboles y se
+detiene el entrenamiento cuando deja de mejorar durante un número dado de
+iteraciones.
+
+\subsection{LightGBM}\label{sec:lightgbm}
+
+LightGBM \parencite{ke2017lightgbm} es una implementación del
+\textit{gradient boosting} con árboles diseñada para conjuntos de datos
+grandes. Para buscar las divisiones, agrupa los valores de cada variable en
+intervalos y evalúa solo las fronteras entre ellos, en lugar de todos los
+valores distintos, lo que reduce mucho el coste. Sus autores proponen además
+dos técnicas para acelerar el entrenamiento: un muestreo de los ejemplos que
+conserva los de gradiente grande, es decir, los peor previstos, y descarta
+una parte de los demás, y la agrupación de variables que rara vez toman
+valores no nulos a la vez. La librería ofrece también un muestreo aleatorio
+simple de ejemplos y de variables, que es el que se emplea en este trabajo. La implementación hace crecer los árboles hoja a
+hoja: en cada paso divide la hoja cuya división más reduce la pérdida, lo que
+produce árboles asimétricos cuyo tamaño se controla con el número máximo de
+hojas.
+
+Los hiperparámetros principales son la tasa de aprendizaje; el número máximo
+de hojas de cada árbol; el número mínimo de ejemplos por hoja, que impide
+crear hojas a partir de muy pocos datos; las fracciones de variables y de
+ejemplos que se sortean para construir cada árbol, que introducen
+aleatoriedad y reducen el sobreajuste; y la penalización de la magnitud de
+los valores de las hojas. A ellos se añade la elección de la función de
+pérdida.
+
+En la previsión con LightGBM, la ingeniería de variables ocupa el lugar que
+la especificación estadística ocupa en el SARIMAX. El modelo no sabe que la
+demanda tiene un ciclo diario ni que depende de la de la semana anterior: lo
+aprende si recibe la hora del día y el retardo de 168 horas como variables.
+A cambio, no necesita suponer que los efectos son lineales ni aditivos, ni
+que el ciclo diario tiene la misma forma todo el año, y combina por sí mismo
+la temperatura, la hora y el calendario. Su principal limitación es la otra
+cara de esa flexibilidad: la previsión de un conjunto de árboles es
+constante a trozos y no extrapola fuera del intervalo de valores de las
+variables visto al entrenar, de modo que un cambio de nivel de la serie solo
+lo recoge a través de variables que lo contengan, como los retardos.
+
+\subsection{Selección de hiperparámetros}\label{sec:hiperparametros}
+
+Los hiperparámetros no se estiman al entrenar, sino que se eligen comparando
+el rendimiento de varias configuraciones en datos no usados para el ajuste.
+La búsqueda en rejilla evalúa todas las combinaciones de una lista de
+valores por hiperparámetro, y su coste crece de forma exponencial con el
+número de hiperparámetros. La búsqueda aleatoria sortea las configuraciones
+de una distribución fijada para cada hiperparámetro.
+\textcite{bergstra2012random} mostraron que, con el mismo número de
+evaluaciones, la búsqueda aleatoria suele encontrar configuraciones tan
+buenas o mejores que la rejilla. La razón es que, en la mayoría de los
+problemas, solo unos pocos hiperparámetros influyen de verdad en el
+resultado: la rejilla repite muchas veces los mismos valores de los
+hiperparámetros importantes, mientras que el sorteo prueba un valor distinto
+de cada uno en cada evaluación.
+
+Elegir la configuración por su rendimiento en un conjunto de validación
+tiene una consecuencia que conviene tener presente: el rendimiento de la
+configuración elegida en ese conjunto es una estimación optimista de su
+rendimiento futuro, porque se ha seleccionado precisamente por haber
+funcionado bien en él. Por eso el rendimiento que se informa debe medirse en
+datos distintos, no usados para elegir. En series temporales, además, el
+conjunto de validación debe ser posterior a los datos de entrenamiento, como
+se expone en la sección~\ref{sec:origen-movil}.
+
+% =====================================================================
+\section{Aprendizaje profundo para la previsión}\label{sec:dl}
+
+El aprendizaje profundo emplea redes neuronales con varias capas, capaces de
+aprender representaciones de los datos de entrada sin que el analista las
+construya. En previsión de series temporales, su atractivo es doble: pueden
+recibir directamente el tramo reciente de la serie, sin una lista de
+retardos elegida de antemano, y pueden producir el horizonte completo de una
+vez. Esta sección presenta las redes recurrentes, la familia de modelos de
+expansión de base a la que pertenece N-HiTS, el propio N-HiTS, la
+normalización de las entradas, que condiciona su uso sin fuga de
+información, y otras arquitecturas que quedan fuera del trabajo.
+
+\subsection{Redes neuronales y redes recurrentes}\label{sec:rnn}
+
+La red más sencilla es el perceptrón multicapa: una sucesión de capas en la
+que cada neurona calcula una combinación lineal de las salidas de la capa
+anterior y le aplica una función no lineal. Con suficientes neuronas, puede
+aproximar cualquier función continua, y sus pesos se aprenden minimizando
+una función de pérdida mediante variantes del descenso por gradiente sobre
+lotes de ejemplos. Para reducir el sobreajuste, es habitual anular al azar
+durante el entrenamiento una fracción de las neuronas o de las salidas de una
+capa, técnica conocida como \textit{dropout}. Aplicada a una serie temporal,
+la red recibe un vector de
+longitud fija con los últimos valores observados y no tiene en cuenta su
+orden más que a través de la posición de cada valor.
+
+Las redes recurrentes se diseñaron para datos secuenciales: procesan la
+serie paso a paso y mantienen un estado interno que resume lo visto hasta
+el momento. Las redes recurrentes simples tienen dificultades para aprender
+dependencias largas, porque el gradiente se atenúa o se amplifica al
+propagarse a través de muchos pasos. La red LSTM
+\parencite{hochreiter1997long} lo mitiga con una celda de memoria cuyo
+contenido regulan unas puertas que deciden qué información entra en ella y
+cuál sale. En previsión, las redes recurrentes tienen dos
+inconvenientes: su entrenamiento es secuencial y, por tanto, lento con
+ventanas largas como las de una serie horaria; y, cuando prevén de forma
+recursiva, acumulan errores a lo largo del horizonte. Estas limitaciones
+motivaron arquitecturas que prescinden de la recurrencia.
+
+\subsection{Expansión de base neuronal: N-BEATS}\label{sec:nbeats}
+
+N-BEATS \parencite{oreshkin2020nbeats} es una arquitectura formada solo por
+capas totalmente conectadas que prevé el horizonte completo de una vez. Su
+unidad es el bloque: un perceptrón multicapa que recibe una ventana de la
+serie y produce dos conjuntos de coeficientes. Con el primero reconstruye la
+propia ventana de entrada, lo que se denomina \textit{backcast}, y con el
+segundo, la previsión, o \textit{forecast}. Cada coeficiente multiplica una
+función de base: en la versión genérica, las bases se aprenden; en la
+interpretable, se fijan como polinomios, para la tendencia, o como términos
+de Fourier, para la estacionalidad, de modo que la previsión se descompone en
+componentes con significado.
+
+Los bloques se encadenan con un doble mecanismo residual. Cada bloque recibe
+la parte de la entrada que los anteriores no han explicado, es decir, la
+ventana menos los \textit{backcasts} acumulados, y su previsión se suma a la
+de los anteriores. Los bloques se agrupan en pilas. El resultado es una
+descomposición progresiva de la serie en la que cada bloque se especializa en
+lo que queda por explicar. Sus autores obtuvieron con ella resultados
+competitivos en las series de las competiciones M3 y M4 sin ingeniería de
+variables específica para cada serie.
+
+\subsection{N-HiTS}\label{sec:nhits}
+
+N-HiTS \parencite{challu2023nhits} extiende N-BEATS para horizontes largos,
+en los que N-BEATS resulta costoso y produce previsiones con oscilaciones
+espurias, porque cada bloque predice libremente todos los pasos del
+horizonte. Introduce dos mecanismos que asignan a cada pila una escala
+temporal distinta.
+
+El primero es el \emph{muestreo multiescala de la entrada}. Antes de entrar
+en cada bloque, la ventana se resume mediante una agrupación por máximos con
+un tamaño de núcleo $k$ propio de cada pila: con $k = 4$, por ejemplo, cada
+grupo de cuatro horas consecutivas se sustituye por su máximo. Las pilas con
+$k$ grande ven una versión suavizada de la entrada y se concentran en las
+variaciones lentas; las de $k = 1$ ven la serie completa.
+
+El segundo es la \emph{interpolación jerárquica de la salida}. En lugar de
+producir un valor por cada paso del horizonte, cada bloque produce un número
+reducido de puntos, determinado por un factor de submuestreo propio de su
+pila, y la trayectoria completa se obtiene interpolando entre ellos. Con un
+factor de 12 y un horizonte de 37 pasos, por ejemplo, el bloque produce solo
+unos pocos puntos a lo largo de las 37 horas, y su contribución es
+necesariamente una curva suave que no puede reproducir variaciones de pocas
+horas; con un factor de 1, el bloque produce todos los pasos. La previsión
+final es la suma de las contribuciones de todas las pilas, de modo que las
+de factor grande recogen la forma general de la trayectoria y las de factor
+pequeño añaden el detalle. El reparto de escalas entre pilas es un
+hiperparámetro del modelo.
+
+Estos mecanismos reducen el número de parámetros y el coste de cada paso de
+entrenamiento, y sus autores muestran mejoras de precisión y de coste frente
+a N-BEATS y a arquitecturas basadas en transformadores en conjuntos de
+datos de horizonte largo \parencite{challu2023nhits}. La implementación
+empleada en el trabajo admite además variables exógenas conocidas en el
+futuro, que la red lee tanto en la ventana de entrada como en el horizonte. Puede entrenarse con una pérdida
+puntual o con una pérdida por cuantiles, en cuyo caso produce varias
+trayectorias, una por cuantil, a partir de la misma red; la pérdida por
+cuantiles se presenta con la previsión probabilística.
+
+\subsection{Normalización de la entrada por ventana}\label{sec:normalizacion}
+
+Las redes neuronales se entrenan mejor cuando sus entradas tienen una escala
+moderada y comparable, por lo que la serie se normaliza antes de entrar en
+la red y la salida se devuelve después a la escala original. Hay dos formas
+de hacerlo, con consecuencias distintas para la fuga de información.
+
+La primera es un escalado de la serie completa: se calculan una vez una
+posición y una escala, por ejemplo la media y la desviación típica, con todos
+los datos de entrenamiento, y se aplican a todas las ventanas. Si esas
+estadísticas se calculan con datos posteriores al momento de una previsión,
+la previsión incorpora información del futuro. Si se calculan solo con datos
+anteriores, no hay fuga, pero la red trabaja con niveles absolutos y los
+periodos de evaluación pueden tener niveles distintos de los vistos al
+entrenar.
+
+La segunda es la normalización por ventana: cada ventana se normaliza con
+estadísticas calculadas solo sobre su propia parte de entrada, por ejemplo
+restando su mediana y dividiendo por su desviación absoluta mediana, y la red
+aprende a prever el horizonte en esa escala relativa. Como las estadísticas
+se calculan con valores anteriores al momento de la previsión, no puede
+haber fuga, y el nivel de la previsión se ajusta de forma automática al de
+los datos más recientes. Su contrapartida es que la red no conoce el nivel
+absoluto de la serie, sino solo su forma relativa dentro de la ventana. El
+protocolo del trabajo (sección~\ref{sec:prot-informacion}) exige que toda
+normalización se ajuste solo con datos anteriores al origen de cada
+previsión, y para N-HiTS adopta únicamente esta segunda forma, que lo cumple
+por construcción.
+
+\subsection{Otras arquitecturas}\label{sec:otras-arquitecturas}
+
+Una parte importante de la investigación reciente en previsión con
+aprendizaje profundo se basa en mecanismos de atención, que permiten a la
+red ponderar de forma distinta cada instante pasado al construir la
+previsión. El Temporal Fusion Transformer \parencite{lim2021temporal}
+combina atención, redes recurrentes y mecanismos de selección de variables, y
+produce previsiones por cuantiles en varios horizontes con una
+interpretabilidad que otras redes no ofrecen, al indicar qué variables y qué
+instantes pasados pesan más en cada previsión. Su arquitectura es, sin
+embargo, considerablemente más compleja que la de N-HiTS, lo que encarece su
+entrenamiento. Por ese motivo, y para mantener acotado el alcance, el trabajo emplea N-HiTS como único representante del
+aprendizaje profundo, y el Temporal Fusion Transformer queda como posible
+extensión.
+
+% =====================================================================
+\section{Evaluación de previsiones puntuales}\label{sec:evaluacion}
+
+Comparar modelos de previsión exige decidir tres cosas: cómo se mide el
+error de una previsión, sobre qué datos se mide y cómo se decide si la
+diferencia entre dos modelos es mayor que la que cabría esperar por azar.
+Esta sección presenta las métricas de error puntual, la validación con origen
+móvil y el contraste de Diebold-Mariano. La evaluación de las previsiones
+probabilísticas se trata en la sección siguiente.
+
+\subsection{Métricas de error}\label{sec:metricas}
+
+Sea $e_t = y_t - \hat{y}_t$ el error de la previsión de la hora $t$, es
+decir, la diferencia entre el valor observado y el previsto, de modo que un
+error positivo indica que la previsión se ha quedado corta. Sobre un
+conjunto de $n$ horas, las métricas más empleadas son
+\begin{equation}
+	\mathrm{MAE} = \frac{1}{n}\sum_{t} |e_t|,
+	\qquad
+	\mathrm{RMSE} = \sqrt{\frac{1}{n}\sum_{t} e_t^2},
+	\qquad
+	\mathrm{MAPE} = \frac{100}{n}\sum_{t} \left|\frac{e_t}{y_t}\right|.
+\end{equation}
+El error absoluto medio (MAE) y la raíz del error cuadrático medio (RMSE) se
+expresan en las unidades de la serie, megavatios en este caso. El RMSE
+penaliza más los errores grandes, porque los eleva al cuadrado, y nunca es
+menor que el MAE; su cociente aumenta cuando el error se concentra en unas
+pocas horas con errores muy grandes. Si los errores siguieran una
+distribución normal centrada, el cociente valdría $\sqrt{\pi/2} \approx 1{,}25$.
+El error porcentual absoluto medio (MAPE) expresa el error en proporción a la
+demanda y permite comparar series de distinto tamaño, pero no está definido
+cuando la serie toma valores nulos, se dispara cuando toma valores próximos
+a cero y trata de forma asimétrica los errores por exceso y por defecto
+\parencite{hyndman2006another}. Con la demanda peninsular, cuyo mínimo supera
+los 16\,000~MW, los dos primeros problemas no se presentan.
+
+Cada métrica premia una previsión distinta. La previsión que minimiza el
+error cuadrático esperado es la media de la distribución de la demanda
+futura, y la que minimiza el error absoluto esperado es la mediana. Elegir
+una métrica es, por tanto, elegir qué característica de la distribución se
+pretende prever, y conviene que el criterio con el que se seleccionan los
+modelos sea coherente con la forma en que se entrenan.
+
+\textcite{hyndman2006another} propusieron el error absoluto medio escalado
+(MASE), que divide el MAE por el error absoluto medio de un método ingenuo
+calculado en el periodo de entrenamiento:
+\begin{equation}
+	\mathrm{MASE} = \frac{\mathrm{MAE}}{\dfrac{1}{T-m}\sum_{t=m+1}^{T} |y_t - y_{t-m}|},
+\end{equation}
+donde, en su versión estacional, $m$ es el periodo de la estacionalidad y el
+denominador es el error del método que repite el valor de un ciclo antes.
+El MASE no depende de la escala de la serie ni presenta los problemas del
+MAPE con valores próximos a cero, y tiene una lectura directa: un valor
+inferior a uno indica que el modelo comete, de media, menos error que el
+que cometía el método ingenuo en el periodo de entrenamiento. En este
+trabajo se emplea una variante con una escala fija, común a todos los
+modelos y periodos (sección~\ref{sec:metricas-puntuales}).
+
+Por último, el sesgo, o error medio, $\bar{e} = \frac{1}{n}\sum_t e_t$, no
+mide la magnitud del error sino su dirección: un modelo puede tener un MAE
+reducido y, aun así, quedarse sistemáticamente corto o pasarse, lo que en la
+operación del sistema tiene consecuencias distintas.
+
+\subsection{Validación con origen móvil}\label{sec:origen-movil}
+
+La forma habitual de estimar el error de un modelo de aprendizaje automático,
+la validación cruzada con particiones aleatorias, no es adecuada en general
+para series temporales. Al mezclar al azar las observaciones, el modelo se entrena con
+datos posteriores a los que debe prever, y la dependencia entre
+observaciones próximas hace que el error estimado sea optimista. La
+evaluación debe respetar el orden del tiempo: el modelo solo puede usar
+información anterior al momento de cada previsión.
+
+La validación con origen móvil \parencite{tashman2000outofsample,hyndman2021fpp3}
+reproduce el uso real de un modelo de previsión. Se fija una sucesión de
+orígenes, que son los momentos en que se emite cada previsión; para cada
+origen, el modelo dispone solo de los datos anteriores y prevé el horizonte
+siguiente, y el error se calcula comparando esas previsiones con lo
+observado. El origen avanza a lo largo del periodo de evaluación, de modo
+que cada previsión se evalúa en las mismas condiciones de información que
+tendría en la práctica. Entre un origen y el siguiente, el modelo puede
+limitarse a incorporar los datos nuevos con los parámetros fijos o
+reajustarse; reajustarlo en cada origen es lo más fiel al uso real, pero
+también lo más costoso. La revisión de \textcite{tashman2000outofsample}
+recomienda esta evaluación con muchos orígenes frente a la basada en un
+único origen, cuyos resultados dependen del periodo concreto elegido.
+
+\subsection{El contraste de Diebold-Mariano}\label{sec:diebold-mariano}
+
+Que un modelo tenga un MAE menor que otro en un periodo concreto no implica
+que sea mejor en general: con otro periodo, la ordenación podría invertirse.
+El contraste de \textcite{diebold1995comparing} evalúa si la diferencia de
+precisión entre dos previsiones es significativa. Dadas las pérdidas
+$L(e_{1t})$ y $L(e_{2t})$ de las dos previsiones en cada instante, por
+ejemplo sus errores absolutos, se define el diferencial de pérdida
+$d_t = L(e_{1t}) - L(e_{2t})$. La hipótesis nula es que ambas previsiones
+tienen la misma precisión esperada, $\mathrm{E}[d_t] = 0$, y el estadístico
+es la media muestral del diferencial dividida por su error típico:
+\begin{equation}
+	\mathrm{DM} = \frac{\bar{d}}{\sqrt{\hat{\sigma}^2_{\bar{d}}}},
+\end{equation}
+que, bajo la hipótesis nula y en muestras grandes, sigue aproximadamente una
+distribución normal estándar.
+
+La clave del contraste está en el denominador. Los diferenciales de
+pérdida de previsiones sucesivas no son independientes: dos previsiones
+emitidas en el mismo origen, o en orígenes próximos, comparten información y
+tienden a equivocarse a la vez. Por eso la varianza de la media se estima
+teniendo en cuenta la autocorrelación del diferencial, con un estimador de
+la varianza de largo plazo, en lugar de la fórmula para observaciones
+independientes, que la subestimaría y produciría rechazos espurios. El
+contraste no requiere que los errores sean normales ni que tengan media
+nula, y se aplica a las previsiones, no a los modelos: compara su precisión
+en un periodo concreto con una pérdida concreta. Su aplicación en este
+trabajo se describe en el marco metodológico.

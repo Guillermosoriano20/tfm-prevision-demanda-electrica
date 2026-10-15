@@ -68,7 +68,7 @@ Energía (OMIE).
 
 En el mercado diario, los agentes presentan sus ofertas de compra y venta de
 energía para el día siguiente, y la recepción de ofertas se cierra a las
-12:00~CET \parencite{omie2025mtu15}. Tanto la comercializadora que adquiere
+12:00, hora peninsular \parencite{omie2025mtu15}. Tanto la comercializadora que adquiere
 energía para sus clientes como el generador que decide cuánta ofrecer lo hacen,
 por tanto, a partir de una previsión de la demanda de las veinticuatro horas
 siguientes elaborada antes de ese cierre. Tras la casación, el operador del
@@ -176,7 +176,8 @@ peninsulares, que la normativa trata como sistemas eléctricos diferenciados
 La tarea que se aborda es la previsión del día siguiente. A las 12:00 de un
 día $D$, hora de cierre del mercado diario, se emiten las previsiones de las
 24 horas del día $D+1$. Con esta configuración, la anticipación de las
-previsiones oscila entre 12 y 36 horas, y cada una de ellas solo puede
+previsiones oscila entre 12 y 35 horas, o 36 el día del cambio de hora de
+octubre, y cada una de ellas solo puede
 apoyarse en la información disponible en el momento de su emisión. Esta
 restricción condiciona tanto la especificación de los modelos como el diseño
 de su evaluación.
@@ -184,7 +185,8 @@ de su evaluación.
 La serie presenta tres rasgos que dificultan su modelización. En primer
 lugar, superpone varios ciclos estacionales: el diario, de 24 horas, ligado
 al ritmo de la actividad humana; el semanal, de 168 horas, que distingue los
-días laborables de los fines de semana; y el anual, de unas 8760 horas,
+días laborables de los fines de semana; y el anual, de unas 8766 horas, la
+duración de un año medio de 365,25 días,
 asociado a la climatología y a la duración del día. En segundo lugar, está
 sometida a efectos de calendario, como los festivos nacionales y autonómicos
 o los puentes, que alteran el perfil diario de forma irregular. En tercer
@@ -240,14 +242,26 @@ calibrados?
 Para responderla se comparan cuatro modelos dispuestos en una escala de
 complejidad creciente: un modelo ingenuo estacional como referencia mínima, un
 modelo SARIMAX con términos de Fourier y variables exógenas, un modelo de
-\textit{gradient boosting} (LightGBM) y una red neuronal de previsión
-multihorizonte (N-HiTS). La aportación del trabajo se concreta en tres
+\textit{gradient boosting} \parencite[LightGBM;][]{ke2017lightgbm} y una red
+neuronal de previsión multihorizonte \parencite[N-HiTS;][]{challu2023nhits}.
+En este trabajo, el término SARIMAX designa una regresión con términos de
+Fourier, variables exógenas y errores ARMA, estimada con la clase SARIMAX de
+la librería statsmodels; su especificación concreta, sin términos ARIMA
+estacionales ni diferenciación, se justifica en la
+sección~\ref{sec:esp-sarimax}. Cada familia está representada por un único
+modelo, de modo que las conclusiones se refieren a estos cuatro modelos, bajo
+este protocolo y en el año de prueba; su extensión al conjunto de cada
+familia es una hipótesis que el trabajo no contrasta.
+
+La aportación del trabajo se concreta en tres
 elementos. El primero es un protocolo de comparación equitativa, en el que
 todos los modelos, incluido el SARIMAX, se evalúan mediante validación con
-origen móvil, con las mismas variables explicativas, el mismo horizonte y un
-presupuesto de búsqueda de hiperparámetros idéntico y documentado. El segundo
+origen móvil, con la misma información, es decir, la misma demanda pasada y
+las mismas variables exógenas, codificada según cada familia, el mismo
+horizonte y el mismo presupuesto máximo de configuraciones evaluadas en
+validación, fijado y documentado de antemano. El segundo
 es una evaluación conjunta de la precisión puntual, con contrastes de
-significación de Diebold-Mariano, y de la calibración de los intervalos de
+significación de Diebold-Mariano \parencite{diebold1995comparing}, y de la calibración de los intervalos de
 predicción, antes y después de recalibrarlos con ACI de forma uniforme para
 todos los modelos. El tercero es el desglose de los resultados por hora del
 día y tipo de día, que permite identificar en qué situaciones concretas
@@ -281,7 +295,8 @@ especificación de cada modelo, el diseño de la capa probabilística y las
 métricas y contrastes empleados.
 
 El capítulo 5 expone los resultados: el análisis exploratorio de la serie, la
-comparación de la precisión puntual, la evaluación de la calibración de los
+validación en 2023, en la que se elige la configuración de cada modelo, la
+comparación de la precisión puntual en el año de prueba, la evaluación de la calibración de los
 intervalos de predicción y el desglose por hora del día y tipo de día,
 acompañados de su discusión.
 

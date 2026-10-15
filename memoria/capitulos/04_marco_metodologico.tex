@@ -1,6 +1,10 @@
 % =====================================================================
 % Capítulo 4. Marco metodológico
-% Estado: 4.1 redactada (06/10/2026); 4.2 a 4.6 pendientes.
+% Estado: 4.1 redactada (06/10/2026); 4.2, 4.3 y la parte puntual de la
+% sección de métricas y contrastes redactadas (15/10/2026, sesión R1).
+% Pendientes: diseño de la capa probabilística (R2, irá entre 4.3 y las
+% métricas), métricas probabilísticas (R2), Diebold-Mariano (R3) y entorno y
+% reproducibilidad (R4).
 % =====================================================================
 
 \chapter{Marco metodológico}\label{cap:metodologia}
@@ -80,11 +84,15 @@ tratar como anomalía un episodio excepcional dentro del año de prueba.
 
 El periodo de ocho años es suficiente para los fines del trabajo y mantiene
 acotado su coste de cálculo. Proporciona seis años de entrenamiento, de 2017
-a 2022, y con ellos seis ciclos anuales completos para estimar la
-estacionalidad anual, el ciclo con menos repeticiones en la serie. Al mismo
+a 2022, de los que solo se excluyen los meses de marzo a junio de 2020, y
+con ellos seis repeticiones del ciclo anual para estimar su estacionalidad,
+el ciclo con menos repeticiones en la serie. Al mismo
 tiempo, cada año adicional alarga la serie de entrenamiento y encarece el
-ajuste de los modelos más costosos, en particular el del SARIMAX, que debe
-reajustarse periódicamente durante la evaluación. Se comprobó que la fuente
+ajuste de los modelos, que deben reajustarse periódicamente durante la
+evaluación. Este argumento sigue siendo válido, aunque con el método de
+estimación finalmente empleado para el SARIMAX el coste de cada ajuste
+resultó moderado, de poco más de un minuto
+(sección~\ref{sec:esp-sarimax}). Se comprobó que la fuente
 sirve el año 2017 completo y sin huecos; de no haber sido así, el plan de
 reserva era el periodo 2018-2024.
 
@@ -94,7 +102,7 @@ configuración de cada modelo, y 2024 para la prueba. La partición es
 temporal y no aleatoria, porque una partición aleatoria permitiría que un
 modelo aprendiera de horas posteriores a las que debe prever. El uso
 concreto de cada tramo forma parte del protocolo de comparación, que se
-describe más adelante en este capítulo. Todas las decisiones que dependen de
+describe en la sección~\ref{sec:protocolo}. Todas las decisiones que dependen de
 los datos y que se presentan en esta sección, como los umbrales de los
 grados-día, se toman exclusivamente con los datos de 2017-2022.
 
@@ -217,7 +225,7 @@ no es constante. La segunda es que los retardos de la demanda, que se
 cuentan en horas UTC, no siempre coinciden con la misma hora local del día
 anterior o de la semana anterior en las semanas de cambio de hora. La forma
 en que cada modelo resuelve ambas cuestiones forma parte del protocolo de
-comparación.
+comparación (secciones~\ref{sec:prot-origenes} y~\ref{sec:especificacion}).
 
 % ---------------------------------------------------------------------
 \subsection{Temperatura}\label{sec:datos-temperatura}
@@ -393,7 +401,8 @@ partir de las temperaturas provinciales cuando se construyen las variables de
 cada modelo. Como los umbrales están fijados con datos de entrenamiento, su
 cálculo para cualquier día no requiere información de los periodos de
 validación o prueba. La forma en que se combinan con la temperatura horaria
-en los modelos es una decisión del protocolo de comparación.
+en los modelos es una decisión del protocolo de comparación
+(sección~\ref{sec:prot-informacion}).
 
 % ---------------------------------------------------------------------
 \subsection{Calendario laboral}\label{sec:datos-calendario}
@@ -449,7 +458,10 @@ La tabla~\ref{tab:tipos-dia} recoge el recuento de días de cada tipo. Los
 festivos y los puentes son pocos, lo que deberá tenerse en cuenta al
 interpretar el desglose de resultados: el año de prueba tiene 10 festivos y un
 solo puente, y las métricas calculadas sobre ellos
-serán más inestables que las de los laborables.
+serán más inestables que las de los laborables. En consecuencia, los
+resultados de 2024 para los puentes, un único día, serán puramente
+descriptivos y no se harán contrastes para esa categoría, y los de los
+festivos se interpretarán con cautela.
 
 \begin{table}[htbp]
 	\centering
@@ -470,21 +482,47 @@ serán más inestables que las de los laborables.
 	\end{tabular}
 \end{table}
 
-El criterio de la fuente tiene una consecuencia que conviene declarar. Las
-resoluciones del BOE no incluyen las fiestas nacionales que caen en domingo,
-de modo que esos días aparecen en el conjunto como un domingo corriente, con
-fracción de festivo nula. En 2017-2024 hay diez fiestas nacionales de fecha
-fija que caen en domingo, verificadas con un script: el 1 de enero de 2017,
-el 6 de enero de 2019, el 8 de diciembre de 2019, el 1 de noviembre y el 6 de
-diciembre de 2020, el 15 de agosto de 2021, el 1 de mayo y el 25 de
-diciembre de 2022, el 1 de enero de 2023, en el periodo de validación, y el
-8 de diciembre de 2024, en el de prueba. El efecto esperado es pequeño,
-porque la demanda de un domingo ya es baja, pero no nulo: el mínimo horario
-del periodo de entrenamiento se registra precisamente el 25 de diciembre de
-2022 (sección~\ref{sec:explo-anomalias}). Cuando una fiesta nacional cae en
-domingo, varias comunidades la trasladan al lunes, y ese lunes sí figura en
-el BOE, como el 7 de diciembre de 2020 citado antes. Estos días se vigilan
-en el desglose de resultados.
+El criterio de la fuente tiene una consecuencia. Las resoluciones del BOE no
+incluyen las fiestas nacionales que caen en domingo, de modo que esos días
+aparecen en el conjunto como un domingo corriente, con fracción de festivo
+nula. En 2017-2024 hay diez fiestas nacionales de fecha fija que caen en
+domingo, verificadas con un script: el 1 de enero de 2017, el 6 de enero de
+2019, el 8 de diciembre de 2019, el 1 de noviembre y el 6 de diciembre de
+2020, el 15 de agosto de 2021, el 1 de mayo y el 25 de diciembre de 2022, el
+1 de enero de 2023, en el periodo de validación, y el 8 de diciembre de
+2024, en el de prueba. No se marcan por dos motivos: la variable transcribe
+el calendario oficial tal como se publica, y el conjunto de datos está
+congelado y verificado con su huella de contenido
+(sección~\ref{sec:datos-verificacion}), de modo que cambiarlo ahora
+obligaría a repetir la validación de los cuatro modelos.
+
+Para saber si la omisión importa, se comparó la demanda media de cada uno de
+los ocho domingos festivos de 2017-2022 con la media de los cuatro domingos
+normales más cercanos en el tiempo, entendidos como domingos sin festivo,
+fuera del periodo navideño y fuera de la pandemia. El criterio de lectura se
+fijó antes del cálculo: el efecto se consideraría apreciable si la mediana
+de las ocho diferencias quedaba por debajo del percentil 10 de la misma
+diferencia calculada para los 277 domingos normales del periodo. La mediana
+es del $-2{,}7$~\% y el percentil 10, del $-3{,}9$~\%, de modo que el efecto
+queda dentro de la variabilidad habitual entre domingos. El dato agregado
+mezcla, sin embargo, dos situaciones. Las cinco fiestas fuera del periodo
+navideño no se distinguen de un domingo corriente: su mediana es del
+$+1{,}0$~\%, y el valor más alto, $+11{,}6$~\% el 15 de agosto de 2021,
+coincide con la ola de calor del 11 al 16 de agosto de ese año
+\parencite{gutierrez2021olacalor}. En cambio, el 1 de enero de 2017 y el 25
+de diciembre de 2022 quedan un 15,0~\% y un 18,8~\% por debajo de su
+referencia, más que cualquier domingo normal, cuyo mínimo es del
+$-10{,}8$~\%; el mínimo horario del periodo de entrenamiento se registra
+precisamente el 25 de diciembre de 2022
+(sección~\ref{sec:explo-anomalias}). Esta segunda lectura es posterior al
+criterio y no permite separar el efecto de la fiesta del propio periodo
+navideño, que ninguno de los domingos de referencia incluye. Por analogía,
+cabe esperar poco efecto el 8 de diciembre de 2024 y uno mayor el 1 de enero
+de 2023.
+
+Cuando una fiesta nacional cae en domingo, varias comunidades la trasladan al
+lunes, y ese lunes sí figura en el BOE, como el 7 de diciembre de 2020
+citado antes. Estos días se vigilan en el desglose de resultados.
 
 Quedan fuera dos tipos de días que también alteran la demanda. Las fiestas
 locales no se incluyen, ni siquiera las de grandes ciudades como Madrid o
@@ -494,7 +532,8 @@ como el 24 y el 31 de diciembre o el resto del periodo navideño; el 24 y el
 31 de diciembre de 2018, por ejemplo, figuran como puentes. El análisis
 exploratorio muestra que el periodo navideño concentra los mayores déficits
 de demanda (sección~\ref{sec:explo-anomalias}), y por ese motivo el
-protocolo de comparación añade una variable específica para ese periodo, con
+protocolo de comparación (sección~\ref{sec:prot-informacion}) añade una
+variable específica para ese periodo, con
 la evidencia obtenida exclusivamente en 2017-2022.
 
 % ---------------------------------------------------------------------
@@ -525,7 +564,8 @@ filas habría dejado un hueco de cuatro meses en el índice, y los retardos que
 lo cruzaran habrían unido sin aviso observaciones separadas por ese hueco.
 Con la marca, cada modelo aplica la exclusión al construir sus muestras de
 entrenamiento, según una regla común que forma parte del protocolo de
-comparación. Como el periodo de prueba es 2024, nunca se evalúa sobre esas
+comparación (sección~\ref{sec:prot-informacion}). Como el periodo de prueba
+es 2024, nunca se evalúa sobre esas
 horas.
 
 Con lo anterior, la sección cubre los tres elementos que exige el criterio
@@ -579,7 +619,7 @@ guardada en disco se relee idéntica.
 La huella se calcula con la librería pandas, y su valor depende de que los
 datos sean idénticos bit a bit. Durante el trabajo hubo que cambiar la
 versión de pandas por un requisito de compatibilidad de otra librería
-(sección de entorno de este capítulo), y el conjunto se regeneró con la
+(sección~\ref{sec:esp-software}), y el conjunto se regeneró con la
 nueva versión. La comparación con la versión anterior mostró que 59 de las
 60 columnas eran idénticas bit a bit y que la temperatura ponderada difería,
 como máximo, en $1{,}4 \times 10^{-14}$~°C. La causa probable, no comprobada
@@ -619,9 +659,942 @@ el lugar del trabajo en que se retoman.
 		Cada provincia representada por su capital, con celda sobre tierra & Error de representatividad, reducido en la media ponderada & --- \\
 		Pesos de población fijos (2021) & Despreciable, por la lentitud del cambio en el reparto de la población & --- \\
 		Fiestas locales excluidas & Errores en días concretos de grandes ciudades & Desglose por tipo de día \\
-		Fiestas nacionales en domingo sin marcar & Posibles errores el 01/01/2023 (validación) y el 08/12/2024 (prueba) & Desglose por tipo de día \\
+		Fiestas nacionales en domingo sin marcar & Dentro de la variabilidad entre domingos en 2017-2022 salvo en Navidad; posibles errores el 01/01/2023 (validación), previsiblemente pequeños el 08/12/2024 (prueba) & Desglose por tipo de día \\
 		Resolución de la demanda distinta en entrenamiento y prueba & Menor; no cuantificado & --- \\
 		Otras variables meteorológicas excluidas & Información potencialmente útil no aprovechada & Conclusiones \\
 		\hline
 	\end{tabularx}
 \end{table}
+\FloatBarrier
+
+% =====================================================================
+\section{Protocolo de comparación equitativa}\label{sec:protocolo}
+
+La pregunta del trabajo es si los modelos de aprendizaje automático y
+profundo mejoran a los clásicos cuando la comparación es equitativa
+(sección~\ref{sec:aportacion}). Esa condición exige reglas comunes para los
+cuatro modelos: cuándo se emite cada previsión y con qué información, qué
+datos se usan para entrenar, para elegir y para evaluar, cuántas
+configuraciones puede probar cada familia y con qué criterio se elige entre
+ellas. Esta sección describe esas reglas, que constituyen el objetivo~OE5.
+Comienza con el principio que guía el protocolo y la forma en que se ha
+registrado. A continuación presenta los orígenes de previsión y la regla de
+información, el uso de cada año y los reajustes, el presupuesto de búsqueda
+y el criterio de selección, y la información común a todos los modelos, y
+termina con las comprobaciones de fuga de información y de alineación
+aplicadas a cada uno.
+
+% ---------------------------------------------------------------------
+\subsection{Principio y registro del protocolo}\label{sec:prot-principio}
+
+El protocolo se escribió y se registró en el repositorio del trabajo el 6 de
+octubre de 2026, antes de entrenar ningún modelo y de ver ningún resultado de
+validación o de prueba. El registro en el sistema de control de versiones
+fecha el documento y deja constancia de cada cambio posterior; al publicar
+el repositorio con su historial completo, como prevé el objetivo~OE9, podrá
+comprobarse que las reglas no se eligieron a la vista de los resultados. Las decisiones que el protocolo dejó para más adelante, como las
+variables de cada modelo o sus espacios de búsqueda, se fijaron por escrito y
+se registraron del mismo modo antes de medir o de lanzar el paso
+correspondiente. Las pocas modificaciones introducidas después de ver algún
+resultado se registraron como enmiendas, con su motivo, y se recogen en este
+capítulo.
+
+Esas modificaciones siguen una regla que se enuncia aquí a posteriori, pero
+que describe el criterio aplicado en todas ellas. Una enmienda posterior a
+ver un resultado solo se admite para corregir un error de programación o un
+defecto de especificación que impida a un modelo aprovechar información que
+el protocolo pone a disposición de todos. Nunca se admite para ajustar
+hiperparámetros, la arquitectura o el procedimiento de entrenamiento, que se
+eligen exclusivamente dentro del presupuesto de búsqueda. Las dos enmiendas
+del SARIMAX (sección~\ref{sec:esp-sarimax}) son del primer tipo, y por la
+misma regla no se modificó N-HiTS tras ver su comportamiento en 2023
+(sección~\ref{sec:val-perfil}).
+
+El criterio de equidad que se aplica distingue tres tipos de ventaja. La
+ventaja de un modelo que aprovecha mejor la misma información es legítima, y
+es precisamente lo que el trabajo pretende medir. La ventaja de un modelo
+que recibe más información que los demás se impide: todos disponen de la
+misma demanda pasada y de las mismas variables exógenas, aunque cada familia
+las codifique a su manera. Por último, la ventaja que procede de usar
+temperaturas de reanálisis en lugar de previsiones meteorológicas es real
+dentro del escenario de previsión meteorológica perfecta
+(sección~\ref{sec:problema}), pero puede no trasladarse a la operación, y se
+matiza al discutir los resultados.
+
+% ---------------------------------------------------------------------
+\subsection{Orígenes, horizonte y regla de información}\label{sec:prot-origenes}
+
+Cada previsión se emite a las 12:00, hora peninsular, de un día $D$, y se
+refiere a las horas del día local $D+1$: 24 en un día normal, 23 el día del
+cambio de hora de marzo y 25 el de octubre. El instante de emisión se
+denomina origen, y se convierte a UTC con la zona horaria correspondiente, de
+modo que corresponde a las 10:00~UTC en verano y a las 11:00~UTC en invierno.
+Los modelos que prevén una trayectoria continua, como el SARIMAX y N-HiTS,
+prevén las 37 horas UTC siguientes al origen y se quedan con las del día
+$D+1$; las doce horas de la tarde del día $D$ no se evalúan.
+
+Una hora del conjunto de datos puede usarse en una previsión si ya ha
+terminado en el origen. La última hora conocida es, por tanto, la de 11:00 a
+12:00 del día $D$. Se trata de una simplificación: el mercado diario cierra la
+recepción de ofertas a las 12:00, de modo que en la práctica la previsión
+tendría que emitirse algo antes. Su efecto es marginal, porque esa última
+hora queda a doce horas o más de la primera hora prevista.
+
+La validación tiene 365 orígenes, del 31 de diciembre de 2022 al 30 de
+diciembre de 2023, que cubren las 8760 horas de 2023; la prueba tiene 366, del
+31 de diciembre de 2023 al 30 de diciembre de 2024, que cubren las 8784 horas
+de 2024. La anticipación de cada hora prevista, medida desde el origen hasta
+el inicio de la hora, va de 12 a 35 horas en un día normal, como recoge la
+tabla~\ref{tab:anticipacion}.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Anticipación de las horas previstas y retardo mínimo seguro según el tipo de día objetivo}
+	\label{tab:anticipacion}
+	\small
+	\begin{tabular}{lccc}
+		\hline
+		\textbf{Día $D+1$} & \textbf{Horas} & \textbf{Anticipación} & \textbf{Retardo mínimo seguro} \\
+		\hline
+		Normal & 24 & 12-35~h & 36~h \\
+		Cambio de hora de marzo & 23 & 12-34~h & 35~h \\
+		Cambio de hora de octubre & 25 & 12-36~h & 37~h \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Esta estructura determina qué valores retardados de la demanda pueden usarse
+sin fuga de información. Un retardo de 24 horas, el más natural en una serie
+con ciclo diario, solo está disponible para las horas de 00:00 a 11:00 del
+día $D+1$; para las restantes apuntaría a horas del día $D$ posteriores al
+origen. La regla general es que un retardo de $k$ horas es seguro si
+$k$ supera la mayor anticipación posible. La regla inicial del trabajo
+fijaba $k \ge 36$, y el protocolo la corrigió a $k \ge 37$ horas, contadas en
+UTC, antes de construir ningún modelo. El motivo es el día de 25 horas: con el origen el 26
+de octubre de 2024 a las 10:00~UTC, la última hora prevista empieza el 27 de
+octubre a las 22:00~UTC, 36 horas después, y un retardo de 36 horas apuntaría
+a la hora que empieza en el propio origen, de 12:00 a 13:00 del día $D$,
+todavía no observada. El error solo afectaría a un día de cada año, el 29 de
+octubre de 2023 y el 27 de octubre de 2024, y la prueba de fuga
+(sección~\ref{sec:prot-fuga}) lo confirmó: con un retardo de 36 horas,
+detecta fuga precisamente el 29 de octubre de 2023.
+
+% ---------------------------------------------------------------------
+\subsection{Uso de cada año y reajuste de los modelos}\label{sec:prot-particiones}
+
+El protocolo distingue entre \emph{actualizar los datos}, es decir,
+incorporar en cada origen la demanda observada hasta ese momento con los
+parámetros del modelo fijos, y \emph{reajustar}, es decir, volver a estimar
+los parámetros. Con esa distinción, cada año tiene un papel distinto.
+
+El periodo 2017-2022 es el de entrenamiento. En la fase de selección, cada
+configuración candidata de cada familia se ajusta una sola vez con los datos
+hasta las 12:00 del 31 de diciembre de 2022 y prevé los 365 orígenes de 2023
+actualizando los datos, sin reajustes. Reajustar mensualmente cada una de las
+configuraciones multiplicaría por doce el coste de la búsqueda, y para elegir
+entre configuraciones basta con que todas compitan en las mismas condiciones.
+La contrapartida es que la selección se hace en condiciones algo distintas
+de las de la evaluación final: sin reajustes, los modelos que no se adaptan
+por sí mismos a los cambios de nivel de la demanda salen perjudicados en
+2023, como le ocurrió a la configuración inicial del SARIMAX
+(sección~\ref{sec:esp-sarimax}). El año 2023 se usa para elegir la
+configuración de cada familia y, más adelante, para diseñar la capa
+probabilística. No se usa, en cambio, para la parada temprana de los modelos
+que la emplean, que se basa siempre en las últimas ocho semanas de la ventana
+de entrenamiento, anteriores al origen del ajuste, ni para fijar los umbrales
+de los grados-día o la variable de periodo navideño, que se fijaron con
+2017-2022. Como salvaguarda técnica, la función común de carga de datos
+elimina 2024 por defecto, y solo lo incluye con un parámetro explícito.
+
+En la fase final, solo la configuración ganadora de cada familia se evalúa
+en 2024, una sola vez. Cada modelo se reajusta mensualmente, doce veces, en
+los orígenes cuyo día objetivo es el primero de cada mes, con una ventana
+creciente que empieza siempre el 1 de enero de 2017. Reajustar con datos de
+2024 ya ocurridos no contradice que 2024 no se mire: es lo que haría el
+modelo en operación, y lo que se prohíbe es tomar decisiones con los
+resultados de 2024. El protocolo preveía pasar a un reajuste trimestral de
+los cuatro modelos si la evaluación final del SARIMAX superaba las ocho horas
+de cálculo; la prueba de tiempos lo descartó (sección~\ref{sec:esp-sarimax}).
+La evaluación de 2024 se ejecuta con el código y las configuraciones
+ganadoras registrados en el repositorio; si después se descubriera un error
+de programación, se corregiría, se repetiría la evaluación y se informaría de
+ambos resultados.
+
+Elegir cada configuración por su error en 2023 hace que ese error sea una
+estimación optimista de su rendimiento futuro, porque la ganadora se ha
+seleccionado precisamente por haber funcionado bien en ese año
+(sección~\ref{sec:hiperparametros}). Por eso los resultados de 2023 sirven
+para elegir y para describir el comportamiento de los modelos, y el
+rendimiento que se informa es el de 2024.
+
+% ---------------------------------------------------------------------
+\subsection{Presupuesto de búsqueda, criterio de selección y semillas}\label{sec:prot-presupuesto}
+
+Cada una de las tres familias con hiperparámetros, el SARIMAX, LightGBM y
+N-HiTS, puede evaluar en 2023 hasta 20 configuraciones, una de las cuales es
+la configuración por defecto o de referencia; el ingenuo estacional no tiene
+hiperparámetros. Solo cuenta como presupuesto lo que se evalúa contra 2023:
+las elecciones internas al entrenamiento, como el número de armónicos del
+SARIMAX elegido por un criterio de información con datos de 2017-2022 o el
+número de árboles elegido por parada temprana, forman parte del
+procedimiento de cada familia. Si una familia no puede evaluar las 20
+configuraciones por su coste, evalúa menos y así se indica, sin recortar el
+presupuesto de las demás; no ha sido necesario, y el SARIMAX evaluó 17 por
+el diseño de su rejilla (sección~\ref{sec:esp-sarimax}). LightGBM y N-HiTS emplean una búsqueda aleatoria
+con semilla fija \parencite{bergstra2012random}, y el SARIMAX una rejilla
+explícita. El espacio de búsqueda de cada familia se registró antes de
+lanzar su búsqueda.
+
+La configuración ganadora de cada familia es la de menor MAE sobre las 8760
+horas de 2023. El RMSE, el MAPE y el MASE se calculan y se guardan, pero no
+deciden. El criterio se fijó en el protocolo antes de ver ningún resultado, y
+se justifica por cinco razones. Fijar de antemano una métrica común a todas las familias
+impide elegirla a la vista de los resultados. El MAE se lee directamente en
+megavatios. Da el mismo peso a todas las horas, mientras que el RMSE, al
+elevar los errores al cuadrado, dejaría que unos pocos días atípicos, como la
+Navidad o los festivos que caen en domingo, decidieran la configuración.
+Minimizar el MAE equivale a prever la mediana (sección~\ref{sec:metricas}),
+lo que es coherente con la pérdida por cuantiles de la capa probabilística.
+Y, con la escala fija que se emplea en el trabajo
+(sección~\ref{sec:metricas-puntuales}), el MASE ordena las configuraciones
+igual que el MAE, mientras que el MAPE daría más peso a las
+horas de menor demanda sin un motivo para ello. El criterio tiene un límite:
+si los errores grandes fueran especialmente costosos, el RMSE sería más
+defendible, pero esa lectura económica del error queda fuera del alcance del
+trabajo. La coherencia entre el criterio y el entrenamiento no es completa:
+el SARIMAX se estima por mínimos cuadrados y LightGBM puede usar la pérdida
+cuadrática, que apuntan a la media y no a la mediana. Con errores casi
+simétricos, ambas difieren poco, y la elección final sigue decidiéndose por
+el MAE.
+
+Todos los sorteos y entrenamientos usan la semilla 42. Las redes neuronales,
+sin embargo, pueden dar resultados apreciablemente distintos con otra
+semilla, por lo que la configuración ganadora de N-HiTS se reentrena también
+con las semillas 43 y 44 para medir esa variabilidad; la previsión oficial
+sigue siendo la de la semilla 42, porque elegir la mejor semilla sería
+volver a elegir con 2023.
+
+% ---------------------------------------------------------------------
+\subsection{Información común a todos los modelos}\label{sec:prot-informacion}
+
+Las variables exógenas son las mismas para los tres modelos que las
+emplean, aunque cada familia las codifica a su manera
+(tabla~\ref{tab:exogenas}). Los grados-día son diarios, calculados por
+provincia con los umbrales de la sección~\ref{sec:datos-gradosdia} y
+ponderados después, y se repiten en todas las horas de cada día; la variación
+dentro del día la aporta la temperatura ponderada horaria. Se descartaron los
+grados-hora, porque los umbrales se estimaron con medias diarias y
+cambiarían de significado. La variable \texttt{navidad} vale uno del 23 de
+diciembre al 6 de enero, ambos incluidos. Su inclusión se apoya en la
+evidencia de 2017-2022: 16 de los 20 días laborables con mayor déficit de
+demanda respecto al ajuste de grados-día caen entre el 23 de diciembre y el 2
+de enero (sección~\ref{sec:explo-anomalias}). Su límite final se fijó con un
+criterio externo, el fin de las vacaciones escolares, y no ajustándolo a los
+datos.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Variables exógenas comunes del protocolo}
+	\label{tab:exogenas}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{5.2cm} >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Información} & \textbf{Resolución} & \textbf{Origen} \\
+		\hline
+		Grados-día de calefacción ($T_c = 15{,}5$~°C) & Diaria, repetida & Temperatura por provincia, ponderada \\
+		Grados-día de refrigeración ($T_r = 19{,}5$~°C) & Diaria, repetida & Temperatura por provincia, ponderada \\
+		Temperatura ponderada & Horaria & Media ponderada por población \\
+		Hora del día (local) & Horaria & Calendario \\
+		Día de la semana (local) & Diaria & Calendario \\
+		Posición en el año (día del año local) & Diaria & Calendario \\
+		Fracción de población en festivo & Diaria & Calendario laboral \\
+		Puente & Diaria & Calendario laboral \\
+		Periodo navideño (23/12 a 6/1) & Diaria & Calendario \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+No se proporcionan a ningún modelo las 47 temperaturas provinciales por
+separado, las variables \texttt{festivo} y \texttt{tipo\_dia}, reservadas al
+desglose del objetivo~OE8, ni la marca del periodo de la pandemia, que es un
+filtro y no una variable. Tampoco se emplean precios ni indicadores de
+actividad económica, que quedan fuera del alcance.
+
+Toda la demanda conocida en el origen está disponible para los cuatro
+modelos, y cada familia la aprovecha a su manera. El SARIMAX la incorpora a
+través del filtro de Kalman, que actualiza su estado con cada hora observada.
+N-HiTS la recibe como una ventana de entrada que termina en el origen. El
+ingenuo copia la de la semana anterior. LightGBM, que no tiene estado ni
+ventana de entrada, necesita que esa información se le dé en forma de
+variables: además de los retardos de al menos 37 horas, recibe variables
+calculadas en el origen, como la demanda de la última hora conocida o la
+media de las últimas 24 horas, sin las cuales quedaría en desventaja frente a
+los otros dos modelos. No se emplea ninguna variable de año ni de tendencia:
+el nivel de la demanda llega a los modelos a través de los datos recientes.
+
+Cualquier normalización de los datos se ajusta solo con información
+anterior al origen de cada previsión. Por último, los datos del periodo de
+la pandemia se excluyen del entrenamiento de forma estricta: se descarta
+toda muestra cuyo objetivo o cuyas entradas caigan entre el 1 de marzo y el
+30 de junio de 2020 en fecha local. La forma concreta en que cada modelo
+aplica esta regla se describe en la sección~\ref{sec:especificacion}.
+
+% ---------------------------------------------------------------------
+\subsection{Comprobaciones de fuga de información y de alineación}\label{sec:prot-fuga}
+
+Las reglas anteriores podrían incumplirse por un error de programación sin
+que nada lo advirtiera, y una fuga de información produce resultados mejores
+de lo que el modelo puede ofrecer en la práctica. Por eso se aplica a los
+cuatro modelos una prueba de fuga automática, programada en el módulo común
+de validación. La prueba repite las previsiones de los 365 orígenes de 2023
+tras alterar la demanda posterior a cada origen, sumándole 10\,000~MW, y
+exige que todas las previsiones sean idénticas a las originales. Si un
+modelo usara de algún modo demanda posterior al origen, alguna previsión
+cambiaría, y la prueba señalaría los días afectados. La prueba se validó con
+previsiones de juguete construidas con retardos de distinta longitud: con
+retardos de 168 y 37 horas no detecta ninguna fuga; con 36 horas, la detecta
+solo el 29 de octubre de 2023, el día de 25 horas; y con 24 horas, los 365
+días.
+
+Una prueba que no puede fallar no demuestra nada. Por eso, para LightGBM y
+N-HiTS se añadió un control positivo, que introduce deliberadamente una fuga
+conocida y comprueba que la prueba la detecta: en LightGBM, sustituir el
+retardo de 48 horas por uno de 24; en N-HiTS, hacer que la ventana de entrada
+termine 24 horas después del origen. En ambos casos la prueba detectó la fuga
+los 365 días. Se añadió además una versión reforzada, que en lugar de
+desplazar la demanda futura la elimina, para detectar también variables que
+combinaran valores futuros de forma que el desplazamiento se anulara. Los
+cuatro modelos superan la prueba con cero días de fuga; LightGBM y N-HiTS la
+superan también en su versión reforzada. La prueba tiene un límite: solo
+detecta el uso de datos futuros si la previsión reacciona a ellos.
+
+La prueba de fuga comprueba que un modelo no usa información futura, pero no
+que cada previsión se asigne a su hora. Un desfase de una hora en algún punto
+del procesamiento no se detectaría con ella. Por eso, a la vista del perfil
+de errores de N-HiTS en 2023 (sección~\ref{sec:val-perfil}), se añadió una
+comprobación de alineación: el error de cada modelo se calcula comparando su
+previsión de cada hora con la demanda real desplazada entre tres horas antes
+y tres horas después. Un modelo bien alineado tiene el error mínimo sin
+desplazamiento, y uno retrasado lo tiene con la demanda de horas anteriores.
+La comprobación se validó con una previsión retrasada una hora a propósito,
+que la detectó, y los cuatro modelos tienen el error mínimo sin
+desplazamiento.
+
+Las cuatro familias comparten también la infraestructura de validación: la
+generación de los orígenes, el recorte de cada previsión a su día objetivo,
+la prueba de fuga y el cálculo de las métricas se programan una sola vez en
+un módulo común, y cada modelo se limita a ofrecer una función que, dados los
+datos y un origen, devuelve su previsión.
+
+% =====================================================================
+\section{Especificación de los modelos}\label{sec:especificacion}
+
+Esta sección describe cómo se ha concretado cada uno de los cuatro modelos
+dentro de las reglas del protocolo: qué información recibe y cómo la
+codifica, cómo se entrena y qué configuraciones se han evaluado. Se presentan
+en orden de complejidad: el ingenuo estacional, el SARIMAX, LightGBM y
+N-HiTS. La sección termina con una tabla que reúne las configuraciones
+finales y con un resumen de las limitaciones de la modelización. Los
+resultados de la selección en 2023 se presentan en la
+sección~\ref{sec:validacion}.
+
+Todo el trabajo se ha programado en Python, con las versiones de las
+librerías fijadas en el repositorio.\label{sec:esp-software} Los datos se
+manejan con pandas~2.3.3 \parencite{mckinney2010data,pandas2025v233}; el
+SARIMAX y los contrastes de diagnóstico emplean statsmodels~0.15.0
+\parencite{seabold2010statsmodels}; LightGBM se entrena con la librería del
+mismo nombre en su versión~4.7.0 \parencite{ke2017lightgbm}, y N-HiTS, con
+NeuralForecast~3.2.2 \parencite{olivares2022neuralforecast}.
+
+La elección de estos cuatro modelos deja fuera otros que el marco teórico
+presenta, por los motivos siguientes. El suavizado exponencial clásico
+(sección~\ref{sec:tbats}) no admite varias estacionalidades y su papel de
+referencia sencilla lo cumple ya el ingenuo estacional. TBATS es la
+alternativa de referencia para la estacionalidad compleja, pero estima
+componentes estacionales latentes para cada periodo, incluido uno anual de
+unas 8766 horas, y con series horarias de varios años su ajuste puede durar
+horas; repetido en los reajustes de la evaluación, no cabe en el tiempo de
+cálculo del trabajo. Entre los modelos de aprendizaje profundo, N-HiTS cubre
+el papel de representante de la familia y se entrena mucho más deprisa que
+una red recurrente como la LSTM, de modo que incluir ambas no añadiría nada
+al argumento del trabajo; el Temporal Fusion Transformer queda como posible
+extensión (sección~\ref{sec:otras-arquitecturas}).
+
+% ---------------------------------------------------------------------
+\subsection{Ingenuo estacional}\label{sec:esp-ingenuo}
+
+El ingenuo estacional prevé cada hora con la demanda de la misma hora local
+del mismo día de la semana anterior. Es el suelo que cualquier otro modelo
+debe superar. Se elige la semana anterior y no el día anterior por dos
+motivos: el retardo de 24 horas no está disponible para la mitad de las
+horas previstas (sección~\ref{sec:prot-origenes}), y la demanda de una hora
+se parece más a la de la misma hora de la semana anterior que a la del día
+anterior, como muestran las autocorrelaciones de 0,90 a 168 horas y de 0,83 a
+24 horas (sección~\ref{sec:explo-acf}).
+
+El modelo trabaja en hora local, lo que exige tres reglas para los días de
+cambio de hora. El día de 25 horas, las dos horas de 02:00 a 03:00 copian la
+única de la semana anterior. Si la semana anterior es el día de 23 horas, que
+no tiene esa hora, se usa la media de las horas de 01:00 y de 03:00. Y si la
+semana anterior es el día de 25 horas, se usa la media de sus dos horas de
+02:00 a 03:00. Las cuatro situaciones de 2023 se comprobaron una a una.
+
+% ---------------------------------------------------------------------
+\subsection{SARIMAX}\label{sec:esp-sarimax}
+
+En este trabajo, SARIMAX designa una regresión con términos de Fourier,
+variables exógenas y errores ARMA (sección~\ref{sec:fourier}), estimada y
+utilizada para prever con la clase SARIMAX de statsmodels. El nombre procede
+de esa implementación y de la propuesta del trabajo; el modelo final no
+incluye términos ARIMA estacionales ni diferenciación, por los motivos que se
+exponen en esta sección. Su forma es
+\begin{equation}
+	y_t = \beta_0 + \boldsymbol{\beta}^{\top} \mathbf{x}_t + \eta_t,
+	\qquad \phi(B)\, \eta_t = \theta(B)\, \varepsilon_t,
+\end{equation}
+donde $\mathbf{x}_t$ reúne 68 variables explicativas y los órdenes $p$ y $q$
+del proceso de los errores se eligen en la búsqueda. Este apartado describe,
+por este orden, las variables explicativas, el método de estimación, la
+prueba de tiempos que fijó la ventana y la frecuencia de reajuste y la
+rejilla de configuraciones evaluadas.
+
+\paragraph{Estacionalidad, temperatura y calendario.} Las tres
+estacionalidades se representan con términos de Fourier calculados sobre la
+hora local (sección~\ref{sec:datos-tiempo}): para el ciclo diario, sobre la
+hora del día; para el semanal, sobre la hora de la semana; y para el anual,
+sobre el día del año, con un periodo de 365,25 días. En los términos
+semanales se omiten los armónicos múltiplos de siete, cuyo periodo es de 24
+horas o un divisor de 24 y que repetirían exactamente los diarios. A ellos se
+suman las exógenas comunes (tabla~\ref{tab:exogenas}): los dos grados-día, la
+temperatura ponderada, la fracción de población en festivo, el indicador de
+puente y el de periodo navideño. Por último, para que la forma del ciclo
+diario pueda cambiar con la temperatura, que es la principal limitación de
+los términos de Fourier (sección~\ref{sec:fourier}), se incluyen seis
+interacciones: los tres primeros armónicos diarios multiplicados por la
+temperatura ponderada.
+
+El número de armónicos de cada periodo y la inclusión de las interacciones
+se eligieron por el criterio de información de Akaike con los datos de
+2017-2022, sin intervención de 2023, y con un proceso ARMA(2,1) fijo para
+los errores. La rejilla combinó 4, 6, 8 o 10 armónicos diarios; 4, 6, 8 o 10
+semanales; 2, 3 o 4 anuales, con un mínimo de dos por el resultado del
+periodograma (sección~\ref{sec:explo-periodograma}); y la presencia o
+ausencia de las interacciones, en total 96 ajustes. Una regla fijada de
+antemano preveía ampliar una sola vez la dimensión en la que el óptimo cayera
+en el borde. El óptimo cayó en el máximo de armónicos diarios y semanales, y
+la ampliación hasta 12, con dos ajustes más, volvió a situarlo en el borde, lo
+que se aceptó. El resultado es de 12 armónicos diarios, 12
+semanales y 3 anuales, con interacciones; el criterio de información
+bayesiano, que penaliza más que el de Akaike el número de parámetros, lleva a
+la misma elección. Con unas 52\,000 horas, ambos criterios tienden a
+favorecer los modelos grandes, una limitación más de esta elección. Las
+interacciones mejoran el criterio de Akaike en 6078 puntos; con 3 y 4
+armónicos anuales el criterio casi coincide, y con 2 empeora en 36 puntos.
+El recuento de columnas es el siguiente: los 12 armónicos diarios
+dan 23 columnas, porque el seno del armónico 12 es siempre nulo; los 12
+armónicos semanales conservados, del 1 al 13 sin el 7, dan 24; los 3
+anuales, 6; las exógenas comunes, 6; y las interacciones, 6. En total, 65
+columnas.
+
+\paragraph{Nivel y retardos de la demanda.} A las 65 columnas anteriores se
+añaden tres variables construidas con la demanda pasada, todas con retardos
+de al menos 37 horas: la demanda 48 horas antes, la demanda 168 horas antes
+y una variable de \emph{nivel}, definida como la media de la demanda en las
+168 horas que terminan 37 horas antes de cada hora, es decir, entre $t-204$ y
+$t-37$. Ninguna de las tres figuraba en la especificación inicial, y su
+inclusión se decidió mediante dos enmiendas del protocolo que conviene
+relatar en orden.
+
+La configuración de referencia, sin ellas, se evaluó en 2023 tras superar la
+prueba de fuga y obtuvo un MAE de 1888~MW, peor que el del ingenuo, con un
+sesgo de $-1660$~MW: el modelo sobrestimaba la demanda todos los meses. La
+causa es que, sin variable de tendencia, que el protocolo no admite, el nivel
+del modelo queda fijado en el nivel medio de 2017-2022, la parte ARMA lo olvida en
+pocas horas y la demanda media de 2023 fue inferior. Se descartó diferenciar
+la serie, porque el modelo diferenciado estimaba un parámetro de medias
+móviles de $-0{,}99$, señal de sobrediferenciación, y su estimación fallaba
+numéricamente. La primera enmienda añadió la variable de nivel, que recoge
+la tendencia con la misma información de la que disponen los demás modelos.
+Con ella, el MAE de 2023 bajó a 1315~MW.
+
+Los residuos de ese modelo en 2017-2022 mostraban autocorrelaciones de 0,69
+a 24 horas, 0,50 a 48 horas y 0,76 a 168 horas: el modelo repetía los
+errores de la misma hora del día y de la semana anteriores, algo que ningún
+proceso ARMA de orden bajo puede recoger. Añadir como variables la demanda
+48 y 168 horas antes elevó la log-verosimilitud del ajuste de 2017-2022 de
+$-373\,485$ a $-347\,623$ y redujo esas autocorrelaciones a 0,38, 0,14 y
+$-0{,}04$. La segunda enmienda incorporó ambos retardos. Esta decisión se
+justificó con los residuos de 2017-2022, pero se tomó después de haber visto
+el MAE de 2023 de las dos configuraciones de referencia. Las
+dos configuraciones de referencia cuentan dentro del presupuesto de búsqueda.
+
+Ambas enmiendas responden a la regla de la sección~\ref{sec:prot-principio}.
+El protocolo pone a disposición de todos los modelos la demanda conocida hasta
+el origen. El SARIMAX la recibía a través del filtro de Kalman, pero su parte
+ARMA la olvidaba en pocas horas, y el modelo quedaba anclado al nivel de
+2017-2022: era un defecto de especificación, no una cuestión de
+hiperparámetros. La variable de nivel y los retardos le permiten aprovechar
+esa información con retardos de al menos 37 horas, los que el protocolo
+admite para todos. N-HiTS la recibe con su ventana de entrada, y LightGBM,
+cuyas variables se fijaron después de estas enmiendas, recibe la misma
+variable de nivel y esos mismos retardos. Aun así, que las enmiendas se
+tomaran después de ver 2023 hace que el error de validación del SARIMAX sea
+algo optimista, y así figura entre las limitaciones
+(tabla~\ref{tab:limitaciones-modelos}).
+
+Los armónicos de Fourier no se volvieron a elegir tras las enmiendas. Se
+consideró que el nivel y los retardos recogen el nivel y la persistencia de la
+demanda, y que no deberían cambiar la forma del ciclo diario y semanal que
+describen los armónicos. No se comprobó, y también figura entre las
+limitaciones.
+
+\paragraph{Estimación.} El método de estimación se decidió antes de las dos
+enmiendas anteriores, con la configuración más pesada prevista para la prueba
+de tiempos: errores ARMA(2,1), 10 armónicos diarios, 10 semanales y 4
+anuales, las exógenas comunes y las interacciones, 60 variables
+explicativas, y unas 52\,600 horas de entrenamiento. Con ella, la estimación
+conjunta por máxima verosimilitud que ofrece statsmodels no converge: agota
+el límite de 15\,000 evaluaciones de la verosimilitud y, relanzada desde ese
+punto, sigue mejorando sin estabilizarse (tabla~\ref{tab:fgls}). El modelo se
+estima por ello mediante mínimos cuadrados generalizados factibles iterados
+(sección~\ref{sec:fourier}), en cuatro pasos, para todas las configuraciones
+evaluadas:
+\begin{enumerate}
+	\item Se estima la regresión por mínimos cuadrados ordinarios, sin las horas
+	del periodo de la pandemia.
+	\item Se estima el proceso ARMA de los residuos por máxima verosimilitud en
+	forma de espacio de estados; el filtro de Kalman salta las horas de la
+	pandemia, tratadas como vacías.
+	\item Se filtran la demanda y cada variable explicativa con el filtro de
+	Kalman del proceso ARMA estimado, lo que elimina su autocorrelación, y se
+	vuelve a estimar la regresión sobre las series filtradas.
+	\item Se repiten los pasos 2 y 3 hasta que la log-verosimilitud del modelo
+	completo cambia menos de 0,1 entre dos vueltas, con un máximo de 20.
+\end{enumerate}
+El modelo es el mismo; cambia solo la forma de estimarlo. La implementación
+es propia, porque la opción equivalente de statsmodels no admite las horas
+vacías de la pandemia. Las previsiones y los intervalos analíticos se
+obtienen con el modelo SARIMAX de statsmodels con los parámetros estimados
+fijos. Además de las horas de la pandemia, se excluyen del ajuste las horas
+cuya variable de nivel incluye alguna hora de ese periodo o anterior al
+inicio de la serie, lo que excluye también las que carecen de alguno de los
+retardos.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Estimación de la configuración más pesada prevista del SARIMAX (unas 60 variables, errores ARMA(2,1)) con 2017-2022: máxima verosimilitud conjunta frente a mínimos cuadrados generalizados factibles iterados}
+	\label{tab:fgls}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X rr}
+		\hline
+		\textbf{Método} & \textbf{Tiempo} & \textbf{Log-verosimilitud} \\
+		\hline
+		Máxima verosimilitud conjunta, primer intento & 18~min & $-386\,918$ (sin converger) \\
+		Máxima verosimilitud conjunta, relanzada & 36~min en total & $-385\,872$ (sin converger) \\
+		Mínimos cuadrados generalizados factibles iterados & 2~min & $-377\,659$ \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+\paragraph{Prueba de tiempos, ventana y reajuste.} El protocolo permite
+acortar la ventana de entrenamiento solo del SARIMAX si su coste lo exige.
+Antes de medir se fijó el criterio: la búsqueda cabe con la ventana completa
+si $20 \times (t_{\mathrm{ajuste}} + 365\, t_{\mathrm{origen}}) \times 1{,}2$ no
+supera diez horas, donde $t_{\mathrm{ajuste}}$ es el tiempo de un ajuste,
+$t_{\mathrm{origen}}$ el de una previsión con parámetros fijos y 1,2 un margen
+de seguridad. Con la configuración más pesada prevista, el ajuste tardó
+1,2~minutos y cada previsión 0,22~segundos: la selección requiere alrededor de
+una hora y la evaluación final de 2024, con doce reajustes, unos 20 minutos.
+En consecuencia, el SARIMAX usa la ventana completa desde 2017, como los
+demás modelos, y el reajuste es mensual para los cuatro. La configuración
+medida resultó más ligera que la rejilla registrada después, con 68
+variables y órdenes ARMA de hasta (5,2), y la medición no se repitió, como
+preveía el protocolo; el margen era amplio y la búsqueda real se completó en
+algo más de una hora.
+
+\paragraph{Rejilla y configuración ganadora.} Con las variables anteriores
+fijas, la rejilla evaluada en 2023 varía los órdenes del proceso de los
+errores: ARMA($p$,$q$) con $p = 1, \dots, 5$ y $q = 0, 1, 2$, quince
+configuraciones que, sumadas a las dos de referencia, consumen 17 de las 20
+del presupuesto. Se excluyeron los términos ARMA estacionales a 24 o 168
+horas: una prueba con un único término autorregresivo estacional a 24 horas
+no terminó en 28 minutos, porque el filtro de Kalman pasa de unos 3 a unos 27
+estados. La configuración ganadora es el ARMA(5,1). Su orden $p = 5$ es el
+máximo de la rejilla, que no tenía regla de borde, y no se amplió, aunque
+quedaban tres configuraciones del presupuesto: las seis mejores difieren en
+menos de un 1,2\,\%, y ampliar la rejilla a la vista de esos resultados habría
+sido decidir con 2023. En algunas
+configuraciones de orden alto, probablemente también en la ganadora, la
+estimación del proceso ARMA dentro de alguna vuelta emitió avisos de
+convergencia, aunque el procedimiento completo cumplió su regla de parada; la
+ganadora se mantiene con esa salvedad.
+
+% ---------------------------------------------------------------------
+\subsection{LightGBM}\label{sec:esp-lightgbm}
+
+LightGBM se emplea con la estrategia directa y un único modelo para todas las
+anticipaciones (sección~\ref{sec:ml-supervisado}). Cada fila de la tabla de
+entrenamiento corresponde a una hora objetivo $t$, con su origen, las 12:00
+locales del día anterior al día de $t$, y el objetivo es la demanda de esa
+hora sin transformar. Cada hora del histórico aparece una sola vez. Como el
+modelo no tiene estado ni ventana de entrada, toda la información debe
+dársele en forma de variables, recogidas en la tabla~\ref{tab:variables-lgbm}.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Variables de LightGBM}
+	\label{tab:variables-lgbm}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm} >{\raggedright\arraybackslash}p{4.4cm} >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Grupo} & \textbf{Variables} & \textbf{Definición} \\
+		\hline
+		Retardos (7) & \texttt{y\_48}, \texttt{y\_72}, \texttt{y\_96}, \texttt{y\_120}, \texttt{y\_144}, \texttt{y\_168}, \texttt{y\_336} & Demanda entre 48 y 336 horas UTC antes de $t$ \\
+		Nivel (1) & \texttt{nivel} & Media de la demanda de $t-204$ a $t-37$, como en el SARIMAX \\
+		Tomadas en el origen (3) & \texttt{y\_ultima}, \texttt{y\_media24}, \texttt{anticipacion} & Demanda de 11:00 a 12:00 del día $D$; media de las 24 horas anteriores al origen; horas entre el origen y $t$ (12 a 36) \\
+		Temperatura (3) & \texttt{gd\_calefaccion}, \texttt{gd\_refrigeracion}, \texttt{t\_ponderada} & Grados-día diarios y temperatura ponderada horaria \\
+		Calendario (6) & \texttt{hora\_del\_dia}, \texttt{dia\_semana}, \texttt{dia\_anio}, \texttt{fraccion\_festivo}, \texttt{puente}, \texttt{navidad} & Hora local (0-23), día de la semana (0-6), día del año (1-366) y calendario laboral \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+Los retardos se eligieron con la autocorrelación del análisis exploratorio:
+0,83 a 24 horas, que solo puede aprovecharse a partir de 48, 0,90 a 168 horas
+y 0,84 a 336 horas. Se cuentan en horas UTC, como en el SARIMAX, de modo que
+en los días posteriores a cada cambio de hora apuntan a una hora local
+desplazada en una; se descartó contarlos en hora local con las reglas del
+ingenuo por la complejidad añadida. Las exógenas se introducen como números,
+sin términos de Fourier ni interacciones explícitas, porque los árboles
+dividen directamente por la hora y combinan las variables por sí mismos. Se
+valoró y se descartó una variable con la demanda de la misma hora más
+reciente conocida, que sería de 24 horas antes para las horas de 00:00 a
+11:00 y de 48 para las demás: no tiene fuga, pero rompería la regla común de
+retardos de al menos 37 horas. Tampoco se incluyen retardos de la
+temperatura, información que el SARIMAX no recibe.
+
+Como todas las entradas de una fila están entre $t-336$ y $t-12$ horas, la
+exclusión de la pandemia descarta toda fila con alguna hora del periodo entre
+$t-336$ y $t$, además de las primeras 336 horas de 2017, que carecen de
+algunos retardos. Quedan 48\,972 filas de entrenamiento, con un hueco del 29 de
+febrero al 15 de julio de 2020.
+
+El número de árboles se fija por parada temprana con las últimas ocho semanas
+de la ventana, 1344 horas objetivo: se entrena con las 47\,628 filas
+anteriores y se detiene tras 100 árboles sin mejora del MAE en el control,
+con un máximo de 10\,000. Después, el modelo se reajusta con todas las filas,
+incluidas esas ocho semanas, y el número de árboles elegido, para aprovechar
+los datos más recientes, como hacen los otros modelos; el número de árboles
+se eligió así con un 3\,\% menos de filas, un efecto que se considera
+despreciable. Se fijan la semilla 42,
+el modo determinista de la librería y cuatro hilos de cálculo, porque el
+determinismo exige el mismo número de hilos.
+
+La búsqueda sorteó 19 configuraciones en el espacio de la
+tabla~\ref{tab:espacio-lgbm} y añadió una de referencia con los valores por
+defecto de la librería. Como en todo sorteo con pocas extracciones, algunos
+valores quedaron más representados que otros: 7 de las 19 configuraciones
+sorteadas tienen 200 ejemplos por hoja y solo 2 tienen 255 hojas. La función de pérdida forma parte de la búsqueda: la
+pérdida absoluta prevé la mediana, coherente con el criterio de selección, y
+la cuadrática suele converger mejor. No se hizo una prueba de tiempos formal:
+se midió solo el tiempo del caso más costoso, muy por debajo del límite
+aplicado al SARIMAX, y las 20 configuraciones tardaron entre 0,2 y
+0,7~minutos cada una. La ganadora usa la pérdida cuadrática, una tasa de aprendizaje de
+0,0318, 127 hojas y 20 ejemplos por hoja, con 1203 árboles. Su número mínimo
+de ejemplos por hoja es el menor valor del espacio; como la búsqueda no
+tenía regla de borde y el presupuesto estaba agotado, no se amplió.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Espacio de búsqueda de LightGBM}
+	\label{tab:espacio-lgbm}
+	\small
+	\begin{tabular}{ll}
+		\hline
+		\textbf{Hiperparámetro} & \textbf{Valores} \\
+		\hline
+		Función de pérdida & Cuadrática o absoluta \\
+		Tasa de aprendizaje & Log-uniforme entre 0,02 y 0,2 \\
+		Número máximo de hojas & 15, 31, 63, 127 o 255 \\
+		Mínimo de ejemplos por hoja & 20, 50, 100, 200 o 500 \\
+		Fracción de variables por árbol & Uniforme entre 0,5 y 1 \\
+		Fracción de ejemplos por árbol & Uniforme entre 0,5 y 1 \\
+		Penalización L2 de las hojas & Log-uniforme entre 0,001 y 10 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\subsection{N-HiTS}\label{sec:esp-nhits}
+
+N-HiTS se implementa con la librería NeuralForecast. Es un modelo de salida
+múltiple (sección~\ref{sec:ml-supervisado}): recibe una ventana con las
+últimas $L$ horas de demanda, que termina en el origen, y dibuja de una vez
+las 37 horas UTC siguientes, de las que se conservan las del día $D+1$. La
+longitud $L$ de la ventana es un hiperparámetro. La regla de retardos de al
+menos 37 horas no se aplica, porque el modelo no usa retardos sueltos: la
+ausencia de fuga la garantiza el hecho de que la ventana no pase del origen,
+y así lo confirma la prueba de fuga.
+
+\paragraph{Ventanas y pesos del horizonte.} La red se entrena con todas las
+ventanas que caben en los datos del ajuste, empezando en cualquier hora, y en
+cada paso del entrenamiento sortea un lote de ellas. Es una diferencia de
+procedimiento con LightGBM, que solo usa filas con origen a las 12:00, pero
+no de información. Las pérdidas de los 37 pasos de la trayectoria se
+ponderan con peso nulo en los doce primeros y peso uno en los restantes, de
+modo que la red aprende a prever solo entre 12 y 36 horas por delante, las
+anticipaciones que se evalúan y las mismas que las de LightGBM. La primera
+versión de esta parte del protocolo afirmaba, por error, que la librería no
+permitía ponderar los pasos del horizonte; el error se corrigió antes de
+escribir ningún código, tras comprobar en el código fuente de la librería
+que sí lo permite. La opción tiene un coste: la red pierde la supervisión de
+las doce primeras horas, las más fáciles de prever, que podrían ayudarle a
+fijar el nivel; no se comparó con la alternativa de ponderar igual todos los
+pasos, porque habría consumido presupuesto de búsqueda.
+
+\paragraph{Periodo de la pandemia.} La exclusión se aplica con el mecanismo
+de la propia librería: una columna de disponibilidad marca como no
+disponibles las horas del periodo, y la librería descarta toda ventana con
+alguna de esas horas en la entrada o en el horizonte. Con $L = 336$, de las
+52\,199 ventanas posibles quedan 48\,900 válidas, la misma cifra contada a
+mano y por la librería.
+
+\paragraph{Variables exógenas.} La red recibe las once variables de la
+tabla~\ref{tab:exogenas-nhits}, todas conocidas en el futuro, que lee tanto en
+la ventana de entrada como en el horizonte. Para el último origen de cada
+conjunto, la hora 37 queda fuera de los datos disponibles; nunca se evalúa,
+pero la red necesita sus exógenas, que se toman de la última hora disponible.
+Como la red lee las exógenas de todo el horizonte, las horas evaluadas de ese
+origen pueden variar mínimamente respecto a usar los valores reales; afecta a
+un único origen por conjunto.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Variables exógenas de N-HiTS}
+	\label{tab:exogenas-nhits}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.3cm} >{\raggedright\arraybackslash}p{5cm} >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Información} & \textbf{Columnas} & \textbf{Codificación} \\
+		\hline
+		Grados-día & \texttt{gd\_calefaccion}, \texttt{gd\_refrigeracion} & Sin transformar \\
+		Temperatura & \texttt{t\_ponderada} & Sin transformar (°C) \\
+		Hora local & \texttt{hora\_sen}, \texttt{hora\_cos} & Seno y coseno de $2\pi h/24$, con $h$ la hora local \\
+		Día de la semana & \texttt{dia\_semana} & Categórica, con una representación aprendida por la red \\
+		Posición en el año & \texttt{anio\_sen}, \texttt{anio\_cos} & Seno y coseno de $2\pi (d-1)/365{,}25$, con $d$ el día del año local \\
+		Calendario & \texttt{fraccion\_festivo}, \texttt{puente}, \texttt{navidad} & Numéricas entre 0 y 1 \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+\paragraph{Normalización.} La demanda se normaliza por ventana
+(sección~\ref{sec:normalizacion}), restando la mediana y dividiendo por la
+desviación absoluta mediana de la parte de entrada de cada ventana; se usa
+la mediana y no la media porque un festivo dentro de la ventana la distorsiona
+menos. El escalado de la serie completa que ofrece la librería se desactiva.
+Las exógenas no se normalizan: la librería las normalizaría también por
+ventana, lo que convertiría las variables lentas, como la posición en el año,
+en una rampa casi igual en todas las ventanas. Para evitarlo se emplea una
+subclase mínima del modelo que solo cambia la lista de columnas que pasan por
+la normalización. Tres comprobaciones confirman que el escalado es el
+declarado. Multiplicar por dos la demanda de 2017-2021 en un modelo ya
+ajustado no cambia ninguna previsión de 2023: las ventanas de entrada de esos
+orígenes no llegan a esos años, de modo que solo un escalado calculado con
+la serie completa podría alterarlas. Sumar 1000~MW a toda la ventana de
+entrada sube las previsiones 1000~MW, con un desvío máximo de 0,004~MW por la
+precisión de la red, como corresponde a una normalización por ventana. Y
+sumar 5~°C a la temperatura sí cambia las previsiones, como corresponde a una
+variable que no se normaliza.
+
+\paragraph{Previsión puntual e intervalos.} La red se entrena con una pérdida
+por cuantiles para los cuantiles 0,05, 0,5 y 0,95, y produce tres
+trayectorias; la del cuantil 0,5, la mediana, es la previsión puntual que se
+evalúa y que decide la búsqueda, coherente con el criterio del MAE. Los
+cuantiles extremos forman su intervalo de predicción propio, que se trata
+con la capa probabilística.
+
+\paragraph{Prueba de tiempos.} Antes de fijar el espacio de búsqueda se midió
+el coste de entrenamiento en el procesador del ordenador del autor, sin
+tarjeta gráfica, con un criterio
+fijado antes de medir: la búsqueda de 20 configuraciones más dos
+reentrenamientos con otras semillas debía caber en diez horas, y la
+evaluación final en ocho, en el peor caso de que el entrenamiento llegara
+siempre al número máximo de pasos. La configuración más pesada prevista, con
+$L = 672$, capas de 1024 neuronas y dos bloques por pila, unos 70 millones de
+parámetros, tardaba 2,1~segundos por paso y no cabía ni con 500 pasos. La
+configuración reducida que el criterio establecía como alternativa, con
+$L = 504$, capas de 512 neuronas y un bloque por pila, tardaba 0,49 segundos
+por paso y cabía con un máximo de 1000 pasos: 7,3 horas de búsqueda y
+semillas y 4,3 de evaluación final en el peor caso. En consecuencia, esa configuración fija los
+máximos del espacio, y la ventana de 672 horas queda fuera por motivos
+computacionales.
+
+\paragraph{Entrenamiento y búsqueda.} Cada configuración se entrena primero
+con parada temprana: el conjunto de control son las últimas ocho semanas de
+la ventana, el error se evalúa cada 100 pasos y el entrenamiento se detiene
+tras tres evaluaciones seguidas sin mejora, con un máximo de 1000 pasos. Como
+la librería conserva los pesos del último paso y no los del mejor, el mejor
+paso se lee del historial de evaluaciones, y la red se reentrena con toda la
+ventana durante ese número de pasos. El error de control es la pérdida por
+cuantiles y no el MAE de la mediana. La librería reparte
+tres reducciones de la tasa de aprendizaje a lo largo de los pasos de cada
+entrenamiento, de modo que en el reentrenamiento, más corto, llegan antes. Se
+fijan la semilla
+42, cuatro hilos y tres pilas de un bloque cada una. La búsqueda sorteó 19
+configuraciones en el espacio de la tabla~\ref{tab:espacio-nhits} y añadió la
+arquitectura por defecto de la librería como referencia. Al generar el
+sorteo, y antes de medir nada, se observó que 8 de las 19 tasas de
+aprendizaje eran menores que 0,0002, con las que cabía esperar redes poco
+entrenadas en 1000 pasos; es una propiedad del espacio registrado y no se
+modificó. Las 20 configuraciones tardaron 82 minutos en total, y unos 95
+con los dos reentrenamientos de la ganadora con otras semillas.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Espacio de búsqueda de N-HiTS}
+	\label{tab:espacio-nhits}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{5.4cm} >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Hiperparámetro} & \textbf{Valores} \\
+		\hline
+		Longitud de la ventana de entrada $L$ & 168, 336 o 504 horas \\
+		Tasa de aprendizaje & Log-uniforme entre 0,0001 y 0,003 \\
+		Anchura de las capas & 128, 256 o 512 neuronas \\
+		Ventanas por lote & 256, 512 o 1024 \\
+		Escalas por pila: agrupación de la entrada / submuestreo de la salida & A: 2, 2, 1 / 4, 2, 1; B: 4, 4, 1 / 12, 4, 1; C: 8, 4, 1 / 24, 12, 1 \\
+		Probabilidad de \textit{dropout} & 0 o 0,1 \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+La configuración ganadora tiene una ventana de 336 horas, una tasa de
+aprendizaje de 0,00119, capas de 256 neuronas, lotes de 1024 ventanas, las
+escalas B y un \textit{dropout} de 0,1, y su entrenamiento llegó al máximo
+de 1000 pasos, como 12 de las 20 configuraciones. El máximo no se amplió: el
+presupuesto de configuraciones estaba agotado y el tope lo fijaba la prueba
+de tiempos, aunque la búsqueda con las semillas tardó 1,6 horas frente a las
+7,3 del peor caso, de modo que en la práctica habría cabido un
+máximo mayor. Ampliarlo después de ver los resultados habría sido decidir con
+2023, y figura entre las limitaciones del trabajo.
+
+% ---------------------------------------------------------------------
+\subsection{Configuraciones finales}\label{sec:esp-finales}
+
+La tabla~\ref{tab:configuraciones} reúne las configuraciones ganadoras de las
+tres familias con hiperparámetros, que son las que se evalúan en 2024. Con
+ella y con los espacios de búsqueda de las tablas anteriores se cumple la
+parte del criterio del objetivo~OE4 que exige recoger los hiperparámetros
+finales y el espacio explorado (tabla~\ref{tab:criterios}).
+
+\begin{table}[htbp]
+	\centering
+	\caption{Configuraciones ganadoras de cada familia, elegidas por su MAE en 2023}
+	\label{tab:configuraciones}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Modelo} & \textbf{Configuración} \\
+		\hline
+		SARIMAX & Errores ARMA(5,1); 12 armónicos diarios, 12 semanales y 3 anuales; 6 interacciones temperatura $\times$ hora; exógenas comunes; nivel y retardos de 48 y 168~h (68 variables y constante); estimación por mínimos cuadrados generalizados factibles iterados \\
+		LightGBM & Pérdida cuadrática; tasa de aprendizaje 0,0318; 127 hojas; 20 ejemplos por hoja; fracción de variables 0,555 y de ejemplos 0,855; penalización L2 0,057; 1203 árboles \\
+		N-HiTS & Ventana de 336~h; tasa de aprendizaje 0,00119; capas de 256 neuronas; tres pilas de un bloque con escalas B; lotes de 1024 ventanas; \textit{dropout} 0,1; 1000 pasos; semilla 42 \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+% ---------------------------------------------------------------------
+\subsection{Limitaciones de la modelización}\label{sec:esp-limitaciones}
+
+La tabla~\ref{tab:limitaciones-modelos} reúne las limitaciones de la
+modelización señaladas a lo largo de la sección, que complementan las del
+conjunto de datos (tabla~\ref{tab:limitaciones}).
+
+{\small
+\begin{xltabular}{\textwidth}{>{\raggedright\arraybackslash}p{5cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.6cm}}
+	\caption{Limitaciones de la modelización}
+	\label{tab:limitaciones-modelos} \\
+	\hline
+	\textbf{Limitación} & \textbf{Efecto esperado} & \textbf{Dónde se retoma} \\
+	\hline
+	\endfirsthead
+	\multicolumn{3}{l}{\textit{(continuación)}} \\
+	\hline
+	\textbf{Limitación} & \textbf{Efecto esperado} & \textbf{Dónde se retoma} \\
+	\hline
+	\endhead
+	\hline
+	\endfoot
+		SARIMAX sin términos ARMA estacionales, por coste & Dependencia diaria no recogida en los residuos & Sección~\ref{sec:val-sarimax} \\
+		Armónicos del SARIMAX elegidos con ARMA(2,1) fijo, sin nivel ni retardos, en el borde de la rejilla y con un criterio que favorece los modelos grandes & Elección posiblemente distinta de la óptima & --- \\
+		Orden $p = 5$ del SARIMAX en el borde y avisos de convergencia interna & Posible mejora no explorada & --- \\
+		Nivel y retardos del SARIMAX añadidos tras ver el error de 2023 de las configuraciones de referencia & Error de validación del SARIMAX algo optimista & Evaluación en 2024 \\
+		Prueba de tiempos del SARIMAX con una configuración más ligera que la rejilla final, sin repetir & Ninguno en la práctica: la búsqueda real cupo con margen & --- \\
+		Retardos de SARIMAX y LightGBM en horas UTC & Desfase de una hora local en los días siguientes a cada cambio de hora & --- \\
+		LightGBM: mínimo de ejemplos por hoja en el borde del espacio; 7 de las 19 configuraciones sorteadas con 200 ejemplos por hoja y solo 2 con 255 hojas & Posible mejora no explorada & --- \\
+		LightGBM: número de árboles elegido con un 3\,\% menos de filas y sin prueba de tiempos formal & Despreciable & --- \\
+		Ventanas de N-HiTS mayores de 504~h y arquitecturas más pesadas excluidas por coste & Espacio de búsqueda acotado & --- \\
+		Máximo de 1000 pasos de N-HiTS alcanzado por 12 de las 20 configuraciones, incluida la ganadora & Posible entrenamiento incompleto & Sección~\ref{sec:val-perfil} \\
+		N-HiTS sin supervisión de las doce primeras horas del horizonte & Posible pérdida de información para fijar el nivel & --- \\
+		Diferencias de procedimiento de N-HiTS: ventanas desde cualquier hora, control con la pérdida por cuantiles, reducciones de la tasa adelantadas en el reentrenamiento, subclase de un método interno de la librería & Efecto pequeño; dependencia de la versión de la librería, fijada & --- \\
+		Exógenas de la hora 37 del último origen de cada conjunto tomadas de la última hora disponible & Variación mínima en un único origen por conjunto & --- \\
+		Variabilidad entre semillas de N-HiTS & Diferencias entre configuraciones próximas no significativas & Sección~\ref{sec:val-seleccion} \\
+		Prueba de fuga: solo detecta el uso de datos futuros si la previsión reacciona a ellos & Complementada con el control positivo y la prueba de alineación & Sección~\ref{sec:prot-fuga} \\
+\end{xltabular}
+}
+
+\FloatBarrier
+% =====================================================================
+% PENDIENTE (R2): sección «Diseño de la capa probabilística», que irá aquí,
+% entre la especificación de los modelos y las métricas.
+% =====================================================================
+
+% =====================================================================
+\section{Métricas y contrastes}\label{sec:metricas-contrastes}
+
+Esta sección define con precisión las métricas con las que se evalúan las
+previsiones de los cuatro modelos y los contrastes con los que se comparan,
+cuyos fundamentos se expusieron en la sección~\ref{sec:evaluacion}. Las
+métricas de precisión puntual se fijaron en el protocolo antes de ver ningún
+resultado y son las que se emplean en la selección de 2023 y en la
+evaluación final de 2024.
+% PENDIENTE (R2 y R3): subsecciones de métricas probabilísticas y del
+% contraste de Diebold-Mariano; al añadirlas, ampliar el párrafo anterior para
+% anunciar las tres partes.
+
+\subsection{Métricas de precisión puntual}\label{sec:metricas-puntuales}
+
+El error de la previsión de la hora $t$ se define como $e_t = y_t -
+\hat{y}_t$, de modo que es positivo cuando el modelo se queda corto. Todas
+las métricas se promedian sobre el conjunto de horas evaluadas, 8760 en 2023
+y 8784 en 2024, y no primero por días: cada hora pesa lo mismo, incluidas las
+de los días de 23 y 25 horas. Se calculan las cuatro métricas de la
+sección~\ref{sec:metricas}: el MAE, el RMSE, el MAPE y el MASE.
+
+El MASE requiere una escala. En este trabajo es una constante fija: el error
+absoluto medio del ingenuo semanal, $|y_t - y_{t-168}|$ con el retardo en
+horas UTC, calculado una sola vez con los datos de 2017-2022 y excluidos los
+pares con alguna de las dos horas en el periodo de la pandemia. Su valor es
+de 1328,2~MW, el 4,7\,\% de la demanda media de ese periodo, y es el mismo
+para los cuatro modelos y para 2023 y 2024. La definición original de
+\textcite{hyndman2006another} calcula la escala con los datos de
+entrenamiento de cada modelo; con reajustes mensuales, la escala cambiaría en
+cada reajuste y dejaría de ser una referencia común. Con una escala fija, el
+MASE es simplemente el MAE en otra unidad, que permite leer de inmediato si un
+modelo falla más o menos que el ingenuo semanal en su periodo de referencia.
+Por esa misma razón, el MASE del ingenuo estacional en 2023 o en 2024 no
+tiene por qué valer uno.
+
+A estas métricas se añaden tres columnas. El \emph{MAE relativo al ingenuo}
+es el cociente entre el MAE de cada modelo y el del ingenuo estacional en el
+mismo periodo, de modo que el ingenuo vale uno y un valor de 0,6, por ejemplo,
+indica que el modelo elimina el 40\,\% de su error. El \emph{sesgo} es la
+media de los errores. Y, con carácter descriptivo, se informa del
+\emph{cociente entre el RMSE y el MAE}, que aumenta cuando el error se
+concentra en pocas horas (sección~\ref{sec:metricas}), y del \emph{percentil
+95 del error absoluto}, el valor que solo supera el 5\,\% de las horas, que
+mide en megavatios el tamaño de los errores grandes.
+
+Las previsiones de cada modelo se guardan hora a hora junto con la demanda
+observada, de modo que todas las métricas, los desgloses y los contrastes se
+calculan a partir de los mismos archivos con un único programa común a los
+cuatro modelos.

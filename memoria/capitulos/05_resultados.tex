@@ -1,6 +1,7 @@
 % =====================================================================
 % Capítulo 5. Desarrollo, análisis y resultados
-% Estado: 5.1 redactada (06/10/2026); 5.2 en adelante pendientes.
+% Estado: 5.1 redactada (06/10/2026); 5.2 redactada (15/10/2026, sesión R1);
+% 5.3 en adelante pendientes (R2 a R4).
 % Figuras de 5.1: definitivas (07/10/2026), generadas por src/14_exploracion.py
 % directamente en memoria/figuras/.
 % =====================================================================
@@ -10,10 +11,12 @@
 Este capítulo presenta los resultados del trabajo en el orden de los
 objetivos específicos. Comienza con el análisis exploratorio de la serie de
 demanda, que caracteriza sus propiedades estadísticas y fundamenta las
-decisiones de modelización. A continuación se presentan la precisión puntual
-de los cuatro modelos, la calibración de sus intervalos de predicción y el
-desglose de ambos por hora del día y tipo de día, y el capítulo termina con
-la discusión de los resultados.
+decisiones de modelización. Le sigue la validación en 2023, en la que se
+elige la configuración de cada familia y se describe el comportamiento de los
+cuatro modelos. A continuación se presentan la precisión puntual de los
+cuatro modelos en el año de prueba, la calibración de sus intervalos de
+predicción y el desglose de ambos por hora del día y tipo de día, y el
+capítulo termina con la discusión de los resultados.
 
 \section{Análisis exploratorio de la serie}\label{sec:exploratorio}
 
@@ -234,10 +237,11 @@ El criterio de decisión se fijó antes de realizar los contrastes: en este
 caso, en lugar de diferenciar la serie, se modelan explícitamente la
 tendencia, las estacionalidades y el efecto de las variables exógenas, y la
 estacionariedad se vuelve a contrastar sobre los residuos del SARIMAX
-(objetivo~OE3). Como el protocolo de comparación no admite variables de
-tendencia o de año, la tendencia se recoge mediante una variable de nivel
-construida con la demanda de los días anteriores a cada previsión, que se
-describe en el capítulo~\ref{cap:metodologia}.
+(objetivo~OE3; sección~\ref{sec:val-sarimax}). Como el protocolo de
+comparación no admite variables de tendencia o de año, la tendencia se recoge
+mediante una variable de nivel construida con la demanda de los días
+anteriores a cada previsión, que se describe en la
+sección~\ref{sec:esp-sarimax}.
 
 Los resultados tienen dos matices. Con más de 52\,000 observaciones, los
 contrastes tienen una potencia tan alta que detectan desviaciones mínimas de
@@ -444,8 +448,8 @@ las decisiones se apoyan exclusivamente en datos de entrenamiento.
 		\hline
 		\textbf{Hallazgo} & \textbf{Implicación} \\
 		\hline
-		Picos en 24 y 168~h; la potencia anual es inferior a la semestral & Términos de Fourier para los tres periodos, con al menos dos armónicos anuales \\
-		La amplitud de los ciclos diario y semanal cambia con la estación & Los términos de Fourier fijos son una limitación del SARIMAX; se valoran interacciones; los modelos de aprendizaje pueden capturarlo \\
+		Picos en 24 y 168~h; la potencia anual es inferior a la semestral & Términos de Fourier para los tres periodos, con al menos dos armónicos anuales; el número de cada periodo se elige por criterio de información (sección~\ref{sec:esp-sarimax}) \\
+		La amplitud de los ciclos diario y semanal cambia con la estación & Los términos de Fourier fijos son una limitación del SARIMAX, que se atenúa con interacciones entre la temperatura y la hora (sección~\ref{sec:esp-sarimax}); los modelos de aprendizaje pueden capturarlo \\
 		ADF rechaza la raíz unitaria y KPSS la estacionariedad en nivel & No se diferencia la serie: se modelan tendencia (mediante una variable de nivel construida con la demanda pasada), estacionalidad y exógenas, y se contrastan los residuos \\
 		La ACF es mayor en 168~h que en 24~h & Ingenuo estacional semanal como referencia; el retardo de 168~h, entre los principales disponibles \\
 		Residuo de MSTL persistente, de tipo AR(2) & Episodios de varios días que deben explicar la temperatura y el calendario; dinámica ARMA en los errores \\
@@ -461,3 +465,394 @@ tabla~\ref{tab:criterios}: la memoria presenta la descomposición de la serie,
 el periodograma con los picos en los tres periodos estacionales, los
 resultados de los contrastes ADF y KPSS y la curva demanda-temperatura
 ajustada con grados-día.
+
+% =====================================================================
+% Sección 5.2 redactada el 15/10/2026 (sesión R1). Cifras de
+% src/18_sarimax_validacion.py, src/20_lightgbm_validacion.py,
+% src/23_nhits_validacion.py y src/24_validacion_desgloses.py
+% (protocolo, apartados 10.10, 11.4, 12.6 y 13.8).
+% =====================================================================
+\section{Validación en 2023}\label{sec:validacion}
+
+Esta sección presenta los resultados del año de validación, 2023: la
+selección de la configuración de cada familia, el diagnóstico de los residuos
+del SARIMAX que exige el objetivo~OE3 y la comparación de los cuatro modelos
+seleccionados. Conviene recordar el papel de estas cifras. Sirven para elegir
+la configuración de cada familia y para describir cómo se comporta cada
+modelo, pero no son el rendimiento que se informa: las tres configuraciones
+ganadoras se han elegido precisamente por su error en 2023, que es por ello
+una estimación optimista (sección~\ref{sec:prot-particiones}). El rendimiento
+de los modelos es el de 2024, que se presenta más adelante en este capítulo.
+
+La sección comienza con la selección dentro de cada familia y el diagnóstico
+del SARIMAX. Después compara los cuatro modelos en el conjunto del año,
+analiza cómo se reparte el error a lo largo del día y del año y en los días
+más difíciles, y termina con una síntesis.
+
+% ---------------------------------------------------------------------
+\subsection{Selección en cada familia}\label{sec:val-seleccion}
+
+La tabla~\ref{tab:seleccion} resume la búsqueda de cada familia. LightGBM y
+N-HiTS agotaron su presupuesto; el SARIMAX evaluó 17 de las 20
+configuraciones posibles, por el diseño de su rejilla
+(sección~\ref{sec:esp-sarimax}). Ninguna configuración falló.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Resumen de la selección en 2023 (MAE y sesgo en MW)}
+	\label{tab:seleccion}
+	\small
+	\begin{tabularx}{\textwidth}{l *{5}{>{\raggedleft\arraybackslash}X}}
+		\hline
+		\textbf{Familia} & \textbf{Config.} & \textbf{MAE mínimo} & \textbf{MAE máximo} & \textbf{Sesgo de la ganadora} & \textbf{Tiempo de la búsqueda} \\
+		\hline
+		SARIMAX & 17 & 943,4 & 1888,2 & $-346$ & $\approx 1$~h \\
+		LightGBM & 20 & 585,2 & 656,3 & $-142$ & unos 5~min \\
+		N-HiTS & 20 & 716,4 & 936,6 & $+188$ & 82~min \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+\paragraph{SARIMAX.} La tabla~\ref{tab:sarimax-rejilla} recoge las 17
+configuraciones evaluadas. Su lectura más importante está en las tres
+primeras filas, las de la configuración de referencia ARMA(2,1) antes y
+después de cada enmienda: sin la variable de nivel, el modelo falla más que el
+ingenuo (1888~MW) y sobrestima la demanda en 1660~MW de media; con ella, el
+MAE baja a 1315~MW; y con los retardos de 48 y 168 horas, a 974~MW. Lo
+decisivo para el SARIMAX fueron, por tanto, el nivel y los retardos, más que
+el orden del proceso de los errores. Con ambos, las seis mejores
+configuraciones quedan entre 943 y 954~MW, a menos de un 1,2\,\% de distancia,
+de modo que el orden del ARMA es un ajuste fino. La ganadora es el ARMA(5,1),
+con 943,4~MW. Cinco configuraciones forman un segundo grupo, con errores de
+1059 a 1112~MW y sesgos de entre $-111$ y $+179$~MW, frente a los de entre
+$-290$ y $-390$~MW de las demás; una hipótesis no comprobada es que el
+procedimiento de estimación llega en ellas a una solución distinta. La ganadora por RMSE es también el ARMA(5,1), lo que indica
+que la elección no depende de la métrica.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Configuraciones del SARIMAX evaluadas en 2023 (MW). Las tres primeras filas recogen la configuración de referencia ARMA(2,1) en cada fase; la tercera forma parte también de la rejilla final, cuyas quince configuraciones se ordenan después por MAE}
+	\label{tab:sarimax-rejilla}
+	\small
+	\begin{tabular}{llrrr}
+		\hline
+		\textbf{Errores} & \textbf{Variables de la demanda} & \textbf{MAE} & \textbf{RMSE} & \textbf{Sesgo} \\
+		\hline
+		ARMA(2,1) & Ninguna (referencia inicial) & 1888,2 & 2454,5 & $-1660$ \\
+		ARMA(2,1) & Nivel & 1314,8 & 1785,7 & $-629$ \\
+		ARMA(2,1) & Nivel y retardos & 973,7 & 1471,4 & $-350$ \\
+		\hline
+		\textbf{ARMA(5,1)} & \textbf{Nivel y retardos} & \textbf{943,4} & \textbf{1414,4} & $\mathbf{-346}$ \\
+		ARMA(4,2) & Nivel y retardos & 947,1 & 1416,8 & $-351$ \\
+		ARMA(1,1) & Nivel y retardos & 951,9 & 1435,3 & $-291$ \\
+		ARMA(4,0) & Nivel y retardos & 952,8 & 1438,3 & $-315$ \\
+		ARMA(3,1) & Nivel y retardos & 953,2 & 1439,0 & $-316$ \\
+		ARMA(3,0) & Nivel y retardos & 954,0 & 1440,6 & $-319$ \\
+		ARMA(2,2) & Nivel y retardos & 965,5 & 1459,8 & $-340$ \\
+		ARMA(1,2) & Nivel y retardos & 969,0 & 1464,4 & $-346$ \\
+		ARMA(2,0) & Nivel y retardos & 1012,5 & 1524,3 & $-387$ \\
+		ARMA(5,2) & Nivel y retardos & 1059,3 & 1575,7 & $-111$ \\
+		ARMA(5,0) & Nivel y retardos & 1093,5 & 1641,2 & $+122$ \\
+		ARMA(3,2) & Nivel y retardos & 1100,9 & 1644,1 & $+122$ \\
+		ARMA(4,1) & Nivel y retardos & 1106,4 & 1655,7 & $+170$ \\
+		ARMA(1,0) & Nivel y retardos & 1111,5 & 1671,1 & $+179$ \\
+		\hline
+	\end{tabular}
+\end{table}
+
+\paragraph{LightGBM.} Las 20 configuraciones quedan entre 585,2 y 656,3~MW,
+de modo que la peor falla un 12\,\% más que la mejor, frente al 18\,\% de la
+rejilla final del SARIMAX, y las siete mejores quedan entre 585 y 596~MW, a
+menos de un 2\,\%. Ninguna llegó al máximo de árboles. Lo que más
+pesa es la tasa de aprendizaje: las cinco mejores configuraciones tienen tasas
+de entre 0,029 y 0,032, y las tres peores, de entre 0,15 y 0,19. La función de
+pérdida, cuadrática o absoluta, no muestra una diferencia clara. Todas las
+configuraciones tienen sesgo negativo, entre $-93$ y $-179$~MW. La ganadora
+obtiene un MAE de 585,2~MW. Por ganancia en los árboles, las variables más
+importantes son el retardo de 168 horas, con el 58,7\,\% del total, y el de
+336 horas, con el 11,5\,\%. Esta medida debe leerse con cuidado: la
+temperatura suma solo un 3\,\%, pero eso no significa que su efecto sea
+pequeño, porque la demanda retardada ya contiene el efecto de la temperatura
+de entonces, y el modelo solo necesita la temperatura para corregir lo que
+cambia entre aquel día y el previsto.
+
+\paragraph{N-HiTS.} Las 20 configuraciones quedan entre 716,4 y 936,6~MW, y
+las ocho mejores, entre 716 y 767~MW. Doce llegan al máximo de 1000 pasos,
+incluida la ganadora. La observación hecha al sortear el espacio, que las
+tasas de aprendizaje muy bajas darían redes poco entrenadas, se cumple solo
+en parte: de las ocho configuraciones con tasas menores que 0,0002, cuatro
+quedan en la mitad inferior de la clasificación, pero otras dos quedan
+segunda y quinta. Todas las
+configuraciones tienen sesgo positivo, entre $+91$ y $+562$~MW, al contrario
+que las del SARIMAX y LightGBM: N-HiTS se queda corto de forma sistemática.
+
+La ganadora, reentrenada con las semillas 43 y 44, obtiene un MAE de 771,1 y
+704,6~MW, frente a 716,4~MW con la semilla 42: un rango de 66,4~MW, con una
+media de 730,7~MW. La distancia entre la ganadora y la segunda configuración,
+de 723,4~MW, es de solo 7~MW, mucho menor que ese rango. El orden entre las
+mejores configuraciones de N-HiTS está, por tanto, dentro de la variabilidad
+debida a la semilla, y una diferencia de unas decenas de megavatios entre dos
+configuraciones de la red no debe interpretarse como una diferencia real. La
+previsión oficial sigue siendo la de la semilla 42
+(sección~\ref{sec:prot-presupuesto}).
+
+% ---------------------------------------------------------------------
+\subsection{Diagnóstico del SARIMAX}\label{sec:val-sarimax}
+
+El objetivo~OE3 exige contrastar si los residuos del SARIMAX se comportan
+como ruido blanco (tabla~\ref{tab:criterios}). Sobre los residuos
+estandarizados del ajuste de 2017-2022 de la configuración ganadora, el
+contraste de Ljung-Box rechaza la ausencia de autocorrelación hasta los
+retardos de 24 y de 168 horas: el estadístico vale $Q = 9061$ con 24
+retardos y $Q = 17\,850$ con 168, con $p$-valores inferiores a 0,0001 en
+ambos casos. Los grados de libertad empleados son 24 y 168; descontar los
+seis parámetros del proceso ARMA (sección~\ref{sec:box-jenkins}) no cambia
+la conclusión. Con unas 49\,000 horas de residuos, el contraste rechaza ante
+autocorrelaciones muy pequeñas, de modo que lo informativo es su magnitud. La
+autocorrelación a 168 horas es prácticamente nula, $-0{,}04$, pero a 24 horas
+es de 0,36: el modelo aún tiende a repetir el error de la misma hora del día
+anterior. El contraste ADF
+rechaza con claridad la raíz unitaria, con un estadístico de $-36{,}6$, y el
+KPSS rechaza la estacionariedad en nivel, con 2,9 y un $p$-valor inferior a
+0,01, lo que indica que en los residuos quedan cambios de nivel lentos.
+
+El resultado contrasta con la hipótesis formulada en el análisis
+exploratorio (sección~\ref{sec:explo-acf}): que la temperatura y el
+calendario absorberían buena parte de la persistencia del residuo de la
+descomposición MSTL y que un proceso ARMA de orden bajo bastaría para el
+resto. No fue así. Hicieron falta la variable de nivel y los retardos de 48 y
+168 horas, el proceso de los errores ganador es de orden cinco, y aun así
+queda una dependencia diaria que la especificación no recoge. Una causa
+posible, no comprobada, es la ausencia de términos ARMA estacionales,
+excluidos por su coste de cálculo (sección~\ref{sec:esp-sarimax}), y se
+declara como limitación. Con el diagnóstico de esta sección se cumple la
+parte del criterio del objetivo~OE3 referida a la especificación final y al
+contraste de Ljung-Box; la otra parte, las previsiones del periodo de
+prueba, corresponde a la evaluación de 2024.
+
+% ---------------------------------------------------------------------
+\subsection{Comparación de los cuatro modelos}\label{sec:val-comparacion}
+
+La tabla~\ref{tab:validacion} reúne las métricas de los cuatro modelos
+seleccionados en 2023, calculadas con el programa común de la
+sección~\ref{sec:metricas-puntuales}, que reproduce las cifras obtenidas en
+la búsqueda de cada familia.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Métricas de los cuatro modelos en 2023 (validación)}
+	\label{tab:validacion}
+	\small
+	\setlength{\tabcolsep}{3.5pt}
+	\begin{tabular}{lrrrrrrrr}
+		\hline
+		\textbf{Modelo} & \textbf{MAE} & \textbf{RMSE} & \textbf{MAPE} & \textbf{MASE} & \textbf{MAE rel.} & \textbf{Sesgo} & \textbf{RMSE/MAE} & \textbf{P95 $|e|$} \\
+		 & (MW) & (MW) & (\%) & & & (MW) & & (MW) \\
+		\hline
+		Ingenuo & 1400,0 & 2014,9 & 5,32 & 1,054 & 1,000 & $+46$ & 1,44 & 4307 \\
+		SARIMAX & 943,4 & 1414,4 & 3,67 & 0,710 & 0,674 & $-346$ & 1,50 & 2767 \\
+		LightGBM & 585,2 & 790,7 & 2,25 & 0,441 & 0,418 & $-142$ & 1,35 & 1617 \\
+		N-HiTS & 716,4 & 926,5 & 2,73 & 0,539 & 0,512 & $+188$ & 1,29 & 1855 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Los tres modelos ajustados mejoran al ingenuo estacional, que falla de media
+1400~MW por hora, un 5,3\,\% de la demanda, y un 5,4\,\% más que en su
+propio periodo de referencia (MASE de 1,054). LightGBM elimina el 58\,\% de
+ese error, N-HiTS el 49\,\% y el SARIMAX el 33\,\%. El orden es el mismo en
+las cuatro métricas de precisión. El MAE de LightGBM es un 38\,\% menor que el
+del SARIMAX y un 18\,\% menor que el de N-HiTS, y el de N-HiTS, un 24\,\%
+menor que el del SARIMAX. En 2023, por tanto, el
+modelo de aprendizaje profundo no supera al de \textit{gradient boosting}, un
+resultado que se somete a la prueba de 2024 y se retoma en la discusión.
+
+Las dos últimas columnas describen cómo se reparte el error. El cociente
+entre el RMSE y el MAE, que valdría 1,25 con errores normales centrados, es
+máximo en el
+SARIMAX (1,50) y en el ingenuo (1,44): una parte importante de su error se
+concentra en unas pocas horas con errores muy grandes, que la
+sección~\ref{sec:val-dias} localiza. N-HiTS tiene el cociente más bajo, 1,29,
+y la menor distancia relativa a LightGBM en el percentil 95 del error absoluto:
+su MAE es un 22\,\% mayor que el de LightGBM, pero su percentil 95 solo un
+15\,\% mayor. Los sesgos tienen signos distintos: el SARIMAX y LightGBM
+prevén de media más demanda de la que hubo, y N-HiTS menos.
+
+% ---------------------------------------------------------------------
+\subsection{El error a lo largo del día y del año}\label{sec:val-perfil}
+
+La figura~\ref{fig:val-anticipacion} muestra el MAE de cada modelo según la
+anticipación de la hora prevista, medida desde el origen, con la hora local
+del día $D+1$ correspondiente en el eje superior. Con un único origen diario,
+la anticipación y la hora del día van unidas: la anticipación de 12 horas es
+siempre la medianoche, y la de 26 horas, siempre las dos de la tarde, salvo
+en los días de cambio de hora. Por eso la figura no permite separar el efecto
+de prever más lejos del de prever una hora del día más o menos difícil. Lo que
+muestra es que el error no crece de forma regular con la anticipación, sino
+que sigue la hora: las horas de madrugada, a 12-17 horas del origen, son las
+más fáciles para los cuatro modelos, y las de la tarde, las más difíciles.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{validacion_mae_anticipacion.png}
+	\caption{MAE de los cuatro modelos en 2023 según la anticipación de la hora prevista (eje inferior) y la hora local del día $D+1$ correspondiente (eje superior). Se omite la anticipación de 36~h, que solo se da en una hora del año.}
+	\label{fig:val-anticipacion}
+\end{figure}
+
+El ingenuo, el SARIMAX y LightGBM tienen el mismo perfil: error bajo de
+madrugada, subida a partir de las siete de la mañana y máximo entre las 12 y
+las 17 horas, que en LightGBM llega a unos 860~MW. N-HiTS tiene un perfil
+propio, en dientes de sierra, con máximos de error a las 07:00 (976~MW) y a
+las 21:00 (1315~MW), y es el mejor de los cuatro entre las 13 y las 17 horas.
+
+Para entender ese perfil, la tabla~\ref{tab:perfil} compara la demanda media
+real de cada hora de 2023 con la previsión media de cada modelo para esa hora.
+El SARIMAX y LightGBM reproducen la forma del día casi exactamente: la
+diferencia entre su hora más alta y su hora más baja, la amplitud del perfil,
+es del 101-102\,\% de la real, y sus errores medios son desplazamientos de
+nivel, no deformaciones. N-HiTS, en cambio, dibuja un día aplanado: su
+amplitud es solo el 88\,\% de la real, sube tarde por la mañana, se queda
+1280~MW por debajo del pico de las 21:00 y sitúa su máximo una hora antes. Su
+sesgo positivo procede de esa forma: es el saldo de quedarse muy corto por la
+mañana y por la tarde y pasarse al mediodía, y no un nivel general demasiado
+bajo. El patrón es el mismo en los doce meses y en las tres semillas. Su
+sesgo medio por franjas es de $+31$~MW de 00:00 a 06:00, $+262$~MW de 06:00 a
+12:00, $-313$~MW de 12:00 a 18:00 y $+772$~MW de 18:00 a 24:00.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Demanda media real y previsión media de cada modelo en horas seleccionadas de 2023 (MW)}
+	\label{tab:perfil}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		\textbf{Hora local} & \textbf{Real} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		04:00 (valle) & 21\,060 & 21\,262 & 21\,053 & 21\,145 \\
+		07:00 (subida) & 25\,337 & 25\,547 & 25\,236 & 24\,487 \\
+		12:00 (mediodía) & 27\,854 & 28\,399 & 28\,240 & 28\,588 \\
+		16:00 & 27\,185 & 27\,668 & 27\,618 & 27\,347 \\
+		21:00 (pico) & 30\,047 & 30\,403 & 30\,139 & 28\,767 \\
+		\hline
+		Amplitud del perfil & 8987 & 9141 & 9086 & 7909 \\
+		Amplitud relativa a la real & 1,000 & 1,017 & 1,011 & 0,880 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Un perfil de error tan marcado podía deberse a un desfase horario en el
+procesamiento de las previsiones, que la prueba de fuga no detectaría. La
+comprobación de alineación de la sección~\ref{sec:prot-fuga} lo descarta.
+Calculado sobre las 8754 horas comunes a todos los desplazamientos, que
+excluyen las tres primeras y las tres últimas del año, el MAE de N-HiTS es de
+716,5~MW comparado con la demanda de la misma hora, y de 1088,4 y 1164,3~MW
+comparado con la de una hora antes y una hora después; los otros tres
+modelos se comportan igual. El aplanamiento es, por tanto, un
+comportamiento del modelo. Una explicación compatible con su arquitectura
+(sección~\ref{sec:nhits}) es que las pilas de baja resolución dibujan una
+trayectoria suave y que la red, que llegó al máximo de pasos de entrenamiento,
+no llegó a añadir todo el detalle de la forma diaria. No se ha comprobado,
+y el caso es distinto del de las enmiendas del SARIMAX. N-HiTS ya recibe toda
+la información que el protocolo pone a disposición de los modelos: la ventana
+de demanda hasta el origen y las exógenas. Corregir su perfil exigiría
+cambiar hiperparámetros o el procedimiento de entrenamiento, como el número
+de pasos, los pesos del horizonte o las escalas, y eso, según la regla de la
+sección~\ref{sec:prot-principio}, sería decidir con 2023.
+
+La tabla muestra también un rasgo común a los tres modelos ajustados: los
+tres prevén al mediodía más demanda de la que hubo. Entre las 12:00 y las
+18:00, su sesgo medio es de $-508$~MW en el SARIMAX, $-411$~MW en LightGBM y
+$-313$~MW en N-HiTS, mientras que el del ingenuo, que copia la semana
+anterior, es de $+53$~MW. En LightGBM, ese exceso aparece en diez de los doce
+meses y es mayor de abril a septiembre, con $-507$~MW de media, que de
+noviembre a febrero, con $-210$~MW. La diferencia, de 297~MW, supera el umbral
+de 150~MW fijado antes de calcularla para considerarla apreciable. Es
+compatible con el efecto del autoconsumo, que reduce la demanda observada en
+las horas de sol (sección~\ref{sec:datos-demanda}), pero no lo demuestra, y su
+interpretación se aborda en la discusión.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{validacion_mae_mes.png}
+	\caption{MAE mensual de los cuatro modelos en 2023.}
+	\label{fig:val-mes}
+\end{figure}
+
+La figura~\ref{fig:val-mes} muestra el error de cada mes. LightGBM es el
+mejor en diez de los doce meses; N-HiTS lo supera en abril y en agosto. El
+ingenuo tiene sus peores meses en agosto (2399~MW), enero y diciembre, los
+meses en que la semana anterior se parece menos a la que se prevé, por las
+vacaciones y la Navidad. Agosto es también el peor mes del SARIMAX y de
+LightGBM. N-HiTS es el más regular a lo largo del año, con errores mensuales
+entre 587 y 852~MW, y no empeora en agosto como los demás.
+
+% ---------------------------------------------------------------------
+\subsection{Días difíciles y relación entre los modelos}\label{sec:val-dias}
+
+La tabla~\ref{tab:tipo-dia-val} desglosa el error por tipo de día. Los diez
+festivos de 2023 concentran los errores más grandes del ingenuo y del
+SARIMAX, con un MAE de más de 4000~MW en ambos y un sesgo casi igual al error:
+los dos prevén un día laborable cuando la demanda es la de un domingo. Que el
+SARIMAX falle en los festivos casi tanto como el ingenuo indica que la
+fracción de población en festivo, que entra en su regresión con un efecto
+lineal y fijo, no basta para recoger cómo cambia el perfil de un festivo.
+Ocho de sus diez peores días son festivos, lo que explica su elevado cociente
+entre el RMSE y el MAE. LightGBM y N-HiTS reducen mucho ese error, y N-HiTS es
+el mejor de los cuatro en festivos y en puentes. En los cuatro modelos, el
+sesgo en festivos es negativo.
+
+\begin{table}[htbp]
+	\centering
+	\caption{MAE por tipo de día en 2023 (MW)}
+	\label{tab:tipo-dia-val}
+	\small
+	\begin{tabular}{lrrrrr}
+		\hline
+		\textbf{Tipo de día} & \textbf{Días} & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		Laborable & 247 & 1431 & 882 & 570 & 714 \\
+		Fin de semana & 105 & 1045 & 773 & 561 & 707 \\
+		Festivo & 10 & 4260 & 4194 & 1131 & 910 \\
+		Puente & 3 & 1712 & 1083 & 916 & 567 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Los peores días de cada modelo reflejan sus debilidades propias. Los del
+ingenuo son los festivos y, sobre todo, los días situados una semana después
+de un festivo: el 13 de enero, que copia el 6, el 14 de abril, que copia el
+Viernes Santo, y del mismo modo el 8 de mayo, el 22 de agosto, el 19 de
+octubre y el 8 de noviembre. En todos ellos el modelo prevé un festivo en un
+día laborable, y se queda corto en más de 4800~MW de media diaria. Los de LightGBM
+son el 1 de mayo, el Viernes Santo, la Navidad y varios días de agosto, en
+plenas vacaciones. Entre los de N-HiTS destacan el principio y el final del
+año: el 2 y el 3 de enero, el 25 y el 31 de diciembre. Por día de la
+semana, N-HiTS se queda especialmente corto los lunes, con un sesgo de
+$+490$~MW, cuando su ventana de entrada termina en pleno fin de semana; el
+SARIMAX, en cambio, se pasa los lunes ($-524$~MW).
+
+La correlación entre los errores horarios de los modelos indica en qué
+medida se equivocan a la vez. La más alta es la del ingenuo con el SARIMAX,
+0,70, que fallan en los mismos días; siguen la de LightGBM con el SARIMAX,
+0,60, y con el ingenuo, 0,59. N-HiTS es el modelo cuyos errores se parecen
+menos a los de los demás: su correlación es de 0,50 con LightGBM, 0,45 con el
+SARIMAX y 0,27 con el ingenuo. Por último, el modelo con menor MAE diario es
+LightGBM en el 48,8\,\% de los días, N-HiTS en el 22,2\,\%, el SARIMAX en el
+16,7\,\% y el ingenuo en el 12,3\,\%: en una semana sin acontecimientos
+especiales, repetir la anterior es difícil de mejorar.
+
+% ---------------------------------------------------------------------
+\subsection{Síntesis}\label{sec:val-sintesis}
+
+En la validación de 2023, los tres modelos ajustados mejoran con claridad al
+ingenuo estacional, y el orden es el mismo en todas las métricas de
+precisión: LightGBM, N-HiTS y el SARIMAX. Cada modelo tiene un patrón de error
+característico: el SARIMAX, una dependencia diaria residual y un fallo
+pronunciado en los festivos; LightGBM, un exceso de previsión al mediodía; y
+N-HiTS, un perfil diario aplanado que no alcanza el pico de la tarde, junto
+con una variabilidad apreciable entre semillas, de 66~MW, y los errores menos
+correlacionados
+con los de los demás. La selección se hizo solo con el MAE; los desgloses,
+calculados después con reglas de lectura fijadas de antemano, no cambiaron
+ninguna ganadora. Si estos resultados se mantienen, y si las diferencias son
+significativas, se comprueba con la evaluación única de 2024.

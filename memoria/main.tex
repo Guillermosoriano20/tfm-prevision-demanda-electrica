@@ -17,13 +17,28 @@
 % --- Bibliografía en APA con biblatex + biber ---
 \usepackage[style=apa,backend=biber]{biblatex}
 \addbibresource{bibliografia.bib}
+% APA en español: «y» en lugar de «&» antes del último autor, en las citas
+% entre paréntesis y en la lista de referencias
+\DeclareDelimFormat[parencite]{finalnamedelim}{\addspace\bibstring{and}\space}
+\DeclareDelimFormat[fullcite,fullcitebib]{finalnamedelim}{\addspace\bibstring{and}\space}
+\DeclareDelimFormat[bib,biblist]{finalnamedelim}{%
+	\ifthenelse{\value{listcount}>\maxprtauth}{}{\addspace\bibstring{and}\space}}
+% y sin coma ante «y» en la lista de referencias («Hong, T. y Fan, S.»)
+\makeatletter
+\renewcommand*{\apablx@ifnotfinalname}{%
+	\ifboolexpr{test {\ifnumless{\value{listcount}+1}{\value{liststop}}} or test \ifmorenames}}
+\makeatother
 
 % --- Matemáticas y enlaces ---
 \usepackage{amsmath}
 \usepackage{tabularx}
+\usepackage{xltabular} % tablas de varias páginas con columnas X
+\usepackage{placeins} % \FloatBarrier: las tablas no pasan de sección
 \usepackage{graphicx}
 \graphicspath{{figuras/}}
 \usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Previsión a corto plazo de la demanda eléctrica peninsular: comparación de modelos clásicos y de aprendizaje automático con evaluación de intervalos de predicción},
+	pdfauthor={Guillermo}}
 
 % --- Datos provisionales de portada ---
 \title{Previsión a corto plazo de la demanda eléctrica peninsular:\\
@@ -44,6 +59,6 @@
 	\input{capitulos/04_marco_metodologico}
 	\input{capitulos/05_resultados}
 	
-	\printbibliography[title={Bibliografía}]
+	\printbibliography[title={Bibliografía},heading=bibintoc]
 	
 \end{document}
