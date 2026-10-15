@@ -1165,3 +1165,39 @@ para ellas solo se anticipa que se reproducen.
    ingenuo; LightGBM-SARIMAX, 0,60 (ya visto el 13/10); la pareja más correlacionada,
    LightGBM-N-HiTS, entre 0,55 y 0,80. Días con el menor MAE: LightGBM 45-65 %, N-HiTS
    20-35 %, SARIMAX 10-25 %, ingenuo menos del 8 %.
+
+### 13.7 Comprobación de alineación horaria de N-HiTS (fijada el 15 de octubre de 2026, tras ver los desgloses del commit e30ade8 y antes de ejecutarla)
+
+**Motivo.** Al ejecutar el script 24 (apartados 13.3-13.6), el sesgo de N-HiTS por
+anticipación oscila con fuerza a lo largo del día (+849 MW a las 07 h, −734 MW a las 12 h,
++1.275 MW a las 21 h), igual en los 12 meses y en las tres semillas. Esa forma es
+compatible con una previsión desplazada en el tiempo. Las pruebas de fuga de 12.3
+comprueban que no se usa información futura, no que cada previsión esté en su hora. La
+lectura del código (`nhits_modelo.py`) no muestra ningún error: la entrada acaba en la hora
+de 11:00 a 12:00 del día D, las exógenas futuras empiezan en el origen y un `assert`
+comprueba que las horas devueltas por la librería son las pedidas. Lo que el código no
+controla es cómo empareja la librería, por dentro, exógenas y demanda al entrenar.
+
+1. **Desplazamiento.** Para cada modelo, MAE de la previsión de la hora *t* frente a la
+   demanda real de *t* + *s*, con *s* = −3 … +3 h, sobre las 8.754 horas comunes a todos
+   los desplazamientos. Un modelo bien alineado tiene el mínimo en *s* = 0; uno retrasado,
+   en *s* < 0. SARIMAX y LightGBM sirven de referencia. Comprobado en el entorno del
+   asistente con previsiones inventadas: una previsión retrasada 1 h a propósito da el
+   mínimo en *s* = −1; las alineadas, en *s* = 0.
+2. **Perfil diario medio** por hora local de la demanda real y de cada previsión: amplitud
+   (máximo − mínimo del perfil), amplitud relativa a la real y horas del máximo y del
+   mínimo. Distingue un desfase (perfil desplazado) de un suavizado (perfil aplanado).
+3. **Regla de decisión.** *Desalineación probable* si el mínimo de N-HiTS está en *s* ≠ 0,
+   mejora al de *s* = 0 en al menos un 3 % y SARIMAX y LightGBM tienen el mínimo en
+   *s* = 0. En ese caso se detiene la lectura de los desgloses de N-HiTS, se busca el error
+   con una serie inventada de patrón conocido y, si se confirma, corregirlo y rehacer la
+   búsqueda de N-HiTS sería la corrección de un error (no una elección a la vista de 2023),
+   a decidir por el autor y declarada. *Sin desalineación* (mínimo en *s* = 0): el patrón
+   es comportamiento del modelo y se interpreta en los desgloses.
+4. **Anticipación del asistente:** sin desalineación (confianza en torno al 70 %); mínimo
+   de N-HiTS en *s* = 0 y perfil diario de N-HiTS más plano que el real (amplitud relativa
+   menor de 0,95), por suavizado (escalas B: la primera pila dibuja un punto cada 12 h y lo
+   interpola; entrenamiento en el tope de pasos).
+5. **Salidas:** `alineacion_desplazamiento.csv`, `perfil_diario_medio.csv` y
+   `perfil_diario_resumen.csv` en `data/resultados/validacion/`, y resumen en pantalla.
+   El resto del script no cambia (tablas y figuras idénticas).
