@@ -1201,3 +1201,67 @@ controla es cómo empareja la librería, por dentro, exógenas y demanda al entr
 5. **Salidas:** `alineacion_desplazamiento.csv`, `perfil_diario_medio.csv` y
    `perfil_diario_resumen.csv` en `data/resultados/validacion/`, y resumen en pantalla.
    El resto del script no cambia (tablas y figuras idénticas).
+
+### 13.8 Resultado (15 de octubre de 2026, script 24 con el commit 2bc8d2b)
+
+1. **Controles (13.2):** superados (seis archivos de 8.760 horas, `real` idéntica al dataset,
+   escala 1.328,2 MW, seis MAE reproducidos).
+2. **Tabla de validación de 2023 (13.3)** (MW salvo MAPE y cocientes):
+
+   | Modelo | MAE | RMSE | MAPE | MASE | Rel. ingenuo | Sesgo | RMSE/MAE | P95 \|e\| |
+   |---|---|---|---|---|---|---|---|---|
+   | Ingenuo | 1.400,0 | 2.014,9 | 5,32 % | 1,054 | 1,000 | +45,7 | 1,44 | 4.307 |
+   | SARIMAX | 943,4 | 1.414,4 | 3,67 % | 0,710 | 0,674 | −345,9 | 1,50 | 2.767 |
+   | LightGBM | 585,2 | 790,7 | 2,25 % | 0,441 | 0,418 | −142,2 | 1,35 | 1.617 |
+   | N-HiTS | 716,4 | 926,5 | 2,73 % | 0,539 | 0,512 | +188,2 | 1,29 | 1.855 |
+
+3. **Alineación (13.7):** los cuatro modelos tienen el MAE mínimo en *s* = 0 (N-HiTS: 716,5
+   en *s* = 0, 1.088,4 en *s* = −1 y 1.164,3 en *s* = +1); **sin desalineación**, el patrón
+   de N-HiTS es comportamiento del modelo. Perfil diario medio: amplitud relativa a la real
+   0,995 (ingenuo), 1,017 (SARIMAX), 1,011 (LightGBM) y **0,880 (N-HiTS)**, que además
+   sitúa el máximo a las 20 h (real: 21 h). N-HiTS dibuja un día aplanado: −850 MW a las
+   07 h, +734 MW a las 12 h y −1.280 MW a las 21 h frente a la demanda media real.
+   Anticipación de 13.7.4 cumplida; la causa (escalas B y entrenamiento en el tope de
+   pasos) sigue siendo una hipótesis no comprobada (N-HiTS está cerrado).
+4. **Desgloses (13.4), lo principal:**
+   - Con un único origen diario, **anticipación y hora del día coinciden** y no se pueden
+     separar: el error sigue la hora (madrugada, la más fácil para todos), no crece de
+     forma regular con la anticipación.
+   - MAE por bloque (00-05 / 06-11 / 12-17 / 18-23 h): ingenuo 947 / 1.420 / 1.723 / 1.510;
+     SARIMAX 518 / 960 / 1.237 / 1.058; LightGBM 360 / 542 / 824 / 615; N-HiTS 472 / 720 /
+     750 / 923. N-HiTS es el mejor de 13 a 17 h y el peor de los tres modelos ajustados
+     a las 07 h y a las 21 h.
+   - Por mes: LightGBM es el mejor en 10 de 12 (N-HiTS en abril y agosto); N-HiTS, el más
+     regular (587-852 MW); el ingenuo sufre en agosto (2.399), enero y diciembre.
+   - Festivos (10 días): MAE 4.260 (ingenuo), 4.194 (SARIMAX), 1.131 (LightGBM) y 910
+     (N-HiTS), sesgo negativo en los cuatro; 8 de los 10 peores días de SARIMAX son
+     festivos. Peores días: el ingenuo, los festivos y los días una semana después
+     (13/01, 14/04, 8/05, 22/08, 19/10, 8/11); LightGBM, festivos y finales de agosto;
+     N-HiTS, el principio y el final del año.
+   - N-HiTS: sesgo de +490 MW los lunes (SARIMAX −524).
+   - Correlación de errores: ingenuo-SARIMAX 0,70 (la más alta), LightGBM-SARIMAX 0,60,
+     ingenuo-LightGBM 0,59, LightGBM-N-HiTS 0,50, SARIMAX-N-HiTS 0,45, ingenuo-N-HiTS 0,27.
+     Días con el menor MAE: LightGBM 48,8 %, N-HiTS 22,2 %, SARIMAX 16,7 %, ingenuo 12,3 %.
+5. **D2, sesgos (13.5):**
+   - **LightGBM de 12 a 17 h:** −411 MW; negativo en 10 de 12 meses; media abril-septiembre
+     −507 MW frente a −210 MW en noviembre-febrero (diferencia 297 > 150): **compatible con
+     el autoconsumo** (13.5.3), sin comprobar. SARIMAX (−508) y N-HiTS (−313) también se
+     pasan en esa franja y el ingenuo no (+53): los tres modelos entrenados con 2017-2022
+     sobreestiman el mediodía de 2023.
+   - **N-HiTS:** sesgo positivo en los 12 meses; **propio de la configuración** (13.5.2: las
+     tres semillas con sesgo positivo, 188 / 182 / 114 MW, y el mismo orden de bloques);
+     se explica por el perfil aplanado (punto 3), no por una deriva de nivel (los bloques
+     difieren en más de 1.000 MW).
+6. **Anticipación del asistente (13.6):** cumplida en los controles, P95/MAE (3,08 / 2,93 /
+   2,76 / 2,59), el ingenuo como el más plano, la reproducción de −411 MW, el sesgo de
+   N-HiTS en ≥ 9 meses y en la madrugada, el sesgo propio de la configuración, LightGBM y
+   SARIMAX de 12 a 17 h, el peor mes, el sesgo de los festivos y los días ganados por los
+   tres modelos ajustados. **Fallida** en el bloque de máximo error de N-HiTS (18-23 h, no
+   12-17 h), en su sesgo de mediodía (negativo, no mayor que el de madrugada) y en la
+   semilla 43 (no tiene el mayor sesgo): el mecanismo no es un encogimiento hacia el nivel
+   de la ventana, sino un perfil diario aplanado. **Fallida** también en los peores días
+   (solo SARIMAX tiene 5 o más festivos o de Navidad), en las correlaciones (la más alta es
+   ingenuo-SARIMAX; LightGBM-N-HiTS, 0,50) y en los días ganados por el ingenuo (12,3 %).
+7. **Decisiones:** ninguna (13.1.2). Las ganadoras no cambian; lo observado va a 5.2 y 5.7.
+   Tablas en `data/resultados/validacion/`; figuras `validacion_mae_anticipacion.png` y
+   `validacion_mae_mes.png` en `memoria/figuras/`.
