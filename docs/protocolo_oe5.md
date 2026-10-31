@@ -1521,3 +1521,40 @@ Cifras entre paréntesis: intervalo de confianza subjetivo.
    capítulo 2 y el 02 dicen «error de validación»); ACI como construcción común, no recalibración del propio
    intervalo (la introducción y OE7 hablan de «recalibración»). Verificar en la fuente la referencia de la
    puntuación de intervalo (Gneiting y Raftery, 2007) antes de citarla en R2.
+
+### 14.12 Implementación (31 de octubre de 2026, antes de ejecutar nada con 2023)
+
+Código: `src/probabilistica.py`, `src/nhits_rejilla.py`, `src/26_cuantiles_validacion.py` y
+`src/27_capa_probabilistica.py` (14.11). **Pruebas hechas en el entorno del asistente sin mirar 2023:** la
+demanda de 2023 se sustituyó por la de 364 días antes (2022) con ruido inventado del 1,2 % y se eliminó
+2024; los hiperparámetros y presupuestos de entrenamiento se redujeron (120 árboles, 60 pasos). Ninguna
+cifra de esas pruebas dice nada de 2023. Pasaron: la recursión de ACI idéntica a MAPIE al bit (γ = 0, 0,005
+y 0,02); el corte de causalidad en los cuatro modelos con su control positivo (la variante con fuga falla,
+como debe); la prueba sintética (cobertura 0,90 ± 0,02, con recuperación tras un salto de escala); las
+pruebas de fuga reforzadas de SARIMAX, de los 19 modelos de LightGBM y de la red de 19 salidas (0 días); la
+reproducción del SARIMAX (diferencia 0) y de los cuantiles 0,05 y 0,95 de LightGBM (diferencia 0).
+
+Decisiones de implementación y motivos:
+
+| # | Decisión | Motivo |
+|---|---|---|
+| I1 | La prueba de fuga se pasa **una vez** sobre un predictor de varias salidas (los 19 modelos de LightGBM; la red de 19 salidas; media y error típico del SARIMAX), y sus resultados de los datos reales se reutilizan para construir la rejilla | Mismas garantías que 19 pruebas separadas (todas las salidas se comparan con `equals`); coste de una sola. Sin esto, 19 pruebas de LightGBM costarían del orden de una hora |
+| I2 | En ACI se ajusta **una instancia de MAPIE por bloque y origen** y se llama a `predict` una vez por configuración (cada γ o nivel, con su propio α_t) | La ventana de puntuaciones no depende de γ ni del nivel; el resultado es el mismo que con ejecuciones separadas y el coste, mucho menor |
+| I3 | Se descarta **un** error del ingenuo de 2017 (hora 00 del 8/1/2017) | El dataset empieza a las 01:00 locales del 1/1/2017: esa hora no existe y el ingenuo de ese día a las 00:00 queda vacío. El código comprueba que no falte más de uno. Lo descubrió la prueba con los datos reales de 2017-2022 (49.320 errores válidos sin COVID: 12.329, 12.330, 12.330 y 12.331 por bloque) |
+| I4 | 27 compara **automáticamente** las cifras anticipadas en 14.9 con las observadas (✓ o ✗) y guarda la tabla | Evita que la comparación dependa de la memoria o del ánimo al ver los resultados; se leen los ✗ sin reinterpretar |
+
+Cómo se leen los puntos de 14.9 (fijado ahora, antes de ver cifras reales):
+
+1. Cobertura, asimetría, anchura, IS, razón CRPS₁₉/MAE, desviación máxima de fiabilidad y cobertura por
+   bloque de los intervalos **propios**: las 8.760 horas (14.5.2), salvo lo que se diga en contra.
+2. «Por encima de la diagonal» = la media de (frecuencia observada − τ) sobre los 19 niveles es positiva.
+3. «Al revés» para N-HiTS = cociente fallos por debajo / por encima menor que 0,5.
+4. Cobertura de ACI y anchura de ACI: el conjunto E. «El IS de ACI mejora con claridad» = baja entre un 5 y
+   un 20 % respecto al IS propio en E y la diferencia pareada es *apreciable* (14.8.4); «no distinguible» =
+   la diferencia pareada no lo es.
+5. El orden de IS y CRPS₁₉ se compara con el anticipado en las 8.760 horas.
+6. Horas infinitas: porcentaje sobre las 7.392 horas de E para el intervalo del 90 % con el γ elegido.
+
+Estimación de tiempo en el PC del autor (sin medir): 26, entre 30 y 90 minutos (los 19 modelos de LightGBM
+son lo más incierto: cada uno hace su propia parada temprana); 27, unos 2-5 minutos. Se medirá y se
+informará.
