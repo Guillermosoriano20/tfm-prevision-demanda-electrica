@@ -1558,3 +1558,104 @@ Cómo se leen los puntos de 14.9 (fijado ahora, antes de ver cifras reales):
 Estimación de tiempo en el PC del autor (sin medir): 26, entre 30 y 90 minutos (los 19 modelos de LightGBM
 son lo más incierto: cada uno hace su propia parada temprana); 27, unos 2-5 minutos. Se medirá y se
 informará.
+
+### 14.13 Resultados de 2023 (31 de octubre de 2026)
+
+Ejecución en el PC del autor: `26` en unos 19 minutos (ingenuo, menos de 1; SARIMAX, 7,2; LightGBM, 2,6; N-HiTS,
+8,9); `27` con sus controles en 17 s. Todos los controles pasaron: entrada (4 archivos de 8.760 filas, sin
+nulos, `real` idéntica al dataset); ingenuo con MAE 1.400,0 MW; SARIMAX reajustado idéntico al oficial
+(diferencia 0,00); modelos de LightGBM de 0,05 y 0,95 idénticos a los guardados (573 y 601 árboles);
+pruebas de fuga reforzadas de SARIMAX, de los 19 modelos de LightGBM y de la red de 19 salidas: 0 días;
+recursión de ACI igual a MAPIE al bit; corte de causalidad de ACI en los cuatro modelos con su control
+positivo; prueba sintética (0,90 ± 0,02). Cifras de este apartado desde los CSV de
+`data/resultados/probabilistica/` (la impresión del script redondeaba a un decimal las filas de cobertura;
+corregido sin cambiar ningún cálculo).
+
+**14.13.1 Intervalos propios del 90 %, 8.760 horas.**
+
+| | Ingenuo | SARIMAX | LightGBM | N-HiTS |
+|---|---|---|---|---|
+| Cobertura (IC 95 %) | 88,3 % (85,6-90,8) | 92,5 % (90,4-94,2) | 70,0 % (67,3-72,5) | 68,1 % (66,3-70,0) |
+| Fallos por debajo / por encima | 5,7 % / 5,9 % | 4,9 % / 2,7 % | 18,3 % / 11,7 % | 13,2 % / 18,7 % |
+| Cociente fallos | 0,97 | 1,84 | 1,57 | 0,70 |
+| Anchura media (MW) | 5.925 | 4.385 | 1.926 | 1.781 |
+| IS (MW) | 9.357 | 6.679 | 4.788 | 4.899 |
+| CRPS₁₉ (MW) | 1.038 | 707 | 446 | 531 |
+| CRPS₁₉ / MAE | 0,741 | 0,750 | 0,762 | 0,742 |
+| Desviación máx. de fiabilidad | 0,050 | 0,165 | 0,163 | 0,184 |
+
+En E (14.8.1): ingenuo 88,0 % (bien calibrado, en el borde); SARIMAX 93,0 % (IC 90,9-94,9: sobrecobertura);
+LightGBM 70,9 % y N-HiTS 67,3 % (infracobertura, con el IC lejos del 90 %). Orden por IS y por CRPS₁₉:
+LightGBM < N-HiTS < SARIMAX < ingenuo. LightGBM frente a N-HiTS: IS no distinguible (−104 MW, IC −607 a +441);
+CRPS₁₉ apreciable (−84 MW). Todos los demás pares, apreciables. Con los intervalos propios, CRPS₁₉ es casi
+proporcional al MAE (0,74-0,76) y ordena igual que la precisión puntual.
+
+**14.13.2 Lo comprobado sobre el porqué (cobertura por hora local del día objetivo).** (a) La anchura del SARIMAX
+es casi plana a lo largo del día (3.898 MW a las 00 h, 4.746 MW a las 23 h) mientras su MAE va de 481 a
+1.277 MW: cubre el 99 % de 00 a 05 h y el 87 % de 13 a 17 h. El bloque de anticipación equivale a una franja
+horaria (B1 = 00-05 h, B2 = 06-11 h, B3 = 12-17 h, B4 = 18-23 h), así que la cobertura por bloque es, en la
+práctica, cobertura por hora del día. (b) N-HiTS tiene sesgos fuertes por hora (+850 MW a las 07 h, −734 a las
+12 h, +1.279 a las 21 h) y bandas de 1,5 a 3 veces su MAE: cobertura del 32 % a las 21 h y del 86 % a las 05 h.
+(c) LightGBM: la banda sigue la forma del día (2,6 a 5 veces el MAE) pero es demasiado estrecha en todas las
+horas; con la rejilla, la demanda cae por debajo del cuantil 0,05 el 16,5 % de las veces y por encima del 0,95
+el 10,6 %. **Hipótesis sin comprobar:** que los cuantiles de LightGBM y de N-HiTS se ajustan mejor en entrenamiento
+que fuera de muestra; que agosto (cobertura del 68 % en el ingenuo, 56 % en LightGBM, 84 % en SARIMAX) fue un mes
+difícil para todos por una causa común; que el ingenuo falla alrededor de festivos al copiar la semana anterior.
+
+**14.13.3 Rejilla.** Reordenación monótona: 0 horas en ingenuo y SARIMAX; 8.760 en LightGBM y 7.737 en N-HiTS
+(en casi todas las horas hay algún par de cuantiles cruzados). En LightGBM el efecto es pequeño: los cuantiles
+0,05 y 0,95 cambian de media unos 30 MW (en el 20 % y el 17 % de las horas; máximos de 1.086 y 1.322 MW) frente
+a una anchura de unos 1.900 MW. Segunda red de N-HiTS: 1.000 pasos (el tope), MAE de su mediana 710,3 MW (la
+oficial, 716,4), cobertura 0,05-0,95 del 66,3 % (la oficial, 68,1 %).
+
+**14.13.4 ACI (W = 336, un conjunto por bloque, retroalimentación retrasada).** Elección de γ (14.6.7): puntuación
+media de IS(γ)/IS(0) de 1,0049 (γ = 0,001), 1,0251 (0,005), 1,0128 (0,01) y 1,0093 (0,02). **Resultado negativo:**
+ningún candidato queda por debajo de 1; ACI no mejora el IS de la ventana móvil sin adaptación. Por la regla se
+mantiene γ = 0,001 (para la evaluación final de 2024 también). Horas infinitas sustituidas (D8) con γ = 0,005:
+36, 6, 6 y 0 (ingenuo, SARIMAX, LightGBM, N-HiTS); con 0,01: 162, 114, 96 y 18; con 0,02: 300, 288, 216 y 114;
+con γ = 0,001: 0 en los cuatro (sobre 7.392 horas). Interpretación coherente con los recuentos, no aislada: cada
+fallo resta 0,9γ a α_t y la retroalimentación llega en bloques de 6 horas por día y bloque, de modo que un día
+malo puede llevar α_t a 0 con γ grande.
+
+Con γ = 0,001, en E:
+
+| | Ingenuo | SARIMAX | LightGBM | N-HiTS |
+|---|---|---|---|---|
+| Cobertura del 90 % propio | 88,0 % | 93,0 % | 70,9 % | 67,3 % |
+| Cobertura con ventana (γ = 0) | 86,3 % | 87,9 % | 88,0 % | 89,2 % |
+| Cobertura con ACI (IC 95 %) | 88,4 % (85,5-91,3) | 89,0 % (86,3-91,6) | 89,2 % (87,0-91,3) | 89,1 % (87,5-90,7) |
+| IS propio / ventana / ACI (MW) | 9.446 / 10.018 / 10.001 | 6.646 / 6.655 / 6.785 | 4.764 / 3.324 / 3.327 | 4.868 / 3.321 / 3.325 |
+| IS de ACI − propio | +555 (apreciable, peor) | +139 (no distinguible) | −1.437 (−30 %, apreciable) | −1.544 (−32 %, apreciable) |
+| CRPS₁₉ de ACI − propio | +23 (no distinguible) | −40 (apreciable) | −35 (apreciable) | −87 (apreciable) |
+| Desviación máx. de fiabilidad | 0,039 | 0,009 | 0,031 | 0,010 |
+
+Mejora de calibración (14.8.5): SARIMAX, LightGBM y N-HiTS sí; ingenuo no (desviación de 0,020 a 0,016). **La
+mejora del IS en LightGBM y N-HiTS viene de usar los residuos de las últimas 8 semanas (la ventana), no de la
+adaptación de α_t**; en el ingenuo la ventana de 336 residuos pierde frente a los 49.320 errores de 2017-2022.
+La cobertura por mes con ACI sigue oscilando (el ingenuo, de 0,81 a 1,00).
+
+**14.13.5 Anticipación de 14.9 frente a lo observado: 25 aciertos y 16 fallos de 41 comprobaciones
+automáticas.** *Fallos:* cobertura propia del SARIMAX (92,5 % frente a 82-91) y de N-HiTS (68,1 % frente a
+78-92); LightGBM no es el de menor cobertura (lo es N-HiTS); cocientes de fallos 1,57, 1,84 y 0,70 (anticipados
+> 2, > 2 y < 0,5: la dirección acertó en los tres, no la magnitud; en E el del SARIMAX es 2,41, pero 14.12
+fijó las 8.760 horas); anchura de N-HiTS (1.781 MW, bajo mi rango de 2.200-4.500); desviación máxima de
+fiabilidad de los cuatro (mala en SARIMAX, LightGBM y N-HiTS por 14.8.6; aceptable en el ingenuo); γ elegido
+(0,001, no 0,005 ni 0,01); anchura de ACI en LightGBM (2.439 MW, bajo mi rango de 2.700-3.500); IS de ACI frente
+al propio en el ingenuo (peor, apreciable), LightGBM (−30 %, fuera de −20 a −5 %) y N-HiTS (apreciable, no «no
+distinguible»). Fuera de esas 41 comprobaciones: el MAE de la mediana de la segunda red de N-HiTS (710,3 MW) está en mi
+rango (680-820), pero es mejor que el de la oficial (716,4 MW), y yo daba ~65 % a que fuera peor; su
+cobertura 0,05-0,95 (66,3 %) queda a menos de 3 puntos de la oficial (68,1 %), como anticipé. *Aciertos:* cobertura del ingenuo
+y de LightGBM (70,0 %, en el borde del rango 68-86); anchuras de ingenuo, SARIMAX y LightGBM; los cuatro IS
+propios dentro de rango; orden por IS y por CRPS₁₉; CRPS₁₉/MAE de los cuatro en 0,70-0,85; sesgo de fiabilidad
+de LightGBM y SARIMAX hacia arriba de la diagonal; cobertura de ACI en 88-92 % en los cuatro; horas infinitas
+< 1 %. La cobertura propia de LightGBM resulta la más baja en B3 en las 8.760 horas (65,4 % frente a 66,5 % en
+B1), pero por 14.8.2 no se distingue de la global; en E la más baja es B1 (67,0 % frente a 67,7 %).
+
+**14.13.6 Lo que se hereda para la memoria y para 2024.** (1) Hallazgo: los cuantiles de LightGBM y de N-HiTS
+entrenados con pérdida de cuantil no están calibrados (cobertura del 70 % y 68 % para un 90 % nominal), y el
+gaussiano homocedástico del SARIMAX reparte mal la anchura a lo largo del día. (2) Una ventana de residuos
+recientes (con o sin ACI) los lleva a cerca del 90 % y baja su IS un 30 %; la adaptación de ACI no aporta en IS
+y γ = 0,001 es casi inerte. (3) Optimismo declarado (14.1.3): hiperparámetros y γ elegidos con 2023.
+(4) En 2024: γ = 0,001, arranque de D7, mismas reglas de lectura. (5) Para el registro de coherencia del 05:
+agrupar la cobertura «por bloque de anticipación» con la cobertura «por franja horaria» (son lo mismo) y anotar
+el ingenuo de 2017-2022 (descarte de un error, I3).

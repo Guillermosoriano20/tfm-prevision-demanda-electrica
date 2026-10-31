@@ -144,9 +144,7 @@ def main():
                 "cociente_fallos", "ancho_medio", "ancho_mediana", "ancho_relativo", "IS", "IS_ic_inf",
                 "IS_ic_sup", "pinball05", "pinball95", "CRPS19", "CRPS19_ic_inf", "CRPS19_ic_sup",
                 "fiab_desv_max", "MAE_prevision"]
-        print(t[cols].round({"cobertura": 3, "cob_ic_inf": 3, "cob_ic_sup": 3, "fallo_debajo": 3,
-                             "fallo_encima": 3, "cociente_fallos": 2, "ancho_relativo": 3,
-                             "fiab_desv_max": 3}).round(1).T.to_string())
+        print(t[cols].T.to_string(float_format=lambda x: f"{x:.4g}"))
         print("  Cobertura por bloque (B1 12-17 h, B2 18-23, B3 24-29, B4 30-36):")
         print(t[[f"cob_B{b}" for b in range(1, 5)]].round(3).to_string())
         print("  Cobertura por mes:")
@@ -238,8 +236,7 @@ def main():
             "ancho_medio", "ancho_mediana", "IS", "IS_ic_inf", "IS_ic_sup", "CRPS19", "CRPS19_ic_inf",
             "CRPS19_ic_sup", "fiab_desv_max", "horas_infinitas_90", "pct_infinitas_90", "horas_reordenadas",
             "nivel_09_coincide_con_90"]
-    print(aci_t.set_index("modelo")[cols].round(3).round({"ancho_medio": 0, "ancho_mediana": 0, "IS": 0,
-          "IS_ic_inf": 0, "IS_ic_sup": 0, "CRPS19": 0, "CRPS19_ic_inf": 0, "CRPS19_ic_sup": 0}).T.to_string())
+    print(aci_t.set_index("modelo")[cols].T.to_string(float_format=lambda x: f"{x:.4g}"))
     print("  Cobertura de ACI por bloque y por mes:")
     print(aci_t.set_index("modelo")[[f"cob_B{b}" for b in range(1, 5)]].round(3).to_string())
     print(aci_t.set_index("modelo")[[f"cob_mes{k:02d}" for k in range(1, 13)]].round(2).to_string())
