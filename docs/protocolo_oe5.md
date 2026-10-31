@@ -1265,3 +1265,259 @@ controla es cómo empareja la librería, por dentro, exógenas y demanda al entr
 7. **Decisiones:** ninguna (13.1.2). Las ganadoras no cambian; lo observado va a 5.2 y 5.7.
    Tablas en `data/resultados/validacion/`; figuras `validacion_mae_anticipacion.png` y
    `validacion_mae_mes.png` en `memoria/figuras/`.
+
+## 14. Capa probabilística en 2023 (fijado el 31 de octubre de 2026, antes de escribir su código y de calcular nada con 2023)
+
+Cumple lo dejado pendiente en 6, 11.2.8 y 12.2.10: intervalos propios al 90 %, métricas de
+calibración (con CRPS), y parámetros y arranque de ACI. **Ninguna cifra de calibración de 2023 se ha
+visto.** Lo único que el asistente ha leído de 2023 en esta sesión es el *esquema* (nombres y tipos
+de las columnas) de los archivos de previsiones e intervalos ya guardados, no sus valores; las
+pruebas de MAPIE se hicieron con datos sintéticos. Del apartado 11.4 se conocía ya que la
+previsión puntual de LightGBM queda fuera de su intervalo en 543 de 8.760 horas (6,2 %).
+
+### 14.1 Alcance y reglas de uso
+
+1. **Solo 2023.** La carga de datos mantiene el corte de 2024 (`cargar_datos()` por defecto).
+   Las funciones reciben el conjunto como parámetro para reutilizarlas en la evaluación final.
+2. **No decide nada sobre los modelos.** Las cuatro previsiones puntuales oficiales (10.10, 11.4,
+   12.6 y el ingenuo) no cambian. Una calibración mala se informa tal cual (11.2.9, 12.2.11); no se
+   corrige reajustando un modelo. Lo único que se elige con 2023 es el paso γ de ACI (14.6.7), con
+   una regla fijada aquí; se declara que su rendimiento en 2023 es optimista.
+3. **Lo que ya se sabe que contamina la calibración de 2023** (se dice al interpretar): los
+   hiperparámetros de LightGBM y de N-HiTS se eligieron con el MAE de 2023 (la ganadora de N-HiTS
+   incluye sus cuantiles 0,05 y 0,95); γ de ACI se elige con 2023. Las cifras que se informan como
+   rendimiento son las de 2024.
+4. **Descriptivo y sin contrastes de hipótesis;** las diferencias se leen con las reglas de 14.8.
+
+### 14.2 Decisiones y motivos
+
+Decisiones del autor (31/10/2026, tras plantearlas el asistente):
+
+| # | Decisión | Motivo |
+|---|---|---|
+| D1 | **CRPS con rejilla de 19 cuantiles** (0,05 a 0,95, paso 0,05) para los cuatro modelos | Mantiene OE7 como está escrito (pinball, CRPS, cobertura, anchura) y es el camino previsto en 11.2.8 y 12.2.10. Coste: LightGBM +17 modelos de cuantil; N-HiTS una segunda red (14.4). Riesgos: la segunda red tiene otra mediana que la oficial; la rejilla ignora las colas fuera de 0,025-0,975 (14.5.5) |
+| D2 | **ACI con MAPIE, un conjunto de residuos por bloque de anticipación de 6 h** (4 `TimeSeriesRegressor` por modelo) | El error depende mucho de la hora (13.8: MAE de LightGBM 360 MW de 00 a 05 h y 824 MW de 12 a 17 h); un solo conjunto global daría la misma anchura a las 3 y a las 15 h. Consecuencia que se declara: MAPIE construye el intervalo con los residuos pasados alrededor de la previsión puntual y **no reutiliza los intervalos propios**; el intervalo «después de ACI» es una construcción común a los cuatro, no una recalibración del propio |
+| D3 | **Cuantiles del ingenuo con los errores de 2017-2022 sin COVID**, no con los de 2023 | El ingenuo no tiene parámetros, así que sus errores de 2017-2022 son legítimos y la cobertura de 2023 sale fuera de muestra. Con los de 2023 sería circular (≈ 90 % por construcción), el mismo argumento con que 11.2 descartó esa vía para LightGBM. **Corrige** el archivo 02 y el protocolo 2.5, que decían 2023 |
+
+Decisiones tomadas por el asistente por defecto (el autor puede cambiarlas antes de que se escriba el
+código):
+
+| # | Decisión | Motivo |
+|---|---|---|
+| D4 | La recursión de ACI se escribe a mano (tres líneas) con el **error del intervalo realmente emitido**; MAPIE calcula los intervalos | Con origen a las 12:00 la salida de cada hora se conoce 12-36 h después de emitirla. `adapt_conformal_inference` de MAPIE recalcula el intervalo con el estado *actual* (puntuaciones y α_t de hoy), no con el emitido, y eso rompe la identidad en que se apoya la garantía de ACI (la suma de (α − error) debe usar los errores de los intervalos emitidos). Control: sin retardo, la recursión propia coincide con la de MAPIE (14.7.2) |
+| D5 | Las puntuaciones de cada bloque son una **ventana móvil de W = 336 residuos** (8 semanas × 6 h), reconstruida en cada origen con `fit(..., cv="prefit")` | Evita depender de cómo `update` de MAPIE reemplaza puntuaciones; 8 semanas es el mismo periodo de control usado en 2.5, 11.3 y 12.5 |
+| D6 | **Arranque de 2023:** 57 días (1/1 a 26/2) sin emitir intervalos de ACI; primer día emitido, el 27/02/2023; α_t inicial = 0,10 | No hay residuos honestos anteriores a 2023 (los de 2017-2022 son de ajuste); rehacer 2022 con modelos entrenados hasta 2021 costaría entrenamientos nuevos con hiperparámetros elegidos en 2023. Las puntuaciones iniciales son los 336 residuos más recientes de cada bloque observados a las 12:00 del 26/02/2023 |
+| D7 | **Arranque de 2024 (fijado ahora):** puntuaciones iniciales = los 336 residuos más recientes de cada bloque de 2023 observados en el primer origen de 2024; α_t inicial = 0,10 (no se arrastra el α_t de 2023); mismo γ, mismo W | Los residuos de 2023 son fuera de muestra para modelos entrenados hasta 2022 (limitación: en 2024 los modelos se reajustan cada mes). No se arrastra α_t porque compensa la deriva de un modelo distinto del que se evaluará |
+| D8 | **Intervalos infinitos:** MAPIE los devuelve solo si α_t = 0; se sustituyen por la extensión máxima de la ventana (límite inferior = previsión + mínimo de los residuos; superior = previsión + máximo) y se cuenta el número de horas | El intervalo emitido (y con el que se evalúa y se actualiza ACI) debe ser finito para definir anchura y puntuación de intervalo |
+| D9 | Cuantiles del ingenuo **por bloque de anticipación** (los mismos 4 de ACI) | Sin esto el ingenuo tendría anchura constante todo el día y sería un listón artificialmente malo; con bloques tiene las mismas oportunidades que los demás |
+| D10 | Incertidumbre de las cifras: **bootstrap de bloques de días** (1.000 réplicas, semilla 42) | Las horas de un día están fuertemente autocorrelacionadas; remuestrear días respeta eso (13.5.1) |
+| D11 | N-HiTS de la rejilla en un módulo nuevo (`nhits_rejilla.py`), duplicando unas 35 líneas de `nhits_modelo.py` | No tocar un módulo cerrado y validado (12.3); el costo es duplicar el procedimiento 12.5.1 con otra lista de cuantiles |
+
+### 14.3 Intervalos propios al 90 % (nivel nominal 0,90; cuantiles 0,05 y 0,95)
+
+1. **Ingenuo estacional.** Previsión del ingenuo (15) para todos los días objetivo de 2017-2022
+   desde el 8/1/2017 (los siete primeros no tienen semana anterior), **sin los días cuyo objetivo o
+   cuya fuente (7 días antes) toquen el periodo COVID** (`excluir_covid`). Error e = real − previsto.
+   Para cada bloque de anticipación (14.5.1) y cada nivel τ de la rejilla: cuantil empírico de *e*
+   (`numpy.quantile`, interpolación lineal). Intervalo = previsión + cuantil. Para 2023 se usan los
+   errores de 2017-2022 (D3); en la evaluación final, los de 2017-2023 (sin COVID).
+2. **SARIMAX.** Analítico, gaussiano, con los parámetros FGLS fijos de la ganadora ARMA(5,1): en
+   cada origen, `get_forecast(...)` sobre la serie actualizada (la misma que 18) y cuantil τ =
+   previsión + *z*_τ · error típico del paso. Reproduce las previsiones oficiales (control 14.7.1).
+   Supuestos que se declaran: normalidad, varianza de innovación estimada con 2017-2022, parámetros
+   sin incertidumbre.
+3. **LightGBM.** Cuantiles 0,05 y 0,95 de `lightgbm_intervalos_validacion.parquet` (11.2, con la
+   regla de cruce). Para la rejilla (14.4), 19 modelos de cuantil con los hiperparámetros de `c17`;
+   los de 0,05 y 0,95 deben reproducir los guardados (control 14.7.1).
+4. **N-HiTS.** Cuantiles 0,05 y 0,95 de `nhits_intervalos_validacion.parquet` (12.2, red oficial
+   `c13`, semilla 42). La rejilla sale de una segunda red (14.4); el intervalo del 90 % **no** se
+   toma de ella, sino de la red oficial.
+
+### 14.4 Rejilla de cuantiles para el CRPS
+
+1. **Niveles:** τ_k = k/20, k = 1 … 19 (0,05; 0,10; …; 0,95). Columnas `q05`, `q10`, …, `q95`.
+2. **Ingenuo y SARIMAX:** sin coste (cuantiles empíricos por bloque y cuantiles gaussianos).
+3. **LightGBM:** 19 modelos con `entrenar(X, y, fin, params_c17, alpha=τ)` (11.3: parada temprana
+   con la pinball de su cuantil en las últimas 8 semanas, reajuste con toda la ventana), semilla 42,
+   4 hilos. La previsión puntual y el intervalo del 90 % siguen siendo los oficiales.
+4. **N-HiTS:** una **segunda red** con `MQLoss` de los 19 niveles, los hiperparámetros de `c13`
+   (*L* 336, tasa 0,00119, anchura 256, 1.024 ventanas por lote, escalas B, *dropout* 0,1), semilla 42, los
+   pesos del horizonte de 12.1.11 y el procedimiento de 12.5.1 (parada temprana con el control de
+   8 semanas y reentrenamiento). No cambia nada de la red oficial. Se informa del MAE de su
+   mediana y de la cobertura de sus cuantiles 0,05-0,95 frente a los de la red oficial, porque son
+   dos sistemas distintos.
+5. **Reordenación monótona** (se ordenan los 19 valores de cada hora) y número de horas en que
+   hizo falta, por modelo. Es independiente de la regla de cruce del 90 % (11.2.5, 12.2.5).
+6. **Prueba de fuga** (modo `borrar`, 13 de `validacion.comprobar_fuga`) sobre todas las salidas
+   nuevas: los 17 modelos de LightGBM, la segunda red de N-HiTS (19 salidas) y las previsiones e
+   intervalos analíticos del SARIMAX. Debe dar 0 días; se detiene todo si falla.
+
+### 14.5 Métricas (todas en MW, sobre las mismas horas)
+
+1. **Bloques de anticipación** *a* (13.4.1): B1 = 12-17 h, B2 = 18-23, B3 = 24-29, B4 = 30-36.
+2. **Conjunto de evaluación E:** los **308 días objetivo del 27/02/2023 al 31/12/2023** (7.392
+   horas), que es lo que ACI emite. Las métricas de los intervalos propios se informan en E (para
+   compararlos con ACI) y también en las 8.760 horas.
+3. **Cobertura** (proporción de horas con inferior ≤ real ≤ superior), global, por bloque y por mes,
+   con intervalo de confianza del 95 % por bootstrap de días; además, la proporción de fallos por
+   debajo (real < inferior) y por encima (real > superior).
+4. **Anchura** media y mediana (superior − inferior) y anchura media relativa a la demanda real.
+5. **Puntuación de intervalo** (Gneiting y Raftery, 2007) con α = 0,10: IS = (u − l) +
+   (2/α)(l − y)⁺ + (2/α)(y − u)⁺, media sobre las horas. Es igual a 20 veces la suma de las
+   pinball de 0,05 y 0,95; se informan también estas dos pinball.
+6. **CRPS aproximado por la rejilla:** CRPS ≈ (2/20) · Σ_k ρ_τk(y, q_τk), con ρ_τ(y, q) =
+   (y − q)(τ − 1{y < q}). Es la suma de Riemann de CRPS = 2 ∫₀¹ ρ_τ dτ con paso 0,05; **omite las
+   colas fuera de 0,025-0,975**, de modo que es una aproximación por defecto, igual para los cuatro
+   modelos y comparable entre ellos, no el CRPS exacto. Se llama «CRPS₁₉» en las tablas.
+7. **Fiabilidad de la rejilla:** para cada τ_k, frecuencia observada de real ≤ q_τk; tabla y figura
+   (diagrama de fiabilidad) por modelo, y desviación máxima |frecuencia − τ|.
+8. **Después de ACI:** las mismas métricas con el intervalo de ACI (14.6) y, para el CRPS y la
+   fiabilidad, los cuantiles de ACI a los 9 niveles centrales (14.6.8).
+
+### 14.6 ACI con MAPIE 1.5.0 (igual para los cuatro modelos)
+
+1. **Entrada:** previsión puntual oficial *ŷ* y demanda real *y* de cada hora de 2023; residuo
+   s = y − ŷ. Para N-HiTS, *ŷ* es la mediana de la red oficial; la segunda red no interviene en ACI.
+   Ningún intervalo propio interviene.
+2. **Mecanismo de MAPIE:** `TimeSeriesRegressor(estimator=<búsqueda de previsiones guardadas>,
+   method="aci", cv="prefit")`, puntuación de conformidad por defecto (residuo con signo, límites
+   asimétricos: cuantiles de s con la corrección de muestra finita de MAPIE). Una instancia por
+   bloque y por modelo. El «estimador» devuelve la previsión guardada de cada hora; no se entrena
+   nada.
+3. **Información disponible en cada origen** (regla de 1.2 aplicada a ACI): solo los pares
+   (previsión, real) cuya hora ha terminado (`hora_utc + 1 h ≤ origen`). En el origen del día *D*
+   están observadas todas las horas del día objetivo *D*−1 (previstas hace dos orígenes) y las
+   horas 00:00-11:00 del día *D* (previstas en el origen anterior); **no** el día que se va a prever
+   ni las 12 horas siguientes del día *D*. La retroalimentación de cada hora llega 24 h (horas
+   00-11 del día objetivo) o 48 h (horas 12-23) después de emitir su intervalo, lo que hace
+   aproximada la garantía teórica de ACI (pensada para retroalimentación inmediata); se declara.
+4. **En cada origen, para cada bloque:** (a) ventana = los W = 336 pares observados más recientes
+   del bloque (D5); (b) `fit` de MAPIE con esa ventana; (c) se fija α_t en `current_alpha`; (d)
+   `predict` con nivel 0,90 de las horas del día objetivo de ese bloque; (e) sustitución de
+   límites infinitos (D8); (f) el intervalo emitido se guarda.
+5. **Actualización (D4):** cuando el par de una hora emitida entra en la información (primer origen
+   posterior a su fin), en orden cronológico dentro de su bloque: err = 1 si real ≤ inferior o real ≥
+   superior del intervalo emitido (igual criterio estricto que MAPIE), y α_t ← clip(α_t + γ(α₀ −
+   err), 0, 1), con α₀ = 0,10. Las horas de los 57 días de arranque no actualizan α_t (no tienen
+   intervalo emitido).
+6. **Arranque 2023 y 2024:** D6 y D7.
+7. **Elección de γ con 2023** (regla fijada ahora). Candidatos G = {0,001; 0,005; 0,01; 0,02};
+   γ = 0 (ventana móvil sin adaptación) se calcula siempre como referencia, no como candidato. Para
+   cada γ y modelo, IS del 90 % en E; puntuación del candidato = media de los cuatro IS_m(γ)/IS_m(0).
+   Gana el γ con menor puntuación; si dos difieren menos de un 0,5 %, el menor. Un solo γ para los
+   cuatro modelos. Si ningún candidato queda por debajo de 1, ACI no mejora a la ventana móvil
+   sin adaptación en esa métrica: se informa como resultado negativo y se mantiene el γ de menor
+   puntuación para la evaluación final. Motivo del criterio: el IS premia a la vez cobertura y
+   nitidez (es una puntuación propia), y normalizar por modelo evita que el ingenuo, con IS mucho
+   mayores, decida solo.
+8. **Cuantiles después de ACI (para CRPS y fiabilidad):** con el γ elegido, ACI se repite en los 9
+   niveles centrales 0,10; 0,20; …; 0,90 (α₀ = 0,90; …; 0,10), cada uno con su propio α_t; los
+   cuantiles son τ = (1 − c)/2 y (1 + c)/2 con *c* el nivel central; el cuantil 0,5 es *ŷ* más la
+   mediana de la ventana de residuos (sin adaptación). Reordenación monótona como en 14.4.5.
+9. **Salidas:** `data/predicciones/{modelo}_aci_validacion.parquet` (intervalos de ACI del 90 % para
+   cada γ de G ∪ {0} y los 9 niveles con el γ elegido) y tablas CSV en
+   `data/resultados/probabilistica/` (fuera de git; se regeneran).
+
+### 14.7 Controles y pruebas (el script se detiene si falla alguno)
+
+1. **Reproducción:** ingenuo (MAE 1.400 ± 0,5 MW); SARIMAX reajustado: previsiones idénticas a
+   `sarimax_validacion.parquet` (diferencia máxima < 10⁻⁶ MW; si no, se detiene y se informa:
+   no se sustituye en silencio); LightGBM: modelos de 0,05 y 0,95 idénticos a los de
+   `lightgbm_intervalos_validacion.parquet` (diferencia 0); `real` idéntica al dataset en todos los
+   archivos; 8.760 filas sin nulos.
+2. **ACI sin retardo = MAPIE:** con retroalimentación inmediata (datos sintéticos), la trayectoria
+   de α_t de la recursión propia coincide con `adapt_conformal_inference` al bit.
+3. **Corte de causalidad de ACI:** para varias fechas de corte *c*, se sustituye la demanda real
+   posterior a *c* por +10.000 MW y se comprueba que todos los intervalos emitidos con origen ≤ *c*
+   son idénticos. **Control positivo:** una variante que viera el día objetivo debe fallar la misma
+   prueba.
+4. **Sintético:** con errores independientes de escala conocida, ACI con cada γ de G cubre
+   0,90 ± 0,02; con un salto de escala a mitad de serie, recupera la cobertura.
+5. **Pruebas sin 2023:** el código se prueba en el entorno del asistente con un arnés que sustituye
+   la demanda de 2023 por datos inventados o por la de 364 días antes; ninguna cifra impresa en ese
+   entorno dice nada de 2023.
+
+### 14.8 Reglas de lectura (fijadas antes de ver los resultados)
+
+1. **Cobertura global del 90 % en E:** *bien calibrada* si está entre 88 y 92 %; *infracobertura*
+   por debajo de 88 %; *sobrecobertura* por encima de 92 % (±2 puntos es orientativo: el error de
+   muestreo de 308 días autocorrelacionados ronda ese orden). Se da el IC del 95 % por bootstrap y
+   si contiene el 90 %.
+2. **Cobertura por bloque o mes** se lee como distinta de la global solo si difiere en más de
+   5 puntos.
+3. **Asimetría:** el cociente fallos por debajo / fallos por encima > 2 o < 0,5 se lee como
+   intervalo desplazado (sesgo), no solo estrecho.
+4. **IS y CRPS₁₉:** una diferencia entre dos modelos, o entre el intervalo propio y el de ACI de un
+   modelo, es *apreciable* solo si el IC del 95 % por bootstrap de días de la diferencia pareada
+   excluye 0; en otro caso, *no distinguible*.
+5. **ACI mejora la calibración** de un modelo si su desviación |cobertura − 90 %| baja al menos un
+   punto o pasa de fuera a dentro de 88-92 %; **mejora el IS** según la regla 4.
+6. **Fiabilidad de la rejilla:** desviación máxima ≤ 0,03 *buena*; hasta 0,06 *aceptable*; más,
+   *mala*.
+7. Más de un 2 % de horas con límite infinito sustituido (D8) en un modelo se informa como defecto
+   del método para ese modelo.
+8. Nada de esto cambia un modelo (14.1.2). Un resultado negativo (por ejemplo, ACI sin efecto o
+   peor que la ventana móvil) se informa tal cual.
+
+### 14.9 Anticipación del asistente (fijada antes de escribir el código)
+
+Cifras entre paréntesis: intervalo de confianza subjetivo.
+
+1. **Controles:** pasan todos (confianza ~85 %).
+2. **Cobertura del 90 % propio, 8.760 horas:** ingenuo 89 % (86-92); SARIMAX 87 % (82-91);
+   **LightGBM 78 % (68-86)**, la peor (confianza ~70 % de que sea la más baja y de que esté por
+   debajo de 85 %: hiperparámetros de un modelo de la media, 6,2 % de previsiones fuera del
+   intervalo, ajuste de cuantiles en muestra); N-HiTS 86 % (78-92).
+3. **Asimetría:** LightGBM y SARIMAX fallan más por debajo del límite inferior que por encima del
+   superior (sesgo −142 y −346 MW; cociente > 2, confianza ~65 %); N-HiTS al revés (sesgo +188 MW,
+   confianza ~60 %); ingenuo entre 0,6 y 1,6.
+4. **Anchura media (MW):** ingenuo 6.000 (5.200-7.000); SARIMAX 4.600 (3.600-5.800); LightGBM
+   2.100 (1.500-2.900); N-HiTS 3.300 (2.200-4.500).
+5. **Puntuación de intervalo y CRPS₁₉ (propios):** orden LightGBM < N-HiTS < SARIMAX < ingenuo
+   (~70 %). IS en MW, orientativo: LightGBM 4.000-5.000, N-HiTS 4.700-5.500, SARIMAX 6.300-7.500,
+   ingenuo 8.500-10.000. CRPS₁₉ ≈ 0,70-0,85 del MAE de cada modelo (LightGBM ~450 MW,
+   N-HiTS ~540, SARIMAX ~760, ingenuo ~1.100).
+6. **Segunda red de N-HiTS:** MAE de su mediana entre 680 y 820 MW, peor que 716,4 en el ~65 %; su
+   cobertura del 90 % a ±3 puntos de la de la red oficial (~60 %).
+7. **ACI (γ elegido):** γ = 0,005 o 0,01 (~60 %). Cobertura en E entre 88 y 92 % en los cuatro
+   modelos (~75 %). El IS mejora con claridad solo en LightGBM (−5 a −20 %); en SARIMAX, ingenuo y
+   N-HiTS, no distinguible (~60 %). La anchura de ACI de LightGBM sube a 2.700-3.500 MW. Horas con
+   límite infinito sustituido: menos del 1 % (~80 %).
+8. **Fiabilidad de la rejilla propia:** LightGBM y SARIMAX por encima de la diagonal (sobreprevisión:
+   el real cae por debajo de los cuantiles más a menudo que τ); N-HiTS por debajo en la parte alta;
+   desviación máxima: ingenuo ≤ 0,04, SARIMAX 0,03-0,08, LightGBM 0,06-0,14, N-HiTS 0,03-0,10.
+9. **Por bloque:** la cobertura propia de LightGBM es la más baja en B3 (12-17 h) (~60 %).
+10. Si una de estas cifras falla, se dice claramente al explicar el resultado.
+
+### 14.10 Riesgos y límites declarados
+
+1. Ingenuo: sus errores de 2017-2022 incluyen años distintos al de 2023 (por ejemplo la bajada de
+   2022); si 2023 se parece menos a esos años, la cobertura se resiente.
+2. SARIMAX: normalidad, varianza de innovación estimada en muestra y parámetros fijos; las
+   colas de la demanda son más pesadas (RMSE/MAE 1,50).
+3. LightGBM y N-HiTS: hiperparámetros elegidos con 2023 para la media o la mediana; la calibración de
+   2023 es algo optimista (14.1.3). La segunda red de N-HiTS es otro sistema distinto de la oficial.
+4. ACI con retroalimentación retrasada (14.6.3): la garantía de cobertura es aproximada.
+5. ACI ignora la forma de los intervalos propios y la variación dentro de un bloque (por ejemplo, 12
+   frente a 17 h) y entre tipos de día (festivos); sus ventanas de 8 semanas mezclan días
+   laborables y festivos.
+6. El γ elegido con 2023 hereda el optimismo de elegir con los mismos datos que se informan.
+7. La rejilla de 19 niveles no ve las colas fuera de 0,025-0,975 (14.5.6).
+8. Coste de la evaluación final de 2024: SARIMAX igual que el puntual; LightGBM +17 modelos × 12
+   reajustes (~1 h); N-HiTS +12 reentrenamientos de una segunda red (< 4,3 h según 12.4.7); ACI,
+   minutos.
+
+### 14.11 Archivos, orden de ejecución y registro de coherencia
+
+1. `src/probabilistica.py` (módulo: rejilla, bloques, intervalos del ingenuo, métricas, motor de ACI,
+   bootstrap), `src/nhits_rejilla.py` (segunda red, D11), `src/26_cuantiles_validacion.py`
+   (genera y guarda las cuatro rejillas de 2023, con pruebas de fuga; reanudable) y
+   `src/27_capa_probabilistica.py` (métricas, ACI, elección de γ, tablas y figuras).
+2. **Orden:** 26 y luego 27. Estimación sin medir (se medirá y se informará): 26, de 30 a 60 minutos
+   en el PC del autor (SARIMAX unos 3 min, LightGBM unos 5 min, segunda red de N-HiTS y pruebas
+   de fuga el resto); 27, minutos.
+3. **Para el registro de coherencia del 05 (la memoria no se toca hasta R2):** CRPS por rejilla y segunda red
+   (4.4 y 5.3); diseño de ACI, retraso y D4 (3.7, 4.4); cuantiles del ingenuo con 2017-2022 (el
+   capítulo 2 y el 02 dicen «error de validación»); ACI como construcción común, no recalibración del propio
+   intervalo (la introducción y OE7 hablan de «recalibración»). Verificar en la fuente la referencia de la
+   puntuación de intervalo (Gneiting y Raftery, 2007) antes de citarla en R2.
