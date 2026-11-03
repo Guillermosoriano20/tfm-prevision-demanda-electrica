@@ -2313,7 +2313,8 @@ Con lo visto en 16.2 (bloques y meses) y la experiencia de 2023 (13.8.4). Cada �
 ### 16.11 Hashes (se rellena al cerrar cada paso)
 
 Protocolo de este apartado: `8becb6a` (3 de noviembre de 2026, antes del código y de leer nada más de 2024). Código
-(`30_desglose_oe8_2024.py`): *pendiente de commit*. Ejecución de 30: *pendiente*.
+(`30_desglose_oe8_2024.py` y 16.12): `3f20ca1`. Ejecución de 30: PC del autor, 3 de noviembre de 2026, una sola vez, con el código de
+`3f20ca1`. Resultados de 16.14: commit siguiente (hash *pendiente*).
 
 ### 16.12 Implementación (3 de noviembre de 2026, antes de ejecutar nada con 2024)
 
@@ -2344,3 +2345,87 @@ ejecutar:
 7. **Salidas** en `data/resultados/final/desglose/`: `precision.csv`, `preferibles.csv`, `calibracion.csv`, `mae_por_dia.csv`,
    `peores_dias_{modelo}.csv`, `anticipacion_vs_resultado_oe8.csv`, `manifiesto.json` y las figuras `mae_por_hora.png` y
    `cobertura_por_hora.png`.
+
+### 16.14 Resultados de 2024 por régimen (3 de noviembre de 2026)
+
+**16.14.1 Ejecución y controles.** `30` una sola vez, menos de 1 minuto. Controles superados: 253 laborables, 102 fines de semana,
+10 festivos y 1 puente; 366 observaciones por hora local; el MAE por bloque y las coberturas (propia, ventana y ACI) por bloque y
+globales son iguales a las del 29 (16.4.3); contraste sintético: sin diferencia, p ≥ 0,05 en el 97 % de 60 repeticiones, y con
++60 MW, p = 0,002. Cifras de este apartado: salida del 30 (`data/resultados/salida_30.txt`) y CSV de
+`data/resultados/final/desglose/`. Con otra definición de bloque que la del 29 las cifras por bloque no se podrían contrastar; por
+eso el bloque es el del 29 (16.12.1).
+
+**16.14.2 Precisión por régimen** (MAE en MW; entre paréntesis, sesgo = real − previsto).
+
+| Régimen (días) | Ingenuo | SARIMAX | LightGBM | N-HiTS |
+|---|---|---|---|---|
+| B1 00-05 h (366) | 745 (−1) | 825 (+111) | 375 (+213) | 537 (−246) |
+| B2 06-11 h | 1.265 (−6) | 1.118 (+19) | 578 (+193) | 678 (+49) |
+| B3 12-17 h | 1.649 (−15) | 1.304 (−158) | 792 (−84) | 762 (−223) |
+| B4 18-23 h | 1.212 (−5) | 1.112 (+52) | 549 (+218) | 685 (+255) |
+| Laborable (253) | 1.218 (+140) | 1.074 (+94) | 582 (+183) | 677 (+8) |
+| Fin de semana (102) | 944 (+25) | 962 (+40) | 525 (+57) | 638 (−144) |
+| Festivo (10) | 3.672 (−3.589) | 2.813 (−2.567) | 796 (−155) | 655 (−255) |
+| Puente, 16/8 (1) | 4.639 (−4.639) | 934 (+6) | 1.079 (−1.079) | 624 (+200) |
+| Navidad 23/12-6/1 (15) | 2.374 (−1.700) | 1.822 (−303) | 597 (−208) | 762 (−355) |
+| Fuera de Navidad (351) | 1.168 (+66) | 1.058 (+19) | 573 (+150) | 661 (−28) |
+
+Cociente dentro/fuera de Navidad: 2,03, 1,72, 1,04 y 1,15. Por día de la semana el MAE de LightGBM va de 519 (domingo) a 617 (miércoles)
+y el de N-HiTS de 599 (viernes) a 791 (lunes). Por hora local (descriptivo): el máximo del MAE está a las 13 h en el ingenuo (1.689),
+a las 15 h en SARIMAX (1.333), a las 14 h en LightGBM (849) y a las 12 h en N-HiTS (866; segundo máximo a las 21 h, 850); LightGBM tiene
+el menor MAE en 19 de las 24 horas y N-HiTS en 5, las de 13 a 17 h. Por cruce, el festivo × B2 (06-11 h) da 5.203, 4.310, 864 y 739 MW.
+
+**16.14.3 Modelo preferible por celda y cambio de régimen (16.7), 19 contrastes con Holm por familia.** **Ningún cambio de régimen
+apreciable.** LightGBM se mantiene apreciablemente en 10 celdas (bloques B1, B2 y B4; laborables; fines de semana; cruces laborable
+× B1, B2 y B4 y fin de semana × B1 y B4); se mantiene sin distinguirse del segundo en 3 (fin de semana × B2 y B3, festivo × B1); el
+mejor nominal es otro (N-HiTS) pero no se distingue en 6: bloque B3 (diferencia LightGBM − N-HiTS de +30 MW, IC −21 a +77, p
+ajustado 0,24), festivos (+141 MW, IC −57 a +403, p ajustado 0,22), laborable × B3 (+30, p ajustado 0,89) y festivo × B2, B3 y B4
+(+126, +384 y +238 MW; p ajustados 1,00, 0,41 y 0,41). El puente (1 día) es descriptivo. Un «no distinguible» con 10 días no es una
+equivalencia: la potencia es baja.
+
+**16.14.4 Calibración por régimen** (cobertura del 90 %; propio / ventana / ACI; ingenuo, SARIMAX, LightGBM, N-HiTS).
+ - Laborable: propio 92,4 / 93,7 / 76,8 / 78,3 %; ACI 87,4 / 89,3 / 88,5 / 88,4 %.
+ - Fin de semana: propio 97,4 / 94,8 / 76,1 / 78,9 %; ACI 94,8 / 90,8 / 92,5 / 91,9 %.
+ - Festivo (IC anchos; N-HiTS propio 74,2-97,1 %, ACI 80,8-98,3 %): propio 47,5 / 65,8 / 65,4 / 86,2 %; ventana 42,5 / 47,9 / 72,1 /
+   90,0 %; ACI 42,5 / 50,0 / 74,2 / 90,8 %. Con ACI, LightGBM (IC 60,0-89,2 %), el ingenuo y SARIMAX quedan fuera del 90 %; N-HiTS es el
+   único cuyo IC lo incluye. IS y CRPS₁₉ en festivos (propio): 35.733 y 2.984 (ingenuo), 20.906 y 2.105 (SARIMAX), 9.601 y 658
+   (LightGBM), 3.397 y 528 (N-HiTS); con ACI, LightGBM 5.542 y 615 y N-HiTS 3.573 y 481. Sin contraste, solo descripción.
+ - Cruce festivo × B2 (06-11 h), cobertura propia: 31,7 / 33,3 / 53,3 / 76,7 %.
+ - Puente (24 horas de un día): cobertura propia 0 / 100 / 16,7 / 91,7 % y con ACI 0 / 83,3 / 54,2 / 83,3 %; sin intervalos.
+ - ACI no repara los festivos de los clásicos (ingenuo 47,5 → 42,5 %; SARIMAX 65,8 → 50,0 %).
+No se ha leído la cobertura por hora local (24 filas × 4 modelos × 3 intervalos): queda en `calibracion.csv` y en
+`cobertura_por_hora.png`; el script solo comparó su máximo y su mínimo (A45, A46).
+
+**16.14.5 Días y periodos.** Peores días por MAE diario. Ingenuo: 25/12 (9.212), 8/1 (9.165), 13/12, 24/12, 15/8, 22/8, 26/12, 9/1,
+16/8 y 12/1. SARIMAX: 8/1 (7.199), 2/11 (sábado, 6.006), 1/4, 9/1, 2/4, 26/12, 1/5, 30/3, 8/5 y 15/8. LightGBM: 12/10 (festivo en
+sábado, 1.692), 11/12, 14/8, 9/4, 13/6, 9/12, 23/12, 1/4, 7/1 y 25/4. N-HiTS: 10/3 (domingo, 2.306), 1/4, 20/1, 2/4, 26/3, 13/10,
+2/9, 15/4, 5/3 y 17/6. De sus 10 peores días, **10 del ingenuo, 10 de SARIMAX, 8 de LightGBM y 4 de N-HiTS están a 7 días o menos de
+un festivo o puente**; el 32,5 % de los días de 2024 (119 de 366) cumple esa condición. Es un cálculo aparte del asistente sobre las
+fechas impresas, no está en el script y es descriptivo. Domingo festivo (8/12, tratado como domingo corriente): MAE del día 496, 745,
+527 y 449 MW frente a 944, 962, 525 y 638 de los fines de semana; la omisión del calendario no se nota.
+
+**16.14.6 Anticipación de 16.8 frente a lo observado: se cumplen 27 de 34 y fallan 7.** Se cumplen A39-A45, A47 (laborable y
+festivos), A48-A50, A51 (ingenuo) y A52, entre ellas: LightGBM mejor y apreciable en laborables y fines de semana (A40), ningún
+cambio de régimen en bloques ni tipos de día y ninguno en los cruces (A44), N-HiTS mejor nominal en festivos sin distinguirse (A41),
+el error del ingenuo en el puente (4.639 MW, de signo negativo, A48), el domingo festivo (A49) y el cociente de Navidad (2,03 y 1,04,
+A50). **Fallan:** A38 en LightGBM (796 frente a 800-1.600) y N-HiTS (655 frente a 700-1.400), ambos mejor de lo anticipado en festivos;
+A46 (mínima cobertura propia de LightGBM a las 15 h con 66,9 %, por encima del 66 % anticipado, en la franja correcta); A47 en fines
+de semana (ingenuo con ACI: 94,8 %, fuera de 86-93 %); y A51 en SARIMAX (3), LightGBM (2) y N-HiTS (0), con menos festivos, puentes o
+Navidad entre sus 10 peores días de los 4 anticipados. La tasa (79 %) no es comparable con la de 15.14.6 (62 %): varias comprobaciones
+se apoyaban en lo ya visto en el 29 (bloques) o eran de coste.
+
+**16.14.7 Lectura con las reglas de 16.7.** (1) LightGBM se sostiene como preferible en los regímenes con potencia suficiente; no hay
+cambio de régimen distinguible. (2) El efecto fuerte del régimen no está entre LightGBM y N-HiTS sino en los modelos clásicos: en
+festivos el ingenuo y SARIMAX multiplican por unas tres veces su error de laborable y se quedan fuera del 90 % de cobertura (ni la
+recalibración con ACI lo repara, causa sin comprobar: la retroalimentación llega con 24 a 48 horas de retraso y los festivos son días
+aislados), mientras LightGBM sube un 37 % y N-HiTS no sube (655 frente a 677 MW). (3) **No se concluye que N-HiTS sea mejor en épocas
+difíciles:** su ventaja nominal en festivos, en B3 (13-17 h) y en julio y agosto no es distinguible (los meses, además, no se
+contrastaron), y LightGBM gana en cifra en Navidad (597 frente a 762), en enero y diciembre y en el error máximo diario. Queda como
+**hipótesis**, con 10 festivos de un solo año, que N-HiTS es más robusto ante los festivos (único con cobertura compatible con el 90 %
+en esos días y menor IS y CRPS₁₉, sin contraste). (4) El puente es un solo día y no se generaliza.
+
+**16.14.8 Lo que no se ha comprobado.** Las causas de todo lo anterior son hipótesis sin comprobar (festivos de los clásicos, ventaja
+nominal de N-HiTS por la tarde y en festivos, falta de efecto de ACI en festivos). No se ha leído la cobertura por hora ni se han
+abierto las figuras. Para el registro de coherencia del 05: C59 desglose de OE8 sin cambio de régimen distinguible, con la hipótesis
+de N-HiTS en festivos declarada como tal y no como conclusión (5.6, 5.7, 6); C60 lectura de «no distinguible» con 10 días y de los
+festivos (5.6).
