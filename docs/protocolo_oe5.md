@@ -1659,3 +1659,375 @@ y γ = 0,001 es casi inerte. (3) Optimismo declarado (14.1.3): hiperparámetros 
 (4) En 2024: γ = 0,001, arranque de D7, mismas reglas de lectura. (5) Para el registro de coherencia del 05:
 agrupar la cobertura «por bloque de anticipación» con la cobertura «por franja horaria» (son lo mismo) y anotar
 el ingenuo de 2017-2022 (descarte de un error, I3).
+
+## 15. Evaluación final en 2024 (fijado el 3 de noviembre de 2026, antes de escribir su código y de calcular nada con 2024)
+
+Cumple lo dejado pendiente en 2.4, 2.6, 2.7, 14.1.3 y 14.6: la evaluación final, que se hace **una sola vez**, de las
+cuatro ganadoras con reajuste mensual, intervalos propios, ventana y ACI, métricas puntuales y probabilísticas,
+Diebold-Mariano y reglas de lectura. **No se ha visto ninguna cifra de demanda de 2024.** Para que se sepa qué
+conoce el asistente de ese año (se declara porque condiciona su anticipación, 15.9):
+
+1. Las entradas de 2024 (temperatura de reanálisis y calendario) están en el dataset; no se han leído valores.
+2. Las cifras de control globales del dataset (archivo 06: media 27.613 MW, máximo 41.829 MW el 8/1/2021, mínimo
+   16.117 MW el 25/12/2022; temperatura ponderada máxima 36,52 °C frente a 35,83 °C en 2017-2022) se calcularon con
+   las 70.127 horas, 2024 incluido. Implican que ninguna hora de 2024 supera ese máximo ni baja de ese mínimo de
+   demanda, y que una hora de 2023 o de 2024 es más cálida que cualquiera de 2017-2022.
+3. Conocimiento general del asistente, **no extraído de los datos y no verificado aquí**: la demanda peninsular de 2024
+   fue algo mayor que la de 2023 (del orden del 1 %); el autoconsumo solar siguió creciendo; 2024 fue bisiesto; la
+   Semana Santa cayó en marzo (Jueves y Viernes Santo, 28 y 29 de marzo) y la de 2023 en abril; la DANA de Valencia
+   (29/10/2024) pudo afectar a la demanda de octubre y noviembre. No conoce ninguna cifra horaria, diaria ni mensual
+   de 2024.
+
+### 15.1 Alcance y reglas de uso
+
+1. **Una sola evaluación (2.6).** Las previsiones de 2024 se generan una vez, con el protocolo y el código fijados en
+   commits anteriores (se anotan los hashes en 15.13). Un error de programación descubierto después se corrige, se
+   repite la evaluación y se informa con los dos resultados si difieren (2.6). Nada que se vea en 2024 cambia un
+   modelo, un hiperparámetro, γ, una regla de lectura ni este apartado.
+2. **Qué se evalúa:** las cuatro ganadoras, con la configuración congelada:
+   - **Ingenuo estacional** (15).
+   - **SARIMAX** ARMA(5,1) con 12 armónicos diarios, 12 semanales, 3 anuales, interacciones temperatura × hora (3),
+     exógenas comunes, `nivel` y retardos de 48 y 168 h (10.10).
+   - **LightGBM `c17`** (L2, tasa 0,0318, 127 hojas, `min_data_in_leaf` 20, `feature_fraction` 0,5554,
+     `bagging_fraction` 0,8553, `lambda_l2` 0,0572; 11.4), con el procedimiento de 11.3 en cada reajuste.
+   - **N-HiTS `c13`** (*L* 336, tasa 0,00119, anchura 256, 1.024 ventanas por lote, escalas B, *dropout* 0,1; 12.6),
+     semilla 42, con el procedimiento de 12.5.1 en cada reajuste.
+3. **Datos:** `cargar_datos(incluir_prueba=True)`, con la huella comprobada (2.7). En la fase de validación (hasta 14) el
+   corte de 2024 seguía activo; esta es la primera vez que se carga completo.
+4. **Nada de 2024 se imprime mientras se generan las previsiones.** El script que las genera (28) imprime solo tiempos,
+   número de árboles o de pasos, convergencia, pruebas de fuga y controles; ninguna métrica de error, cobertura o
+   sesgo. La primera cifra de error de 2024 que se ve es la del script de lectura (29), que se ejecuta una vez y
+   compara con la anticipación de 15.9 de forma automática.
+5. **Entradas con pérdida de generalidad que se mantienen:** escenario de previsión meteorológica perfecta (temperatura
+   de reanálisis, 2.2 y 4); regla de información de 1.2; retardos ≥ 37 h (1.5).
+
+### 15.2 Decisiones y motivos
+
+Decisiones del autor (3/11/2026, en el encargo de la sesión):
+
+| # | Decisión | Motivo |
+|---|---|---|
+| F1 | Se evalúan las **cuatro ganadoras** de 15.1.2, con la configuración congelada | Evita una segunda selección con 2024: los hiperparámetros se eligieron con 2023 (14.1.3) y 2024 es lo único que no ha intervenido en ninguna elección |
+| F2 | **Reajuste mensual de los cuatro** con ventana creciente: desde el 1/1/2017 hasta el origen del reajuste, es decir, 2017-2023 más el 2024 ya ocurrido | Es lo fijado en 2.4 y lo que haría un operador real. La regla de 2.4 (si el SARIMAX superara 8 h, trimestral para los cuatro) no se activa: el SARIMAX cuesta unos 20-30 minutos (8.3, 15.10) |
+| F3 | **Reajuste mensual también de los 19 modelos de cuantil de LightGBM y de la segunda red de N-HiTS** | La rejilla del CRPS₁₉ debe describir el mismo sistema que la previsión puntual. Con modelos de cuantil de 2023 aplicados a 2024, la rejilla y la previsión puntual tendrían edades distintas y el CRPS₁₉ mediría también esa diferencia |
+| F4 | **Intervalos propios del 90 %** (14.3), **ventana** (ACI con γ = 0, referencia de 14.6.7) y **ACI con γ = 0,001**, con el **arranque D7** de 14.2 | γ no se vuelve a elegir con 2024: sería circular (2.6) y la regla de 14.6.7 ya dio su resultado (negativo, 14.13.4). La ventana se informa siempre porque es lo que separa «ventana» de «adaptación» (14.13.4) |
+| F5 | Métricas **puntuales** (7) y **probabilísticas** (14.5), **Diebold-Mariano** (15.6) y **reglas de lectura** (15.8), con criterios y anticipación escritos antes de ver nada | Es la condición de 2.6 y de 14.9: sin ella, la lectura se haría a la vista de las cifras |
+| F6 | **Coste estimado y orden de recortes fijados ahora** (15.10), antes de lanzar | Regla del plan (archivo 03, riesgo 5): el orden de recortes se escribe antes de lanzar, no después |
+
+Decisiones tomadas por el asistente por defecto (el autor puede cambiarlas antes del commit de este apartado):
+
+| # | Decisión | Motivo |
+|---|---|---|
+| F7 | **Los cuantiles empíricos del ingenuo se actualizan cada mes:** errores de los días objetivo que terminan antes del origen del reajuste (2017-2023 en enero; 2017-2023 más el 2024 ya ocurrido después), sin COVID. **Precisa 14.3.1**, que decía «los de 2017-2023» para la evaluación final | Mismo trato de la información que a los demás modelos (ventana creciente común, 2.1). Dejarlos fijos en 2017-2023 dejaría al ingenuo como único modelo que no aprovecha el 2024 ya ocurrido. Alternativa no elegida: fijos en 2017-2023 (más sencillo; el cambio esperado es pequeño porque cada mes añade unos 700 errores a unos 49.000) |
+| F8 | **SARIMAX: FGLS desde cero en cada reajuste** (mismo orden ARMA(5,1), mismos armónicos, mismas exógenas, misma regla de parada de 8.6); si no converge, **se detiene todo** y se informa; no hay recurso silencioso a otro orden | Es el procedimiento de 2023. En 10.9 hubo un «segundo grupo» de soluciones del FGLS (sesgo positivo, 1.059-1.112 MW): un reajuste podría caer en otra solución. Se guardan los parámetros ARMA de cada mes para poder verlo |
+| F9 | **Parada temprana repetida en cada reajuste** en los 20 modelos de LightGBM (puntual y 19 cuantiles) y en las dos redes de N-HiTS, con las últimas 8 semanas anteriores al origen como control, semilla 42 y los hiperparámetros congelados (11.3, 12.5.1, 14.4). Se guarda el número de árboles o de pasos de cada reajuste | Es el procedimiento descrito en 11.3 y 12.5.1: «reajuste» incluye volver a elegir el número de árboles o de pasos con datos anteriores al origen, nunca con 2024 posterior. Alternativa más barata no elegida: fijar el número de la validación (no es lo que dicen 11.3 y 12.5.1) |
+| F10 | **Intervalo propio de LightGBM = cuantiles 0,05 y 0,95 de los modelos de la rejilla** (idénticos al procedimiento de 11.2, con la regla de cruce); **el de N-HiTS = la red oficial** (12.2), no la segunda red | Igual que en 14.3: en 2023 los modelos de 0,05 y 0,95 de la rejilla reproducían los guardados con diferencia 0 |
+| F11 | **ACI sobre la concatenación 2023 + 2024:** las horas de 2023 solo aportan residuos; el primer día emitido es el 1/1/2024 (día 365 de la concatenación); α_t inicial = 0,10; ventana de 336 residuos por bloque. La **evaluación ocupa las 8.784 horas de 2024** (ya no hay 57 días sin emitir). Se calculan γ ∈ {0; 0,001; 0,005; 0,01; 0,02} (sensibilidad, 15.8.8), y las métricas oficiales usan γ = 0,001 | Es D7. Los residuos de 2023 son los del modelo de 2023 (ajustado hasta 2022); los modelos de 2024 se reajustan cada mes. Limitación declarada, no corregible sin reentrenar 2023 |
+| F12 | **Diebold-Mariano (15.6):** pérdida diaria, error absoluto como principal y cuadrado como robustez, varianza de Newey-West con 7 retardos, corrección de Harvey, Leybourne y Newbold, distribución *t* de *n* − 1, **Holm** sobre los seis pares | Motivos en 15.6. Se fija todo antes de ver cifras, incluido el retardo 7 (sin ajustarlo) |
+| F13 | Las diferencias de **IS y CRPS₁₉** se leen como en 14.8.4 (bootstrap de días), no con Diebold-Mariano | Las dos son puntuaciones propias de la distribución, no una pérdida del punto; el bootstrap de días ya está probado en 14 |
+| F14 | **Comparación con 2023 solo descriptiva:** cambio relativo del MAE y regla de ±10 % (15.8.3). Sin contraste | 2023 y 2024 son años distintos con modelos distintos (reajustados); un contraste daría una apariencia de rigor que no existe. La «maldición del ganador» (14.1.3) no se puede separar del efecto del año |
+| F15 | **Candado:** el script de lectura (29) se niega a ejecutarse si ya existe su carpeta de resultados salvo con la opción explícita `--repetir-por-error "motivo"`, que deja el motivo en el manifiesto. Manifiesto con el hash del commit, el estado limpio del árbol, las huellas del dataset y las versiones de las librerías | 2.6: una sola vez, y trazabilidad de qué código dio qué cifra |
+| F16 | **Pruebas de fuga reforzadas (modo `borrar`) con el modelo de cada mes sobre todos sus orígenes,** en las seis salidas (ingenuo, SARIMAX, LightGBM puntual, LightGBM 19 cuantiles, N-HiTS oficial, N-HiTS 19 salidas); más una prueba nueva del **reajuste** (15.7.3) | Con reajustes mensuales aparece un camino que en 2023 no existía: el entrenamiento con un `fin` variable. La prueba de 2023 comprobaba la previsión, no que el ajuste ignorara los datos posteriores al origen del reajuste |
+| F17 | **No se hace un control «sin reajuste»** (los modelos de 2023 aplicados a 2024 sin reajustar). Los pendientes del archivo 06 («si el reajuste mensual reduce el sesgo del SARIMAX» y «si cambia la calibración de los cuantiles») se contestan solo **descriptivamente**, comparando 2024 con 2023, con el año y el reajuste mezclados | Sale del alcance definido (el protocolo 2.4 fija el reajuste mensual; no pide medir su efecto). Coste del control si el autor lo pidiera: unos 15 minutos de cálculo (SARIMAX 2, LightGBM 3, N-HiTS 8 y la rejilla de N-HiTS 9, con modelos ya entrenados en 2023 reproducibles) más código. **Decisión del autor antes del commit** |
+| F18 | **Lanzamiento opcional en dos terminales** (15.10.3): el script 28 admite `--componentes` | No cambia ningún cálculo (hilos fijados: LightGBM 4, torch 4, SARIMAX 1; el PC tiene 12 núcleos lógicos); reduce el tiempo de reloj |
+
+### 15.3 Calendario de reajustes y procedimiento de cada componente
+
+**Calendario (2.4).** El reajuste *k* se hace en el origen del primer día objetivo de cada mes (las 12:00 locales del
+último día del mes anterior); el modelo resultante prevé todos los orígenes hasta el siguiente reajuste. Con
+`generar_origenes("prueba")` (366 orígenes, 8.784 horas: 365 × 24, más el 29/2, menos la hora del 31/3, más la hora
+del 27/10):
+
+| *k* | Origen del reajuste (hora local) | Días objetivo que prevé | Días |
+|---|---|---|---|
+| 1 | 31/12/2023 12:00 | 1/1 a 31/1/2024 | 31 |
+| 2 | 31/1/2024 12:00 | 1/2 a 29/2 | 29 |
+| 3 | 29/2/2024 12:00 | 1/3 a 31/3 (día de 23 h el 31/3) | 31 |
+| 4 | 31/3/2024 12:00 | 1/4 a 30/4 | 30 |
+| 5 | 30/4/2024 12:00 | 1/5 a 31/5 | 31 |
+| 6 | 31/5/2024 12:00 | 1/6 a 30/6 | 30 |
+| 7 | 30/6/2024 12:00 | 1/7 a 31/7 | 31 |
+| 8 | 31/7/2024 12:00 | 1/8 a 31/8 | 31 |
+| 9 | 31/8/2024 12:00 | 1/9 a 30/9 | 30 |
+| 10 | 30/9/2024 12:00 | 1/10 a 31/10 (día de 25 h el 27/10) | 31 |
+| 11 | 31/10/2024 12:00 | 1/11 a 30/11 | 30 |
+| 12 | 30/11/2024 12:00 | 1/12 a 31/12 | 31 |
+
+La ventana de cada reajuste son las horas con `hora_utc + 1 h ≤ origen del reajuste`, con COVID estricto como en 11.1.3
+y 12.1.3 (en 2024 no interviene). El reajuste 1 usa 2017-2023 hasta el 31/12/2023 12:00; los siguientes añaden el
+2024 ya ocurrido. Reajuste «independiente»: cada mes se ajusta desde cero (el SARIMAX desde el mismo punto inicial del
+FGLS; los árboles y las redes desde la inicialización de la semilla 42), sin arrastrar parámetros del mes anterior.
+
+**15.3.1 Ingenuo.** Sin entrenamiento. Previsión de 15. Intervalo propio y rejilla: previsión + cuantil empírico del error
+por bloque de anticipación (14.3.1), con los errores (F7) de los días objetivo desde el 8/1/2017 que terminan antes del
+origen del reajuste *k*, sin los que tocan COVID (objetivo o fuente a 7 días) y descartando los no finitos que se
+cuenten (14.12, I3: uno en enero).
+
+**15.3.2 SARIMAX.** En cada reajuste, FGLS con `ajustar_fgls` (orden (5, 0, 1), exógenas de 15.1.2) sobre la ventana;
+convergencia obligatoria (F8). En cada origen del mes, `res.apply` con los datos anteriores al origen y parámetros
+fijos, `get_forecast`: media (previsión puntual) y error típico (intervalo gaussiano y rejilla, 14.3.2). Se guardan los
+parámetros y el número de vueltas del FGLS de cada mes.
+
+**15.3.3 LightGBM.** En cada reajuste: `filas_entrenamiento(datos, fin)` y 20 entrenamientos con `lm.entrenar` (11.3): el
+puntual (parámetros de `c17`) y los 19 de cuantil (`alpha` = 0,05 … 0,95, mismos parámetros, 14.4.3). Se guardan los
+árboles de cada modelo y mes. Intervalo propio = cuantiles 0,05 y 0,95 con la regla de cruce (11.2.5): se intercambian
+y se cuenta. Rejilla = los 19, con reordenación monótona (14.4.5) y recuento.
+
+**15.3.4 N-HiTS.** En cada reajuste, dos entrenamientos con el procedimiento de 12.5.1 y la semilla 42: la **red oficial**
+(`nm.entrenar`; mediana = previsión puntual; cuantiles 0,05 y 0,95 = intervalo propio con regla de cruce, 12.2.5) y la
+**segunda red** de 19 salidas (`nr.entrenar`; solo rejilla del CRPS₁₉, 14.4.4). Se guardan los pasos de cada red y mes.
+La segunda red no sustituye a la oficial y se sigue informando de su MAE y de su cobertura frente a la oficial.
+
+**15.3.5 Salidas.** Cada componente y mes se guarda al terminar en `data/interim/final_2024/` (reanudable, 15.12). Al
+acabar todos, se ensamblan en `data/predicciones/` con el formato común: `{modelo}_prueba.parquet` (hora, fecha
+objetivo, real, previsión), `{modelo}_cuantiles_prueba.parquet` (rejilla q05 … q95) y, para LightGBM y N-HiTS,
+`{modelo}_intervalos_prueba.parquet` (inferior, superior).
+
+### 15.4 Intervalos y capa probabilística en 2024
+
+1. **Intervalos propios del 90 %:** 14.3 con los reajustes de 15.3. Rejilla de 19 cuantiles: 14.4.
+2. **Ventana y ACI (14.6, F11):** entradas = previsión puntual oficial y demanda real de las 8.760 horas de 2023
+   (previsiones de validación de cada modelo) y de las 8.784 de 2024. Orígenes de 2023 y de 2024 en orden cronológico;
+   `primer_dia` = 365. Bloques de anticipación de 14.5.1 (B1 = 00-05 h locales, B2 = 06-11, B3 = 12-17, B4 = 18-23).
+   Las puntuaciones iniciales del primer origen de 2024 son los 336 residuos más recientes de cada bloque observados a
+   las 12:00 del 31/12/2023 (D7); α_t = 0,10 en todos los bloques. Recursión con el error del intervalo realmente
+   emitido (D4).
+3. **Cuantiles después de ACI** para el CRPS₁₉ y la fiabilidad: 14.6.8 con γ = 0,001.
+4. **Conjunto de evaluación:** las 8.784 horas de 2024 para todos los intervalos (propios, ventana y ACI). Es la
+   diferencia con 2023, donde ACI se evaluaba en 308 días (E) y los propios, además, en 8.760.
+
+### 15.5 Métricas
+
+1. **Puntuales** (7, para los cuatro modelos, 8.784 horas): MAE, RMSE, MAPE, MASE (escala fija 1.328,2 MW), MAE relativo
+   al ingenuo, sesgo medio (real − previsto), razón RMSE/MAE; MAE y sesgo por mes y por bloque de anticipación;
+   comparación con 2023 (cambio relativo del MAE). Intervalo de confianza del 95 % del MAE por bootstrap de días (D10).
+2. **De los intervalos y de la rejilla** (14.5.3-14.5.8): para los intervalos propios, ventana (γ = 0) y ACI (γ = 0,001):
+   cobertura (global, por bloque y por mes, con IC por bootstrap de días), fallos por debajo y por encima y su
+   cociente, anchura media y mediana, IS con sus dos pinball, CRPS₁₉, fiabilidad de la rejilla y su desviación máxima,
+   horas con límite infinito sustituido (D8), horas reordenadas, y diferencias pareadas con IC (14.8.4).
+3. **Sensibilidad a γ** (solo descriptiva, 15.8.8): cobertura, anchura, IS e IS relativo a γ = 0 para cada γ de G, y la
+   puntuación de la regla 14.6.7 recalculada con 2024.
+4. **Semana de ejemplo** de la figura, fijada ahora: del lunes 13/5/2024 al domingo 19/5/2024 (la misma posición
+   semanal que la del 15 al 21/5/2023).
+5. **Qué no se calcula aquí:** el desglose por hora del día y por tipo de día (OE8) es el apartado 16 y se fijará, con
+   commit, antes de leerlo; leerá las previsiones guardadas y no decidirá nada.
+
+### 15.6 Diebold-Mariano
+
+**Qué contrasta.** Si dos modelos tienen la misma precisión esperada. Para dos modelos *a* y *b* se toma la pérdida de
+cada día (media de las horas del día objetivo) y su diferencia *d_t* = pérdida_*a*(*t*) − pérdida_*b*(*t*), en MW
+(error absoluto) o en MW² (error cuadrático). *d_t* negativa significa que *a* se equivocó menos ese día.
+
+1. **Unidad de análisis: el día** (*n* = 366). Motivo: las 24 horas de un día comparten errores muy correlacionados
+   (13.8, 14.13.2); tratar las horas como independientes inflaría la significación. Las horas de un día se promedian
+   antes de contrastar.
+2. **Pérdida principal: error absoluto** (coherente con el MAE, el criterio de selección de 3.4 y con 14.8.4). **Robustez:
+   error cuadrático** (coherente con el RMSE).
+3. **Estadístico:** DM = media(*d*) / √(*V̂* / *n*), con *V̂* la varianza de largo plazo de *d_t*: *V̂* = γ̂₀ + 2 Σₖ₌₁ᵐ
+   (1 − *k*/(*m* + 1)) γ̂ₖ (núcleo de Bartlett, Newey y West), γ̂ₖ la autocovarianza muestral de orden *k* (divisor *n*).
+   **m = 7 días**, fijado ahora: la dependencia diaria de los errores tiene memoria semanal (OE2: ACF de la demanda a
+   168 h) y la meteorología persiste varios días. Sensibilidad (solo informada): *m* = 3 y *m* = 14.
+4. **Corrección de muestra pequeña** de Harvey, Leybourne y Newbold con horizonte *h* = 1 (un origen por día):
+   DM\* = DM · √((*n* − 1)/*n*), contrastada con una *t* de Student de *n* − 1 grados de libertad, a dos colas.
+5. **Seis pares** (ingenuo, SARIMAX, LightGBM, N-HiTS): se informa la matriz de p-valores sin ajustar y **ajustados por
+   Holm** (control de la probabilidad de algún falso positivo entre las seis comparaciones). La lectura usa los
+   ajustados (15.8.1).
+6. **Cuándo no vale:** si *V̂* ≤ 0 se informa NA (el núcleo de Bartlett lo evita en la práctica); si el orden de dos modelos
+   cambia entre mes y mes, el contraste anual promedia ese cambio y no lo detecta (se mira el MAE por mes).
+7. **Ejemplo numérico inventado (solo para explicarlo):** si en los 366 días la diferencia de MAE diario entre dos modelos
+   fuera −100 MW de media, con desviación de 250 MW y autocorrelación semanal moderada, la desviación típica de la media
+   sería ≈ 250/√366 · 1,5 ≈ 20 MW y DM ≈ −5: un valor así rechaza la igualdad con p muy pequeño. Con −15 MW, DM ≈ −0,7 y no.
+
+### 15.7 Controles y pruebas (el script se detiene si falla alguno)
+
+**Generación (28):**
+
+1. **Calendario:** 12 reajustes con los orígenes de la tabla de 15.3; 366 orígenes y 8.784 horas; el día de 23 h es el 31/3/2024
+   y el de 25 h el 27/10/2024; las horas recortadas coinciden con las del dataset; `real` idéntica al dataset en todos
+   los archivos; sin nulos.
+2. **Configuración congelada:** `parametros_c17()` y `config_c13()` (sus aserciones reconstruyen y comprueban el sorteo
+   de la validación), orden ARMA (5, 0, 1) y exógenas del SARIMAX de 10.10.
+3. **Fuga del reajuste (nueva):** para el reajuste 1 y el reajuste 7 (fin = 31/12/2023 y 30/6/2024), el ajuste del
+   SARIMAX y de LightGBM (puntual y cuantiles 0,05 y 0,95) con la demanda posterior al origen del reajuste sustituida
+   por +10.000 MW produce modelos y previsiones **idénticos** (diferencia 0). Para N-HiTS y la segunda red se comprueban
+   las aserciones del propio ajuste (`hora_utc + 1 h ≤ fin` en todas las filas, `local_scaler_type=None`) porque repetir
+   su entrenamiento costaría unos 15 minutos por reajuste; la prueba completa con alteración se hace en el entorno del
+   asistente con presupuestos reducidos (15.12.3).
+4. **Fuga de la previsión:** prueba reforzada (demanda posterior al origen borrada, `comprobar_fuga(modo="borrar")`) con el
+   modelo de cada mes sobre sus orígenes y en las seis salidas. Debe dar 0 días.
+5. **Convergencia:** FGLS convergido en los 12 meses; árboles y pasos dentro de los límites (0 < árboles ≤ 10.000; 100 ≤ pasos ≤
+   1.000, múltiplos de 100); rejillas finitas.
+6. **Cuantiles de cada fila:** número de cruces (regla 11.2.5) y de horas reordenadas por modelo y mes, guardados, sin
+   interpretar aún.
+
+**Lectura (29):**
+
+7. **ACI:** recursión propia igual a MAPIE al bit; corte de causalidad con control positivo (con cortes en 2024: días 465,
+   565 y 665 de la concatenación); prueba sintética de 0,90 ± 0,02 (14.7.2 a 14.7.4).
+8. **Diebold-Mariano:** (a) con diferencias independientes de media 0 y 366 días, la tasa de rechazo al 5 % en 2.000
+   réplicas está entre 3 y 8 %; (b) con una diferencia de −0,3 desviaciones típicas por día, rechaza en más del 80 % de
+   las réplicas; (c) con autocorrelación AR(1) de 0,5 en *d_t*, el retardo 7 mantiene la tasa de rechazo por debajo
+   del 10 %. Las réplicas usan semillas fijas y no tocan 2024.
+9. **Reproducción de métricas puntuales:** MAE, RMSE y MASE recalculados con dos implementaciones (la de `validacion.py`
+   y una independiente) coinciden a 10⁻⁹.
+10. **Candado y manifiesto** (F15).
+
+### 15.8 Reglas de lectura (fijadas antes de ver los resultados)
+
+1. **Diferencia entre dos modelos (puntual):** *apreciable* si el p-valor de Diebold-Mariano ajustado por Holm (pérdida absoluta,
+   *m* = 7) es < 0,05; en otro caso, *no distinguible*. Si la pérdida cuadrática da una conclusión distinta, se dice. El
+   orden de los cuatro por MAE solo se llama «establecido» si los tres pares consecutivos son apreciables.
+2. **Sesgo:** *apreciable* si |sesgo| supera 150 MW (13.5). Se dice si el reajuste mensual parece haber reducido el sesgo
+   del SARIMAX (−346 MW en 2023): «sí» si |sesgo| ≤ 196 MW, con el aviso de que el año y el reajuste están mezclados (F17).
+3. **Comparación con 2023:** cambio relativo del MAE entre −10 % y +10 %: *similar*; por encima de +10 %: *peor que en
+   validación*; por debajo de −10 %: *mejor*. Sin contraste (F14). Se recuerda que los hiperparámetros de LightGBM y de
+   N-HiTS se eligieron con 2023, así que una pérdida respecto a 2023 puede ser maldición del ganador, efecto del año o
+   ambas, sin poder separarlas.
+4. **Cobertura global del 90 %, bloque, mes, asimetría, IS, CRPS₁₉, mejora de calibración, fiabilidad e infinitos:** las
+   reglas 14.8.1 a 14.8.7, sin cambios, sobre las 8.784 horas.
+5. **Ventana frente a adaptación:** la mejora del IS se atribuye a la adaptación solo si IS(γ = 0,001) es *apreciablemente*
+   menor que IS(γ = 0) (14.8.4); en otro caso se atribuye a la ventana.
+6. **Calibración heredada de 2023:** la infracobertura de LightGBM y N-HiTS «se repite» si su cobertura propia de 2024 es
+   < 88 % con el IC del 95 % por debajo de 90 %. Compatible con, pero no demuestra, la hipótesis de 14.13.2 (cuantiles mejor
+   ajustados en entrenamiento que fuera de muestra).
+7. **Resultados negativos:** se informan tal cual (14.8.8). En particular, si un modelo no mejora al ingenuo o al
+   anterior, es un hallazgo.
+8. **Sensibilidad a γ:** la puntuación de 14.6.7 recalculada con 2024 es solo descriptiva; aunque otro γ saliera mejor,
+   γ = 0,001 sigue siendo el de la evaluación (F4).
+9. **Nada de lo leído modifica un modelo ni este apartado** (15.1.1).
+
+### 15.9 Anticipación del asistente (fijada antes de escribir el código y de ver nada de 2024)
+
+Cifras entre paréntesis: confianza subjetiva. Rangos para las 8.784 horas de 2024, salvo que se diga otra cosa. El script
+de lectura (29) compara cada punto con lo observado y guarda la tabla (✓ o ✗), como 27 con 14.9 (I4); se leen los ✗ sin
+reinterpretar. Los rangos incorporan el conocimiento general de la introducción y la lección de 14.13.5 (16 fallos de 41 en
+la capa probabilística: tiendo a quedarme estrecho en las coberturas y a no anticipar bien las magnitudes).
+
+| # | Comprobación | Anticipación |
+|---|---|---|
+| A0 | Todos los controles de 15.7 pasan | 85 % |
+| A1 | MAE del ingenuo | 1.220-1.500 MW (centro 1.350) |
+| A2 | MAE del SARIMAX | 830-1.060 MW (centro 920) |
+| A3 | MAE de LightGBM | 540-680 MW (centro 600) |
+| A4 | MAE de N-HiTS | 650-850 MW (centro 730) |
+| A5 | Orden por MAE LightGBM < N-HiTS < SARIMAX < ingenuo | 70 % |
+| A6 | LightGBM es el de menor MAE | 88 % |
+| A7 | N-HiTS tiene menor MAE que el SARIMAX | 75 % |
+| A8 | MAE relativo al ingenuo | LightGBM 0,38-0,52; N-HiTS 0,46-0,64; SARIMAX 0,60-0,80 |
+| A9 | Sesgo (real − previsto) | ingenuo −100 a +180; SARIMAX −330 a +100; LightGBM −250 a +60; N-HiTS +20 a +330 MW |
+| A10 | Signo del sesgo | N-HiTS > 0 (85 %); LightGBM < 0 (75 %); SARIMAX < 0 (70 %) |
+| A11 | Razón RMSE/MAE | entre 1,18 y 1,62 en los cuatro; la de N-HiTS menor que la del SARIMAX (70 %) |
+| A12 | Cambio de MAE frente a 2023 dentro de ±10 % (*similar*) | ingenuo 70 %; SARIMAX 65 %; LightGBM 65 %; N-HiTS 60 % |
+| A13 | LightGBM y N-HiTS no mejoran su MAE de 2023 (cambio ≥ 0) | 65 % |
+| A14 | Sesgo del SARIMAX con \|sesgo\| ≤ 196 MW (el reajuste lo reduce) | 50 % |
+| A15 | Pares apreciables por Diebold-Mariano (Holm, pérdida absoluta) | LightGBM-SARIMAX 95 %; LightGBM-N-HiTS 75 %; N-HiTS-SARIMAX 75 %; SARIMAX-ingenuo 85 %; N-HiTS-ingenuo 97 %; LightGBM-ingenuo 99 %; los seis a la vez 55 % |
+| A16 | Con pérdida cuadrática se llega a la misma conclusión en los seis pares | 75 % |
+| A17 | Cobertura del intervalo propio | ingenuo 86-91 %; SARIMAX 89-95 %; LightGBM 60-78 %; N-HiTS 58-76 % |
+| A18 | LightGBM y N-HiTS infracubren (< 88 %); los dos por debajo del ingenuo y del SARIMAX | 93 %; 85 % |
+| A19 | Cociente de fallos | SARIMAX > 1,3 (65 %); LightGBM > 1,2 (60 %); N-HiTS < 0,9 (60 %); ingenuo entre 0,7 y 1,4 (70 %) |
+| A20 | Anchura media del propio (MW) | ingenuo 5.500-6.300; SARIMAX 4.100-4.800; LightGBM 1.600-2.400; N-HiTS 1.500-2.300 |
+| A21 | IS del propio (MW) | ingenuo 8.800-10.200; SARIMAX 6.100-7.300; LightGBM 4.400-5.500; N-HiTS 4.500-5.600 |
+| A22 | Orden por IS LightGBM < N-HiTS < SARIMAX < ingenuo | 55 % |
+| A23 | CRPS₁₉ del propio (MW) | ingenuo 950-1.120; SARIMAX 640-780; LightGBM 400-500; N-HiTS 470-600 |
+| A24 | Orden por CRPS₁₉ LightGBM < N-HiTS < SARIMAX < ingenuo | 75 % |
+| A25 | CRPS₁₉/MAE entre 0,70 y 0,80 en los cuatro | 80 % |
+| A26 | Desviación máxima de fiabilidad > 0,06 (*mala*) en SARIMAX, LightGBM y N-HiTS; ≤ 0,06 en el ingenuo | 80 %; 70 % |
+| A27 | Cobertura del SARIMAX en B1 (00-05 h) mayor que en B3 (12-17 h) en más de 5 puntos | 80 % |
+| A28 | Con ACI (γ = 0,001), cobertura entre 88 y 92 % en los cuatro; entre 86 y 93 % en los cuatro | 60 %; 85 % |
+| A29 | IS de ACI frente al propio: LightGBM y N-HiTS bajan entre un 15 y un 40 % con diferencia apreciable | 75 % |
+| A30 | IS de ACI frente al propio: SARIMAX no distinguible; ingenuo peor y apreciable | 55 %; 50 % |
+| A31 | IS(γ = 0,001)/IS(γ = 0) entre 0,99 y 1,02 en los cuatro (la adaptación sigue sin aportar) | 85 % |
+| A32 | Puntuación de 14.6.7 recalculada con 2024 > 1 para los cuatro γ; γ = 0,001 la menor | 60 %; 65 % |
+| A33 | Horas infinitas con γ = 0,001: 0 en los cuatro; con γ = 0,02: > 0 en al menos tres modelos | 90 %; 70 % |
+| A34 | Desviación máxima de fiabilidad con ACI ≤ 0,06 en los cuatro | 80 % |
+| A35 | CRPS₁₉ de ACI frente al propio: LightGBM y N-HiTS mejoran con diferencia apreciable | 75 % |
+| A36 | Tiempo total de 28 en serie entre 3,5 y 6,5 h; N-HiTS > 60 % del total; ningún recorte de 15.10 | 75 %; 80 %; 85 % |
+| A37 | Pasos de las dos redes de N-HiTS en el tope de 1.000 en al menos 8 de los 12 reajustes | 70 % |
+
+### 15.10 Coste, presupuesto y orden de recortes
+
+**15.10.1 Estimación (sin medir en 2024; a partir de lo medido en 2023 en el PC del autor).**
+
+| Componente | Base medida en 2023 | Estimación para 12 reajustes (sin margen / con ×1,3) |
+|---|---|---|
+| Ingenuo | menos de 1 min en total | despreciable |
+| SARIMAX | ajuste FGLS 1,2 min (8.3); 0,22 s por origen (8.3); el script 26 completo, 7,2 min | 0,3-0,4 h / 0,5 h |
+| LightGBM (puntual + 19 cuantiles) | 19 modelos con su prueba de fuga, 2,6 min (14.13); puntual de `c17`, 0,28 min | 0,6 h / 0,8 h |
+| N-HiTS oficial | `c13` en la búsqueda, 6,4 min (parada temprana, reentrenamiento y 365 previsiones) | 1,3 h / 1,7 h |
+| N-HiTS, segunda red | 8,9 min con su prueba de fuga (14.13), 1.000 pasos | 1,8 h / 2,3 h |
+| **Total en serie** | | **≈ 4,1 h / ≈ 5,3 h** |
+| Lectura (29) | 27 tardó 17 s con la mitad de datos | unos 1-2 min |
+
+El factor 1,3 es el de 12.4.3 (la serie crece con cada reajuste y la librería la recorre entera). En dos terminales
+(15.10.3) el tiempo de reloj baja a ≈ 3,1-4,0 h, más hasta un 20 % por competencia de núcleos que no se ha medido.
+
+**15.10.2 Presupuesto y condición de «cabe».** El presupuesto es el de 2.4 y 12.4.3: **evaluación final ≤ 8 h de reloj**. 28 mide
+el tiempo del primer reajuste de cada componente, imprime la proyección (×12 × 1,3) y la suma. Se usa el orden de recortes de
+15.10.4 solo si la suma proyectada supera 8 h.
+
+**15.10.3 Primero, sin recorte:** lanzar en dos terminales: terminal A, `--componentes ingenuo,sarimax,lightgbm`; terminal B,
+`--componentes nhits`. No cambia ningún cálculo.
+
+**15.10.4 Orden de recortes (fijado ahora; se aplica el primero que haga cumplir las 8 h; cada uno requiere la confirmación del
+autor, regla de los puntos de control del archivo 03):**
+
+1. **Segunda red de N-HiTS: reajuste trimestral** (reajustes 1, 4, 7 y 10; ahorro ≈ 1,2-1,5 h). Efecto: el CRPS₁₉ y la fiabilidad
+   de N-HiTS usan una red de hasta dos meses de antigüedad respecto a la oficial; se declara.
+2. **Los 17 modelos de cuantil de LightGBM distintos de 0,05 y 0,95: reajuste trimestral** (ahorro ≈ 0,3 h). Efecto: la rejilla
+   mezcla cuantiles de edades distintas (los de 0,05 y 0,95 siguen siendo mensuales); la reordenación monótona lo absorbe y se
+   cuenta.
+3. **Parar y decidir con el autor.** No se recortan nunca: los cuatro modelos puntuales, los intervalos propios, ventana, ACI,
+   Diebold-Mariano ni las pruebas de fuga.
+
+**15.10.5 Interrupciones.** 28 guarda cada (componente, mes) al terminar y se reanuda con el mismo comando; los reajustes son
+independientes y deterministas (misma semilla, mismos hilos), así que reanudar no cambia ninguna cifra. El PC no debe
+suspenderse durante el cálculo.
+
+### 15.11 Riesgos y límites declarados
+
+1. **Maldición del ganador (14.1.3):** los hiperparámetros de LightGBM y N-HiTS y γ se eligieron con 2023; la caída de rendimiento
+   frente a 2023 mezcla ese efecto con el del año (F14). Los diseños del SARIMAX (`nivel`, retardos) también se decidieron
+   viendo 2023 (10.8 y 10.9).
+2. **Ruido de N-HiTS entre reentrenamientos:** el rango entre semillas fue de 66,4 MW en 2023 (12.6). Cada reajuste mensual es otro
+   entrenamiento con la misma semilla y datos distintos; el MAE anual de N-HiTS tiene una incertidumbre que no es de muestreo
+   de días y que el bootstrap de días no recoge.
+3. **SARIMAX:** el FGLS puede caer en otra solución en algún mes (F8); normalidad y parámetros fijos dentro del mes (14.10.2).
+4. **ACI:** retroalimentación con 24-48 h de retraso (14.6.3); arranque con residuos de 2023 del modelo de 2023 (F11); ventanas de
+   8 semanas que mezclan laborables y festivos (14.10.5). Cuatro bloques de 6 h.
+5. **Segunda red de N-HiTS:** otro sistema distinto de la oficial (14.10.3).
+6. **Escenario de previsión meteorológica perfecta:** los resultados acotan por arriba el rendimiento (2.2).
+7. **Un solo año de prueba:** 2024 tiene sus rarezas (bisiesto, Semana Santa en marzo, la DANA de octubre, 8/12 en domingo). Se
+   cuentan en el desglose, no se corrigen.
+8. **El asistente conoce hechos generales de 2024** (introducción): su anticipación no es ciega al contexto, aunque sí lo es a
+   los datos.
+9. **Lo que 28 guarda contiene la demanda real de 2024 junto a las previsiones:** el autor no debe abrir esos archivos antes de
+   ejecutar 29.
+
+### 15.12 Archivos, orden de ejecución y registro de coherencia
+
+1. `src/finales.py` (módulo sin número: calendario de reajustes, ingenuo mensual, ensamblado, Diebold-Mariano, candado y manifiesto),
+   `src/28_prevision_final_2024.py` (genera previsiones por componente y mes; no imprime métricas de error) y
+   `src/29_evaluacion_final_2024.py` (lectura única: métricas, ACI, Diebold-Mariano, tabla de anticipación, tablas y figuras en
+   `data/resultados/final/`). Se reutilizan sin modificar `validacion.py`, `lightgbm_modelo.py`, `nhits_modelo.py`,
+   `nhits_rejilla.py`, `probabilistica.py`, `exogenas.py` y `sarimax_fgls.py`.
+2. **Orden:** commit de este apartado → código y pruebas en el entorno del asistente → commit del código (hash a 15.13) → 28 en el
+   PC del autor (en una o dos terminales) → 29 una vez → apartado 15.14 con los resultados, y apartado 16 (desglose) antes de leerlos.
+3. **Pruebas sin 2024:** en el entorno del asistente, un arnés sustituye la demanda de 2024 por la de 364 días antes más ruido inventado
+   del 1,2 % (misma posición semanal) y reduce los presupuestos (120 árboles, 60 pasos, 1 vuelta de FGLS); con él se ejecutan 28 y 29
+   completos, incluida una prueba de fuga del reajuste con alteración de la demanda posterior al origen en los cuatro modelos y las
+   dos redes. Ninguna cifra impresa en ese entorno dice nada de 2024; el dataset real de 2024 no se abre en él.
+4. **Estimación de tiempo del código** en el entorno del asistente (2 núcleos): no sirve para el criterio de 15.10 (solo el PC del
+   autor mide).
+5. **Para el registro de coherencia del 05** (la memoria no se toca hasta R2; C45-C52):
+   C45 reajuste mensual de los cuatro y calendario de 15.3 (4.2, 4.4); C46 cuantiles del ingenuo actualizados cada mes (precisa
+   C38/C42; 4.4); C47 Diebold-Mariano: pérdida diaria, Newey-West con 7 retardos, Harvey-Leybourne-Newbold y Holm (3.6 y 4.4;
+   comprobar que el texto actual de 3.6 coincide); C48 ACI en 2024: concatenación con 2023, arranque D7 y su limitación (3.7, 4.4,
+   5.5); C49 comparación con 2023 solo descriptiva y maldición del ganador (5.4, 5.7); C50 coste y tiempo reales de la evaluación final
+   (4.5, entorno); C51 el asistente conocía hechos generales de 2024: la anticipación es del protocolo, no de la memoria, salvo decisión
+   del autor (como C44); C52 sin control «sin reajuste» (F17): los pendientes del archivo 06 se contestan descriptivamente (5.4, 5.7).
+   Verificar en la fuente, antes de citarlos en R3, Diebold y Mariano (1995), Harvey, Leybourne y Newbold (1997), Newey y West (1987)
+   y Holm (1979); no dar sus datos de publicación de memoria.
+
+### 15.13 Hashes (se rellena al cerrar cada paso)
+
+Protocolo de este apartado: *pendiente de commit*. Código: *pendiente*. Ejecución de 28 y de 29: *pendiente*.
