@@ -1,0 +1,35 @@
+id,comprobación (16.8),anticipado,observado,resultado
+A38,"MAE en festivos, Ingenuo",2500 a 4800 MW,3672 MW,✓
+A38,"MAE en festivos, SARIMAX",1800 a 4500 MW,2813 MW,✓
+A38,"MAE en festivos, LightGBM",800 a 1600 MW,796 MW,✗ FALLA
+A38,"MAE en festivos, N-HiTS",700 a 1400 MW,655 MW,✗ FALLA
+A39,Sesgo negativo en festivos en los cuatro,sí,"-3589, -2567, -155, -255",✓
+A39,"Sesgo negativo en festivos, ingenuo y SARIMAX",sí,-3589 y -2567,✓
+A40,"LightGBM menor MAE y apreciable frente al segundo, laborable",sí,lightgbm; LightGBM se mantiene (apreciable),✓
+A40,"LightGBM menor MAE y apreciable frente al segundo, fin_de_semana",sí,lightgbm; LightGBM se mantiene (apreciable),✓
+A41,Festivos: menor MAE nominal de N-HiTS,nhits,nhits,✓
+A41,Festivos: LightGBM y N-HiTS no se distinguen (IC del 95 % incluye 0),sí,IC -57 a 403,✓
+A42,Hora de máximo MAE de LightGBM entre 12 y 17 h,12-17,14 h,✓
+A42,Hora de máximo MAE de N-HiTS entre 12 y 17 h,12-17,12 h,✓
+A42,Hora de máximo MAE de SARIMAX entre 6 y 17 h,6-17,15 h,✓
+A43,LightGBM menor MAE en al menos 15 de las 24 horas,≥ 15,19 horas,✓
+A43,N-HiTS menor MAE en al menos 1 hora,≥ 1,5 horas,✓
+A44,Cambios de régimen apreciables en bloques y en tipos de día,ninguno,0 y 0,✓
+A44,Cambios de régimen apreciables en los cruces,≤ 1,0,✓
+A45,Cobertura propia de SARIMAX: máxima en 0-5 h y ≥ 96 %,"0-5 h, ≥ 96 %","0 h, 96.2 %",✓
+A45,Cobertura propia de SARIMAX: mínima en 12-17 h y ≤ 92 %,"12-17 h, ≤ 92 %","13 h, 89.1 %",✓
+A46,Cobertura propia de LightGBM: mínima en 12-17 h y ≤ 66 %,"12-17 h, ≤ 66 %","15 h, 66.9 %",✗ FALLA
+A47,"Cobertura con ACI entre 86 y 93 % en los cuatro, laborable",sí,"87.4, 89.3, 88.5, 88.4",✓
+A47,"Cobertura con ACI entre 86 y 93 % en los cuatro, fin_de_semana",sí,"94.8, 90.8, 92.5, 91.9",✗ FALLA
+A47,Cobertura con ACI en festivos fuera de 86-93 % en al menos dos,≥ 2,3,✓
+A48,Puente: error del ingenuo ≥ 1.800 MW y de signo negativo,sí,"MAE 4639, sesgo -4639",✓
+A49,"8/12 domingo festivo: MAE del día < 1,5 × MAE de fin de semana, SARIMAX",sí,745 frente a 962,✓
+A49,"8/12 domingo festivo: MAE del día < 1,5 × MAE de fin de semana, LightGBM",sí,527 frente a 525,✓
+A49,"8/12 domingo festivo: MAE del día < 1,5 × MAE de fin de semana, N-HiTS",sí,449 frente a 638,✓
+A50,"MAE dentro/fuera de Navidad, Ingenuo",1.5 a inf,2.03,✓
+A50,"MAE dentro/fuera de Navidad, LightGBM",0.9 a 1.5,1.04,✓
+A51,"Peores 10 días: festivos, puentes o Navidad, Ingenuo",≥ 4,5,✓
+A51,"Peores 10 días: festivos, puentes o Navidad, SARIMAX",≥ 4,3,✗ FALLA
+A51,"Peores 10 días: festivos, puentes o Navidad, LightGBM",≥ 4,2,✗ FALLA
+A51,"Peores 10 días: festivos, puentes o Navidad, N-HiTS",≥ 4,0,✗ FALLA
+A52,El script 30 tarda menos de 10 minutos,< 10 min,0.0 min,✓

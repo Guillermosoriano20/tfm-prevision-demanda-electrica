@@ -1,0 +1,42 @@
+anticipación (14.9),anticipado,observado,resultado
+"cobertura propia 8760, Ingenuo",86 a 92 %,88.3 %,✓
+"cobertura propia 8760, SARIMAX",82 a 91 %,92.5 %,✗ FALLA
+"cobertura propia 8760, LightGBM",68 a 86 %,70 %,✓
+"cobertura propia 8760, N-HiTS",78 a 92 %,68.1 %,✗ FALLA
+LightGBM tiene la cobertura más baja y < 85 %,sí,no,✗ FALLA
+"cociente fallos debajo/encima > 2, LightGBM",> 2,1.57,✗ FALLA
+"cociente fallos debajo/encima > 2, SARIMAX",> 2,1.84,✗ FALLA
+"cociente fallos N-HiTS < 0,5 («al revés»)","< 0,5",0.70,✗ FALLA
+cociente fallos ingenuo,0.6 a 1.6,0.965,✓
+anchura media Ingenuo,5200 a 7000 MW,5.93e+03 MW,✓
+anchura media SARIMAX,3600 a 5800 MW,4.38e+03 MW,✓
+anchura media LightGBM,1500 a 2900 MW,1.93e+03 MW,✓
+anchura media N-HiTS,2200 a 4500 MW,1.78e+03 MW,✗ FALLA
+IS propio Ingenuo,8500 a 10000 MW,9.36e+03 MW,✓
+IS propio SARIMAX,6300 a 7500 MW,6.68e+03 MW,✓
+IS propio LightGBM,4000 a 5000 MW,4.79e+03 MW,✓
+IS propio N-HiTS,4700 a 5500 MW,4.9e+03 MW,✓
+orden por IS (mejor→peor),lightgbm < nhits < sarimax < ingenuo,lightgbm < nhits < sarimax < ingenuo,✓
+orden por CRPS₁₉ (mejor→peor),lightgbm < nhits < sarimax < ingenuo,lightgbm < nhits < sarimax < ingenuo,✓
+CRPS₁₉/MAE Ingenuo,0.7 a 0.85,0.741,✓
+CRPS₁₉/MAE SARIMAX,0.7 a 0.85,0.75,✓
+CRPS₁₉/MAE LightGBM,0.7 a 0.85,0.762,✓
+CRPS₁₉/MAE N-HiTS,0.7 a 0.85,0.742,✓
+desviación máx. de fiabilidad Ingenuo,0 a 0.04,0.0503,✗ FALLA
+desviación máx. de fiabilidad SARIMAX,0.03 a 0.08,0.165,✗ FALLA
+desviación máx. de fiabilidad LightGBM,0.06 a 0.14,0.163,✗ FALLA
+desviación máx. de fiabilidad N-HiTS,0.03 a 0.1,0.184,✗ FALLA
+"fiabilidad por encima de la diagonal, LightGBM",media(frec − τ) > 0,+0.040,✓
+"fiabilidad por encima de la diagonal, SARIMAX",media(frec − τ) > 0,+0.076,✓
+cobertura propia de LightGBM más baja en B3,B3,B3,✓
+γ elegido,"0,005 o 0,01",0.001,✗ FALLA
+"cobertura ACI en E, Ingenuo",88 a 92 %,88.4 %,✓
+"cobertura ACI en E, SARIMAX",88 a 92 %,89 %,✓
+"cobertura ACI en E, LightGBM",88 a 92 %,89.2 %,✓
+"cobertura ACI en E, N-HiTS",88 a 92 %,89.1 %,✓
+"ancho medio de ACI, LightGBM",2700 a 3500 MW,2.44e+03 MW,✗ FALLA
+"IS de ACI frente al propio, Ingenuo",no distinguible,apreciable,✗ FALLA
+"IS de ACI frente al propio, SARIMAX",no distinguible,no distinguible,✓
+"IS de ACI frente al propio, LightGBM",−20 a −5 % y apreciable,-30.2 % (apreciable),✗ FALLA
+"IS de ACI frente al propio, N-HiTS",no distinguible,apreciable,✗ FALLA
+horas con límite infinito < 1 % (todos),< 1 %,máx. 0.00 %,✓

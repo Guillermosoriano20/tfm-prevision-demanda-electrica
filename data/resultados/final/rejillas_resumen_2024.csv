@@ -1,0 +1,5 @@
+modelo,horas_reordenadas,cruces
+ingenuo,0,
+sarimax,0,
+lightgbm,8784,0.0
+nhits,7430,0.0

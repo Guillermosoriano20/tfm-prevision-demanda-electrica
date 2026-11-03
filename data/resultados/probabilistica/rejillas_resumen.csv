@@ -1,0 +1,5 @@
+modelo,horas_reordenadas,MAE_mediana,n_errores,dif_max_oficial,se_medio,minutos,arboles,pasos,cobertura_90,cobertura_90_oficial
+ingenuo,0,1400.0405298706241,49320.0,,,,,,,
+sarimax,0,,,0.0,1332.8074783381524,7.238585569999971,,,,
+lightgbm,8760,,,,,2.638174770000023,17018.0,,,
+nhits,7737,710.2853511909009,,,,8.925101561666633,,1000.0,0.663013698630137,0.681392694063927

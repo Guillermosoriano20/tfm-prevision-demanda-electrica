@@ -1,0 +1,11 @@
+fecha,dia_semana,tipo,frac,navidad,MAE_dia
+2024-03-10,domingo,fin_de_semana,0.0,False,2306.036295572916
+2024-04-01,lunes,laborable,0.3784264590764525,False,2283.728461371528
+2024-01-20,sábado,fin_de_semana,0.0,False,2206.392578125
+2024-04-02,martes,laborable,0.0,False,1911.569037543403
+2024-03-26,martes,laborable,0.0,False,1909.5648328993057
+2024-10-13,domingo,fin_de_semana,0.0,False,1699.0329318576387
+2024-09-02,lunes,laborable,0.0,False,1668.8163791232637
+2024-04-15,lunes,laborable,0.0,False,1593.4251844618054
+2024-03-05,martes,laborable,0.0,False,1583.3369954427083
+2024-06-17,lunes,laborable,0.0,False,1560.971978081597

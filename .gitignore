@@ -1,6 +1,7 @@
 .env
 .venv/
-data/
+data/*
+!data/resultados/
 __pycache__/
 # LaTeX: archivos auxiliares generados al compilar
 memoria/*.aux

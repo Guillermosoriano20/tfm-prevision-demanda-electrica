@@ -1,0 +1,27 @@
+{
+ "fecha": "2026-11-03T17:49:57",
+ "git": {
+  "commit": "3f4708541c38d6d78495d9c6405471b4d88d305c",
+  "cambios_en_src_o_docs": ""
+ },
+ "huella_dataset": 5794786326140387865,
+ "arnes": false,
+ "python": "3.13.7",
+ "sistema": "Windows-11-10.0.26200-SP0",
+ "versiones": {
+  "pandas": "2.3.3",
+  "numpy": "2.5.3",
+  "statsmodels": "0.15.0",
+  "lightgbm": "4.7.0",
+  "neuralforecast": "3.2.2",
+  "mapie": "1.5.0",
+  "torch": "2.14.1+cpu"
+ },
+ "estado": "completa",
+ "puntuacion_14_6_7": {
+  "0.001": 1.0057279924903741,
+  "0.005": 1.0274887562807293,
+  "0.01": 1.0033876082015012,
+  "0.02": 0.9965177263064265
+ }
+}
