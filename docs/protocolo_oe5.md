@@ -2030,4 +2030,133 @@ suspenderse durante el cálculo.
 
 ### 15.13 Hashes (se rellena al cerrar cada paso)
 
-Protocolo de este apartado: *pendiente de commit*. Código: *pendiente*. Ejecución de 28 y de 29: *pendiente*.
+Protocolo de este apartado: `f668ede` (3 de noviembre de 2026, antes de escribir el código y de calcular nada con 2024). Código
+(`finales.py`, `28_prevision_final_2024.py`, `29_evaluacion_final_2024.py`): `3f47085`. Ejecución de 28 y de 29: PC del autor,
+3 de noviembre de 2026, con el código de `3f47085` sin cambios (28 una vez completo, sin recortes; 29 una vez, sin repetición).
+Resultados de 15.14: commit siguiente (hash *pendiente*).
+
+### 15.14 Resultados de 2024 (3 de noviembre de 2026)
+
+**15.14.1 Ejecución y controles.** `28` en un solo terminal, 4,33 h, sin recortes (proyecciones tras el primer reajuste: SARIMAX 0,8 h,
+LightGBM 0,8 h, N-HiTS 1,9 h, segunda red 2,2 h; suma 5,6 h frente al presupuesto de 8 h; estimación de 15.10: 4,1 h en serie y 5,3 h
+con ×1,3). Tiempos por reajuste: SARIMAX 2,9-3,3 min (FGLS: 5 vueltas y convergencia en los 12 meses; los `ConvergenceWarning` de
+statsmodels son de ajustes internos), LightGBM 1,7-4,2 min, N-HiTS 7,1-7,6 min y segunda red 6,7-8,5 min; 9 de las 12 redes oficiales y
+10 de las 12 segundas redes llegaron al tope de 1.000 pasos (el resto, 900). Fugas: 0 días en los cuatro modelos y en la segunda red;
+pruebas de reajuste (meses 1 y 7) idénticas con la demanda posterior alterada. Rejilla: 0 cruces; reordenación de 0, 0, 8.784 y 7.430
+horas (ingenuo, SARIMAX, LightGBM, N-HiTS), el mismo patrón que en 2023 (14.13.3: 8.760 y 7.737). `29` una sola vez, con todos los
+controles de 15.7 superados en 23 s (Diebold-Mariano sintético: nivel 5,0 %, potencia 100 %, AR(1) 7,6 %; recursión propia igual a MAPIE
+al bit; causalidad de los cuatro modelos en los tres cortes con su control positivo; métricas reproducidas con dos implementaciones;
+fugas registradas por 28: 0). Cifras de este apartado: salida del 29 (`data/resultados/salida_29.txt`) y CSV de
+`data/resultados/final/`. La consola de Windows mostró caracteres mal codificados; no afecta a las cifras.
+
+**15.14.2 Precisión puntual de 2024** (error = real − previsto; MW; IC 95 % por bootstrap de días).
+
+| | Ingenuo | SARIMAX | LightGBM | N-HiTS |
+|---|---|---|---|---|
+| MAE | 1.217,9 (1.106,6-1.342,2) | 1.089,8 (983,8-1.195,2) | 573,6 (545,1-604,6) | 665,6 (632,6-699,7) |
+| MAE / ingenuo | 1 | 0,895 | 0,471 | 0,547 |
+| RMSE | 1.871,7 | 1.616,0 | 770,7 | 875,8 |
+| MAPE | 4,56 % | 4,19 % | 2,16 % | 2,54 % |
+| MASE | 0,917 | 0,820 | 0,432 | 0,501 |
+| Sesgo (no apreciable en ninguno) | −6,7 | +6,0 | +135,0 | −41,1 |
+| RMSE / MAE | 1,54 | 1,48 | 1,34 | 1,32 |
+| MAE de 2023 y cambio | 1.400,0 (−13,0 %, mejor) | 943,4 (+15,5 %, peor) | 585,2 (−2,0 %, similar) | 716,4 (−7,1 %, similar) |
+
+MAE por mes (ingenuo / SARIMAX / LightGBM / N-HiTS, MW): ene 1.936 / 1.655 / 623 / 797; feb 898 / 689 / 669 / 702; mar 1.273 / 1.282 /
+680 / 866; abr 1.042 / 1.441 / 745 / 897; may 906 / 1.048 / 426 / 485; jun 935 / 767 / 562 / 582; jul 1.017 / 780 / 518 / 490; ago
+1.698 / 988 / 548 / 499; sep 985 / 804 / 536 / 662; oct 723 / 691 / 571 / 742; nov 1.010 / 1.385 / 445 / 556; dic 2.143 / 1.523 /
+566 / 713. Por bloque (B1 00-05 h, B2 06-11, B3 12-17, B4 18-23): ingenuo 745 / 1.265 / 1.649 / 1.212; SARIMAX 825 / 1.118 / 1.304 /
+1.112; LightGBM 375 / 578 / 792 / 549; N-HiTS 537 / 678 / 762 / 685. Descriptivo: N-HiTS queda por debajo de LightGBM en julio y agosto
+y en B3; SARIMAX queda por encima del ingenuo en marzo, abril y mayo y en B1. Sin contraste y sin explicación (véase 15.14.8).
+
+**15.14.3 Diebold-Mariano** (pérdida absoluta diaria, 366 días, Newey-West con 7 retardos, HLN, t de 365 g. l., Holm sobre 6 pares).
+Apreciables (p ajustado < 0,001 salvo indicación): ingenuo frente a LightGBM (644 MW de diferencia media) y frente a N-HiTS (552);
+SARIMAX frente a LightGBM (516) y frente a N-HiTS (424); LightGBM frente a N-HiTS (92 MW a favor de LightGBM; DM = −4,55).
+**No distinguible: ingenuo frente a SARIMAX** (128 MW a favor de SARIMAX; DM = 1,72; p ajustado 0,087). Robustez: con pérdida cuadrática
+la lectura es la misma en los seis pares (ingenuo-SARIMAX, p ajustado 0,063); con retardos 3, 7 y 14 el p ajustado de ingenuo-SARIMAX
+es 0,057, 0,087 y 0,120 y los otros cinco pares no cambian de lectura (0,0000).
+
+**15.14.4 Intervalos propios del 90 % y rejilla, 8.784 horas.**
+
+| | Ingenuo | SARIMAX | LightGBM | N-HiTS |
+|---|---|---|---|---|
+| Cobertura (IC 95 %) | 92,35 % (90,0-94,4) | 93,27 % (91,3-95,2) | 76,09 % (73,7-78,4) | 78,75 % (76,7-80,8) |
+| Lectura | sobrecobertura | sobrecobertura | infracobertura | infracobertura |
+| Fallos por debajo / por encima | 3,8 % / 3,9 % | 3,5 % / 3,2 % | 10,6 % / 13,3 % | 11,6 % / 9,6 % |
+| Cociente fallos | 0,97 | 1,09 | 0,79 | 1,21 |
+| Anchura media (MW) | 5.948 | 5.717 | 2.221 | 2.081 |
+| IS (MW) | 8.811 | 7.392 | 4.418 | 4.157 |
+| CRPS₁₉ (MW) | 912,6 | 826,4 | 420,2 | 485,4 |
+| Desviación máx. de fiabilidad | 0,023 | 0,096 | 0,141 | 0,084 |
+
+Cobertura por bloque (B1-B4): ingenuo 93,3 / 91,3 / 91,8 / 93,0; SARIMAX 95,7 / 92,0 / 90,9 / 94,4; LightGBM 78,6 / 76,9 / 68,9 / 80,0;
+N-HiTS 82,8 / 78,5 / 74,8 / 78,9 %. Por mes, el mínimo es 74 % (ingenuo, diciembre), 87 % (SARIMAX, diciembre), 62 % (LightGBM,
+enero) y 62 % (N-HiTS, abril). Fiabilidad de la rejilla: la frecuencia del real por debajo del cuantil 0,5 es 0,486, 0,506, 0,394 y
+0,524 (LightGBM desplazado hacia abajo, N-HiTS centrado pero estrecho: 0,132 en 0,05 y 0,842 en 0,90). Pares (IS y CRPS₁₉): todos
+apreciables salvo LightGBM-N-HiTS en IS (+262 MW, IC −146 a +675) y, en CRPS₁₉, el par LightGBM-N-HiTS es apreciable (−65 MW, IC −93 a
+−40). Frente a 2023 (14.13.1; solo descriptivo): cobertura propia 88,3 → 92,4 % (ingenuo), 92,5 → 93,3 (SARIMAX), 70,0 → 76,1
+(LightGBM) y 68,1 → 78,8 (N-HiTS); la infracobertura de las dos redes se repite (15.8.6).
+
+**15.14.5 Ventana (γ = 0) y ACI (γ = 0,001) con arranque D7** (366 días emitidos).
+
+| | Ingenuo | SARIMAX | LightGBM | N-HiTS |
+|---|---|---|---|---|
+| Cobertura de la ventana (IC 95 %) | 86,9 % (84,2-89,6), infra | 87,3 % (84,7-89,8), infra | 88,2 % (86,3-89,9), bien | 89,4 % (87,6-91,1), bien |
+| Cobertura de ACI (IC 95 %) | 88,0 % (85,4-90,6) | 88,6 % (86,1-91,0) | 89,1 % (87,4-90,7) | 89,4 % (87,7-91,1) |
+| IS de la ventana / de ACI | 9.048 / 9.140 | 8.115 / 8.144 | 3.300 / 3.314 | 3.751 / 3.768 |
+| CRPS₁₉ de la ventana / de ACI | 926,6 / 926,5 | 824,3 / 825,2 | 398,5 / 398,8 | 469,5 / 469,7 |
+| Desviación máx. de fiabilidad con ACI | 0,030 | 0,016 | 0,009 | 0,006 |
+
+ACI frente al intervalo propio (IS, negativo = ACI mejor): ingenuo +329 MW (no distinguible), SARIMAX +752 (apreciable, ACI peor),
+LightGBM −1.104 (−25,0 %, apreciable), N-HiTS −388 (−9,3 %, apreciable); en CRPS₁₉, ingenuo y SARIMAX no distinguibles, LightGBM
+−21 y N-HiTS −16 (apreciables). **ACI frente a la ventana: sin beneficio** (IS: +92, +29, +15 y +18 MW; solo el de N-HiTS es apreciable
+y a favor de la ventana, un 0,5 %; CRPS₁₉: diferencias de 1 MW o menos). La mejora sobre el intervalo propio de las dos redes viene de
+recalibrar con ventana, no de la adaptación de α. Sensibilidad: IS(γ)/IS(0) con γ = 0,001 de 1,0102, 1,0035, 1,0045 y 1,0047; con
+γ = 0,02 el IS baja en el ingenuo (0,950) y en SARIMAX (0,991) pero hay 396 y 408 horas con intervalo infinito (210 y 156 en LightGBM y
+N-HiTS); con γ = 0,001, 0 horas infinitas en los cuatro. Puntuación de 14.6.7 recalculada con 2024 (solo descriptiva, **γ no se
+reelige**): 1,0057 (0,001), 1,0275 (0,005), 1,0034 (0,01) y 0,9965 (0,02). Fiabilidad con ACI: todas las desviaciones máximas ≤ 0,030.
+
+**15.14.6 Anticipación de 15.9 frente a lo observado: se cumplen 49 de las 79 comprobaciones y fallan 30** (en 2023, 25 de 41; los
+conjuntos no son comparables uno a uno). Se cumplen: el orden por MAE (A5, A6, A7) y por CRPS₁₉ (A24), los MAE de LightGBM y N-HiTS
+(A3, A4) y su MAE relativo (A8), el cociente RMSE/MAE (A11), el sesgo de SARIMAX en valor absoluto (A14), cinco de los seis pares de
+Diebold-Mariano (A15) y la misma lectura con pérdida cuadrática (A16), la infracobertura de las dos redes (A17 LightGBM y A18),
+CRPS₁₉/MAE (A25), la fiabilidad (A26), la cobertura con ACI (A28), A31, A33 y A34, la mejora de CRPS₁₉ con ACI (A35), el IS de ACI
+en LightGBM (A29) y todas las de coste (A36, A37). **Fallan:**
+ - *Mejor o peor de lo anticipado por modelo:* MAE del ingenuo (1.218 frente a 1.220-1.500, por 2 MW) y su cambio frente a 2023
+   (−13 %, A12); MAE de SARIMAX (1.090 frente a 830-1.060), su MAE relativo (0,895 frente a 0,6-0,8) y su cambio (+15,5 %, A12); el
+   par SARIMAX-ingenuo en Diebold-Mariano (A15: no distinguible; por tanto, «los seis pares a la vez» también falla).
+ - *Sesgo:* los rangos de LightGBM y N-HiTS (A9) y los signos de los tres (A10: LightGBM +135 y N-HiTS −41, al revés; SARIMAX +6);
+   A13 (se anticipó que no mejorarían su MAE de 2023; mejoraron un 2,0 % y un 7,1 %).
+ - *Intervalos propios:* cobertura del ingenuo (92,4 % frente a 86-91) y de N-HiTS (78,8 % frente a 58-76); los tres cocientes de
+   fallos de A19 (SARIMAX 1,09 frente a >1,3; LightGBM 0,79 frente a >1,2; N-HiTS 1,21 frente a <0,9); anchura e IS de SARIMAX (A20,
+   A21), IS de N-HiTS (4.157 frente a 4.500-5.600), el orden por IS (A22: N-HiTS delante de LightGBM, sin diferencia apreciable),
+   CRPS₁₉ del ingenuo (913 frente a 950-1.120) y de SARIMAX (826 frente a 640-780), y A27 (cobertura de SARIMAX en B1 menos B3:
+   4,8 puntos frente a más de 5).
+ - *ACI:* A29 en N-HiTS (−9,3 % frente a −15 % a −40 %), A30 en SARIMAX (apreciable, ACI peor, frente a no distinguible) y en el
+   ingenuo (peor, pero no distinguible), y A32 (la puntuación de 14.6.7 no es >1 para los cuatro γ y el mínimo no está en γ = 0,001
+   sino en 0,02).
+Lectura: la anticipación acertó en el orden, la infracobertura de las redes, la utilidad de recalibrar y el coste; se equivocó sobre
+SARIMAX (la apuesta más importante: se esperó que el reajuste mensual lo separara con claridad del ingenuo y no lo hizo), sobre el
+signo del sesgo de las dos redes y sobre la asimetría de sus fallos.
+
+**15.14.7 Lectura con las reglas de 15.8** (resultados negativos incluidos).
+ 1. En 2024 el orden de precisión es LightGBM < N-HiTS < SARIMAX < ingenuo, el mismo que en la validación; LightGBM supera a N-HiTS
+    de forma apreciable y robusta (pérdida absoluta y cuadrática; retardos 3, 7 y 14), con IC del MAE sin solapamiento. No gana en
+    todos los desgloses: N-HiTS tiene menor MAE en julio y agosto y en B3, y menor IS propio sin diferencia apreciable.
+ 2. **Resultado negativo: SARIMAX no se distingue del ingenuo estacional** en 2024 (p ajustado 0,087 con retardo 7; 0,063 con pérdida
+    cuadrática; 0,057-0,120 según el retardo), con +15,5 % de MAE respecto a 2023 mientras el ingenuo mejora un 13 %. El reajuste
+    mensual elimina su sesgo (+6 MW) pero no su error.
+ 3. Intervalos propios: los clásicos sobrecubren (92,4 y 93,3 %) y los de aprendizaje automático infracubren (76,1 y 78,8 %), como
+    en 2023 aunque algo menos. Con recalibración la cobertura queda entre 86,9 y 89,4 %, y con ACI entre 88,0 y 89,4 %.
+ 4. **Resultado negativo: ACI con γ = 0,001 no mejora a la ventana sin adaptación** (diferencias de IS de 0,5 % o menos, no
+    distinguibles o ligeramente peores), igual que en 2023 (14.13.4). Se mantiene γ = 0,001 por la regla de 14.6.7, sin reelegir con 2024.
+ 5. Comparación con 2023: solo descriptiva y con la salvedad de la maldición del ganador (C49); ninguna decisión de 2023 se reabre.
+
+**15.14.8 Lo que no se ha comprobado.** No se explica todavía por qué SARIMAX empeora (sus peores meses son enero, marzo, abril,
+noviembre y diciembre; en B1 queda por encima del ingenuo), por qué cambia el signo del sesgo de las dos redes frente a lo
+anticipado, ni por qué N-HiTS gana en julio, agosto y B3. Son hipótesis sin comprobar. El desglose queda para el apartado 16 (OE8),
+que se fija con commit antes de mirar nada más que lo impreso por el 29. El asistente no ha abierto ningún otro archivo de 2024.
+
+**15.14.9 Para el registro de coherencia del 05** (la memoria no se toca hasta R2), además de C45-C52: C53 SARIMAX no distinguible del
+ingenuo en 2024 y su cambio frente a 2023 (5.4, 5.7; afecta a la jerarquía de modelos del texto); C54 ACI sin beneficio sobre la
+ventana en 2023 y 2024 (amplía C48; 5.5); C55 tiempos reales del 28 (4,33 h; amplía C50).
