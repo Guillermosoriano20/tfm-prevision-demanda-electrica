@@ -2312,4 +2312,35 @@ Con lo visto en 16.2 (bloques y meses) y la experiencia de 2023 (13.8.4). Cada �
 
 ### 16.11 Hashes (se rellena al cerrar cada paso)
 
-Protocolo de este apartado: *pendiente de commit*. Código: *pendiente*. Ejecución de 30: *pendiente*.
+Protocolo de este apartado: `8becb6a` (3 de noviembre de 2026, antes del código y de leer nada más de 2024). Código
+(`30_desglose_oe8_2024.py`): *pendiente de commit*. Ejecución de 30: *pendiente*.
+
+### 16.12 Implementación (3 de noviembre de 2026, antes de ejecutar nada con 2024)
+
+`src/30_desglose_oe8_2024.py` escrito y probado en el entorno del asistente con el arnés de 15.12.3 (demanda de 2024 inventada;
+los CSV de entrada son los que dejaron 28 y 29 en ese entorno): corre de punta a punta en 1,5 minutos (en el PC del autor se espera
+menos de 10), los controles pasan, el candado impide repetir la ejecución sin `--repetir-por-error`, y la tabla de anticipación se
+rellena sola (34 comprobaciones). Ninguna cifra impresa allí dice nada de 2024. Precisiones sobre 16.1-16.8, fijadas aquí antes de
+ejecutar:
+
+1. **Bloque de 6 h = el del 29** (`probabilistica.anticipacion_y_bloque`, por anticipación). Coincide con las horas locales 00-05,
+   06-11, 12-17 y 18-23 salvo en los dos días de cambio de hora; así el control 16.4.3 reproduce exactamente las cifras de 15.14.
+   La tabla **por hora** usa la hora local del dataset (`hora_del_dia`).
+2. **Control 16.4.3 más estricto que lo escrito:** compara con los CSV que escribió el 29 (`puntuales_mes_bloque.csv`,
+   `propios_metricas.csv`, `ventana_metricas.csv` con γ = 0 y `aci_metricas.csv` con γ = 0,001) a precisión completa (MAE por bloque
+   a 1e-6 MW y coberturas a 1e-9), no con las cifras impresas redondeadas.
+3. **«IC que excluye 0 tras Holm» (16.7.1-16.7.2) se opera así:** diferencia de MAE de LightGBM menos el comparado, horas de la celda,
+   bootstrap pareado de días (1.000 réplicas, semilla 42); IC 95 % percentil; **p bilateral por bootstrap**
+   2·mín{(n(r ≤ 0)+1)/(R+1), (n(r ≥ 0)+1)/(R+1)}; Holm sobre los p de la familia; «apreciable» = p ajustado < 0,05. El mínimo
+   alcanzable con 1.000 réplicas es 0,002 (0,006 con tres contrastes y 0,024 con doce tras Holm). Las celdas con menos de 10 días
+   (el puente) no entran en la familia. Las celdas festivo × bloque tienen exactamente 10 días y sí entran.
+4. **Control 16.4.5:** 60 repeticiones de una diferencia sintética sin efecto (el p ≥ 0,05 debe darse en el 85-100 %) y una
+   diferencia de +60 MW (p < 0,05).
+5. **Calibración por celda (16.6):** la ventana lleva cobertura, fallos, anchura e IS; la rejilla de CRPS₁₉ solo existe para el
+   propio y para ACI (la rejilla de la ventana no se guardó en 29, 15.14.5). IC de cobertura solo en bloques, tipos de día (menos el
+   puente) y cruces.
+6. **A41, segunda parte** (LightGBM y N-HiTS no se distinguen en festivos): se comprueba con el IC percentil de su diferencia, sin
+   Holm, porque es una comprobación de la anticipación y no una celda de la familia de 16.7.
+7. **Salidas** en `data/resultados/final/desglose/`: `precision.csv`, `preferibles.csv`, `calibracion.csv`, `mae_por_dia.csv`,
+   `peores_dias_{modelo}.csv`, `anticipacion_vs_resultado_oe8.csv`, `manifiesto.json` y las figuras `mae_por_hora.png` y
+   `cobertura_por_hora.png`.
