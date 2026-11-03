@@ -2033,7 +2033,7 @@ suspenderse durante el cálculo.
 Protocolo de este apartado: `f668ede` (3 de noviembre de 2026, antes de escribir el código y de calcular nada con 2024). Código
 (`finales.py`, `28_prevision_final_2024.py`, `29_evaluacion_final_2024.py`): `3f47085`. Ejecución de 28 y de 29: PC del autor,
 3 de noviembre de 2026, con el código de `3f47085` sin cambios (28 una vez completo, sin recortes; 29 una vez, sin repetición).
-Resultados de 15.14: commit siguiente (hash *pendiente*).
+Resultados de 15.14: `0e790f3`.
 
 ### 15.14 Resultados de 2024 (3 de noviembre de 2026)
 
@@ -2160,3 +2160,156 @@ que se fija con commit antes de mirar nada más que lo impreso por el 29. El asi
 **15.14.9 Para el registro de coherencia del 05** (la memoria no se toca hasta R2), además de C45-C52: C53 SARIMAX no distinguible del
 ingenuo en 2024 y su cambio frente a 2023 (5.4, 5.7; afecta a la jerarquía de modelos del texto); C54 ACI sin beneficio sobre la
 ventana en 2023 y 2024 (amplía C48; 5.5); C55 tiempos reales del 28 (4,33 h; amplía C50).
+
+## 16. Desglose de OE8 en 2024 (fijado el 3 de noviembre de 2026, antes de escribir su código y de leer nada más de 2024)
+
+Cumple el objetivo OE8 (desglosar precisión y calibración por hora del día y por tipo de día e identificar los regímenes en que
+cambia el modelo preferible) y la fase 4 del plan. Un solo script, `src/30_desglose_oe8_2024.py`, que solo lee las previsiones, los
+intervalos y los resultados de ACI de 2024 ya guardados: no entrena, no reajusta y no prevé nada. Mismo espíritu que el apartado 13.
+
+### 16.1 Alcance y regla de uso
+
+1. **Entradas:** `data/predicciones/{ingenuo,sarimax,lightgbm,nhits}_prueba.parquet`, `*_cuantiles_prueba.parquet`,
+   `{lightgbm,nhits}_intervalos_prueba.parquet` y `*_aci_prueba.parquet` (generados por 28 y 29), y el calendario del dataset
+   (`tipo_dia`, `festivo`, `puente`, `navidad`, solo como etiquetas para agrupar, nunca como entrada de un modelo).
+2. **No decide nada.** Ningún resultado de este apartado cambia un modelo, un parámetro, γ ni el procedimiento de 2024 (todo
+   cerrado desde 15). Lo que se observe va a la memoria (5.6 y 5.7) como descripción, como contraste con las reglas de 16.7 o como
+   hipótesis sin comprobar. Un resultado negativo (ningún régimen en que cambie el modelo preferible de forma distinguible) es un
+   hallazgo y se cuenta como tal.
+3. **Una sola ejecución con candado y manifiesto**, como el 29 (`--repetir-por-error "motivo"` solo si el script falla antes de
+   escribir sus salidas).
+4. **Pruebas sin 2024:** en el entorno del asistente, con el mismo arnés de 15.12.3 (demanda de 2024 inventada); ninguna cifra
+   impresa allí dice nada de 2024.
+
+### 16.2 Lo que ya se vio de 2024 (declarado antes de fijar nada)
+
+La salida del 29 (15.14) imprimió: métricas globales; MAE por mes y por bloque de 6 h; cobertura propia por bloque y por mes;
+ventana y ACI por bloque y por mes; fiabilidad de la rejilla. Por tanto, **el desglose por bloque horario y por mes ya es conocido**
+y en este apartado solo se repite como control de reproducción (16.4) y como referencia. **Lo nuevo y no visto:** MAE, sesgo y
+calibración **por hora local (24)**, **por tipo de día**, el cruce tipo de día × bloque, el día de la semana, los peores días y el
+periodo navideño. El asistente conoce además hechos generales de 2024 (C51), no cifras de demanda.
+
+### 16.3 Regímenes y recuentos (del calendario, sin demanda)
+
+2024 tiene 366 días: **253 laborables, 102 fin de semana, 10 festivos y 1 puente**. Los festivos (`festivo`: fracción ≥ 0,5) son
+1/1, 6/1 (sábado), 28/3 (fracción 0,708), 29/3, 1/5, 15/8, 12/10 (sábado), 1/11, 6/12 y 25/12; el puente es el 16/8 (viernes tras el
+15/8). Un festivo en sábado cuenta como festivo. El 8/12/2024 (domingo, fiesta nacional) figura como domingo corriente
+(fracción 0), por la limitación ya declarada del calendario (BOE); se mira aparte (16.5.6). El periodo `navidad` (23/12-6/1) cubre
+en 2024 el 1-6/1 y el 23-31/12 (15 días). Cada hora local tiene 366 observaciones (24 × 366 = 8.784; la hora 2 recoge dos el 27/10 y
+ninguna el 31/3).
+
+**Consecuencias.** (a) Un solo puente: **solo descriptivo**, sin intervalo ni contraste (se lista con su fecha, su MAE y su sesgo
+por modelo). (b) Diez festivos (240 horas) y 15 días de Navidad: se calculan intervalos, pero se leen con cautela y el IC de la
+cobertura será ancho (unos ±4 puntos si las 240 horas fueran independientes y bastante más al contar que son 10 días). (c) Cada hora local tiene 366 observaciones: el IC de la
+cobertura por hora es de unos ±3 puntos, así que **las 24 horas se tratan como descripción sin contrastes**.
+
+### 16.4 Controles (el script se detiene si falla alguno)
+
+1. Los cuatro archivos de previsión tienen 8.784 filas, sin nulos, con las mismas horas UTC y `real` idéntica entre ellos y al
+   dataset (como 13.2 y 15.7).
+2. Los recuentos de 16.3 coinciden con el calendario del dataset (253, 102, 10 y 1; 366 observaciones en cada hora local).
+3. **Reproducción de 15.14:** el MAE por bloque y la cobertura propia, de ventana y de ACI por bloque reproducen las cifras de
+   15.14.2, 15.14.4 y 15.14.5 (MAE con tolerancia de 0,5 MW porque se imprimieron enteros; coberturas con tolerancia de 0,0005).
+4. La suma ponderada por horas de los MAE de las 24 horas, de los cuatro tipos de día y de los 12 cruces reproduce el MAE global
+   (tolerancia de 0,05 MW), y el recuento de horas de las particiones suma 8.784.
+5. Los contrastes por bootstrap se comprueban con una diferencia sintética conocida (centrada: el IC contiene el 0 en el 95 % de
+   las repeticiones, ±3 puntos; desplazada: lo excluye).
+
+### 16.5 Desgloses de precisión
+
+1. **Por hora local del día objetivo (24 filas)** y **por bloque de 6 h** (B1 00-05, B2 06-11, B3 12-17, B4 18-23): MAE, sesgo
+   (real − previsto) y MAE relativo al ingenuo, por modelo. Con un único origen diario, hora del día y anticipación coinciden y no se
+   pueden separar (13.8.4).
+2. **Por tipo de día** (laborable, fin de semana, festivo; el puente aparte, 16.3): MAE, sesgo, RMSE y número de días.
+3. **Cruce tipo de día × bloque** (3 × 4): MAE y sesgo; el puente, sin cruzar.
+4. **Por día de la semana** (7 filas), como en 13.4.
+5. **Peores días:** los 10 peores de cada modelo por MAE diario, con día de la semana, `tipo_dia`, fracción de festivo y si está en
+   `navidad` (como 13.4.3); y MAE medio dentro y fuera del periodo `navidad`.
+6. **Domingos festivos (8/12/2024):** MAE del día por modelo frente al MAE medio de los fines de semana, como en el script 25.
+7. **Modelo preferible por celda:** en cada hora, bloque, tipo de día y cruce, el modelo de menor MAE, y, **solo para bloques,
+   tipos de día y cruces**, el contraste de 16.7.
+
+### 16.6 Desgloses de calibración (intervalos del 90 %: propios, ventana γ = 0 y ACI γ = 0,001)
+
+1. Por hora local (24), bloque, tipo de día y cruce tipo de día × bloque, para los cuatro modelos y los tres tipos de intervalo:
+   **cobertura**, fallos por debajo y por encima (y su cociente), **anchura media**, **IS** y **CRPS₁₉** (del propio y de ACI, con los
+   mismos cálculos del 29; la ventana solo cobertura, anchura e IS).
+2. IC 95 % de la cobertura por bootstrap de días (1.000 réplicas, semilla 42), salvo por hora (descripción pura) y para el puente.
+3. **Diferencia de calibración entre regímenes** (por ejemplo, laborable frente a fin de semana): solo se lee como apreciable si
+   supera 5 puntos de cobertura (14.8) y los IC no se solapan.
+
+### 16.7 Contraste del «cambio de régimen» y reglas de lectura (fijadas antes de ver los desgloses)
+
+1. **Un contraste por celda** (bloques, tipos de día con al menos 10 días y cruces): si el modelo de menor MAE es LightGBM
+   (el preferible global, 15.14), se contrasta con el segundo; si es otro, se contrasta LightGBM con ese. Diferencia de MAE de
+   las horas de la celda por **bootstrap pareado de días** (1.000 réplicas, semilla 42, IC 95 % percentil), con **Holm dentro de cada
+   familia** (4 bloques; 3 tipos de día; 12 cruces).
+2. **Hay cambio de régimen** en una celda si el mejor es distinto de LightGBM y el IC de (LightGBM − mejor) excluye 0 tras Holm.
+   Si el mejor es otro pero el IC incluye 0: **«no distinguible»**, no se cuenta como cambio. Un cambio solo se afirma en regímenes
+   con al menos 10 días (el puente y las celdas con menos, descriptivo).
+3. **Sesgo:** una diferencia de sesgo entre regímenes es apreciable si supera 150 MW (13.5.1). **Asimetría de fallos:** cociente
+   > 2 o < 0,5 (14.8). **Cobertura:** 88-92 % bien calibrada (14.8).
+4. **Lo observado a la vista de otro régimen no se usa para elegir nada.** La lectura que se haga de causas (autoconsumo,
+   festivos, vacaciones) es hipótesis sin comprobar, como en 13.8 y 14.13.2.
+
+### 16.8 Anticipación del asistente (fijada antes de escribir el código; A38-A52)
+
+Con lo visto en 16.2 (bloques y meses) y la experiencia de 2023 (13.8.4). Cada ítem se compara con el observado.
+
+1. **A38** MAE en festivos (10 días): ingenuo 2.500-4.800 MW, SARIMAX 1.800-4.500, LightGBM 800-1.600, N-HiTS 700-1.400
+   (en 2023: 4.260, 4.194, 1.131 y 910). Confianza 60 %.
+2. **A39** Sesgo negativo en festivos (se prevé más demanda de la que hay) en los cuatro modelos, como en 2023. Confianza 55 %
+   (70 % para ingenuo y SARIMAX).
+3. **A40** LightGBM tiene el menor MAE en laborables y en fin de semana, y es apreciablemente mejor que el segundo en ambos
+   (Holm, 16.7). Confianza 75 %.
+4. **A41** En festivos no hay ninguna diferencia apreciable entre LightGBM y N-HiTS (10 días); el menor MAE nominal es de N-HiTS
+   (como en 2023). Confianza 55 %.
+5. **A42** MAE por hora: el máximo de LightGBM cae entre las 12 y las 17 h (confianza 75 %), el de N-HiTS también entre las 12 y las
+   17 h (60 %, porque B3 es su bloque peor en 2024) y el de SARIMAX en un bloque diurno (B2 o B3, 75 %).
+6. **A43** Preferible por hora: LightGBM tiene el menor MAE en al menos 15 de las 24 horas (confianza 75 %) y N-HiTS en al menos
+   una (85 %, por B3).
+7. **A44** Cambio de régimen apreciable en alguna celda (bloque, tipo de día o cruce): **no** se encuentra ninguna en bloques y tipos
+   de día; en los cruces, a lo sumo una (confianza 55 %). Es decir, anticipo que el preferible global se sostiene en casi todo.
+8. **A45** Cobertura propia de SARIMAX por hora: máxima en 00-05 h con al menos 96 % y mínima en 12-17 h con 92 % o menos
+   (confianza 70 %).
+9. **A46** Cobertura propia de LightGBM por hora: mínima en 12-17 h con 66 % o menos (confianza 65 %).
+10. **A47** Cobertura de ACI por tipo de día, entre 86 y 93 % en laborables y en fin de semana en los cuatro modelos (confianza 70 %);
+    en festivos, fuera de ese rango en al menos dos de los cuatro (55 %).
+11. **A48** Puente (16/8): el ingenuo tiene un error de ese día de al menos 1.800 MW en valor absoluto y de signo negativo (copia el
+    viernes anterior, laborable). Confianza 65 %. Es descriptivo.
+12. **A49** Domingo festivo (8/12): el MAE del día de cada uno de los tres modelos ajustados es menor de 1,5 veces su MAE medio de
+    fin de semana. Confianza 65 %.
+13. **A50** Navidad: el MAE del ingenuo dentro del periodo `navidad` es al menos 1,5 veces el de fuera (confianza 75 %, porque enero y
+    diciembre ya se vieron); el de LightGBM, entre 0,9 y 1,5 veces (60 %, tiene la variable `navidad`).
+14. **A51** Peores días: en cada modelo, al menos 4 de sus 10 peores días son festivos, puentes o caen en `navidad` (confianza 55 %).
+15. **A52** Coste: el script 30 tarda menos de 10 minutos en el PC del autor (confianza 70 %).
+
+### 16.9 Riesgos y límites declarados
+
+1. **Muchas celdas, pocos días.** Con 24 horas, 12 cruces y 4 regímenes, algún patrón saldrá por azar: por eso las horas son
+   descripción, los contrastes llevan Holm por familia y un solo cambio de régimen aislado se lee como hipótesis.
+2. **Festivos y puente.** Diez festivos y un puente; los festivos en sábado (6/1, 12/10) y el 28/3 (fracción 0,708) mezclan
+   comportamientos. Alternativa más barata si fuese necesario: agrupar festivo y puente como «día especial» (no se hace de entrada
+   porque OE8 los nombra por separado).
+3. **Límites del calendario:** sin fiestas locales ni los domingos festivos (8/12), declarado en el archivo 02; no se etiquetan aparte
+   agosto ni la Navidad (se miran como periodo, 16.5.5).
+4. **Un solo año de prueba.** Lo que se vea por régimen describe 2024; no se generaliza.
+5. **Escenario de temperatura observada** (reanálisis), igual que en todo el trabajo: el desglose por hora y por tipo de día no mide
+   el efecto de una previsión meteorológica real.
+
+### 16.10 Archivos, orden de ejecución y registro de coherencia
+
+1. `src/30_desglose_oe8_2024.py` reutiliza las funciones de `24_validacion_desgloses.py` que reciben el conjunto como parámetro
+   (`leer`, `cargar`, `calendario`, `resumen_por`, `peores_dias`), las métricas de `27_capa_probabilistica.py` y `finales.py`. Si
+   alguna no sirve tal cual, se escribe una nueva y se declara. Salidas en `data/resultados/final/desglose/` (CSV y figuras; las
+   figuras pasan a `memoria/figuras/` al redactar R3/R4, no antes).
+2. **Orden:** commit de este apartado → código y pruebas con el arnés (sin abrir 2024) → commit del código (hash a 16.11) → `30` una
+   vez → 16.12 con los resultados y la anticipación frente a lo observado → R3 y el desglose juntos (plan intensivo de 31/10).
+3. **Para el registro de coherencia del 05** (la memoria no se toca hasta R2): C56 desglose de OE8 con 2024: hora local, tipo de día
+   (253/102/10/1), puente de un solo día (solo descriptivo) y festivos en sábado (4.4, 5.6); C57 definición de «cambio de
+   régimen» (un contraste por celda con bootstrap pareado y Holm por familia) y lectura de las 24 horas como descripción (4.4, 5.6,
+   5.7); C58 el 8/12/2024 (domingo festivo) queda como domingo corriente (4.1, 5.6).
+
+### 16.11 Hashes (se rellena al cerrar cada paso)
+
+Protocolo de este apartado: *pendiente de commit*. Código: *pendiente*. Ejecución de 30: *pendiente*.
