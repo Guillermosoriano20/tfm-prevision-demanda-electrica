@@ -1,7 +1,7 @@
 % =====================================================================
 % Capítulo 5. Desarrollo, análisis y resultados
 % Estado: 5.1 redactada (06/10/2026); 5.2 redactada (15/10/2026, sesión R1);
-% 5.3 en adelante pendientes (R2 a R4).
+% 5.3 redactada (04/11/2026, sesión R2); 5.4 en adelante pendientes (R3 y R4).
 % Figuras de 5.1: definitivas (07/10/2026), generadas por src/14_exploracion.py
 % directamente en memoria/figuras/.
 % =====================================================================
@@ -856,3 +856,328 @@ con los de los demás. La selección se hizo solo con el MAE; los desgloses,
 calculados después con reglas de lectura fijadas de antemano, no cambiaron
 ninguna ganadora. Si estos resultados se mantienen, y si las diferencias son
 significativas, se comprueba con la evaluación única de 2024.
+
+% =====================================================================
+% Sección 5.3 redactada el 04/11/2026 (sesión R2). Cifras de
+% data/resultados/probabilistica/ generadas por src/27_capa_probabilistica.py
+% (protocolo, apartado 14.13). Figuras copiadas de ese directorio.
+% =====================================================================
+\section{Calibración en validación (2023)}\label{sec:calibracion}
+
+Esta sección presenta la calibración de los intervalos de los cuatro modelos en
+2023, con la capa probabilística de la sección~\ref{sec:probabilistica}. Como
+en la sección~\ref{sec:validacion}, conviene recordar el papel de estas cifras:
+describen cómo se comporta cada método y sirven para elegir el paso $\gamma$ de
+ACI, pero no son el rendimiento que se informa. Los hiperparámetros de LightGBM
+y de N-HiTS se eligieron con el MAE de 2023, y la ganadora de N-HiTS lleva
+incluidos sus cuantiles 0,05 y 0,95, de modo que la calibración de 2023 es
+algo optimista; el $\gamma$ de ACI se elige con los mismos datos que se
+informan. El rendimiento que cuenta es el de 2024.
+
+La sección comienza con los intervalos propios del 90\,\% de cada modelo,
+sigue con la fiabilidad de la rejilla de cuantiles, estudia después ACI y la
+elección de $\gamma$, y termina con una síntesis. Los intervalos propios se
+evalúan en las 8760 horas del año; la comparación con ACI, que no emite en los
+57 primeros días, se hace en el conjunto de 308 días de la
+sección~\ref{sec:prob-aci}, al que se llama conjunto~E.
+
+% ---------------------------------------------------------------------
+\subsection{Intervalos propios del 90\,\%}\label{sec:cal-propios}
+
+La tabla~\ref{tab:cal-propios} recoge las métricas de los intervalos propios en
+las 8760 horas de 2023. Solo el ingenuo está bien calibrado; los otros tres
+modelos lo están mal, cada uno a su manera.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Intervalos propios del 90\,\% en 2023 (8760 horas)}
+	\label{tab:cal-propios}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		 & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		Cobertura (\%) & 88,3 & 92,5 & 70,0 & 68,1 \\
+		\quad IC del 95\,\% (\%) & 85,6--90,8 & 90,4--94,2 & 67,3--72,5 & 66,3--70,0 \\
+		Fallos por debajo / por encima (\%) & 5,7 / 5,9 & 4,9 / 2,7 & 18,3 / 11,7 & 13,2 / 18,7 \\
+		Cociente de fallos & 0,97 & 1,84 & 1,57 & 0,70 \\
+		Anchura media (MW) & 5925 & 4385 & 1926 & 1781 \\
+		Puntuación de intervalo (MW) & 9357 & 6679 & 4788 & 4899 \\
+		CRPS$_{19}$ (MW) & 1038 & 707 & 446 & 531 \\
+		CRPS$_{19}$ / MAE & 0,741 & 0,750 & 0,762 & 0,742 \\
+		Desviación máxima de fiabilidad & 0,050 & 0,165 & 0,163 & 0,184 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+El \textbf{ingenuo} es el único bien calibrado, con una cobertura del 88,3\,\%
+y fallos repartidos a partes iguales por debajo y por encima. Es lo esperable,
+porque sus cuantiles proceden de casi 49\,000 errores reales de seis años; en el
+conjunto~E su cobertura es del 88,0\,\%, en el borde de la banda del 88 al
+92\,\%. Pero es el listón más ancho, con 5925~MW de media. El \textbf{SARIMAX}
+tiene sobrecobertura (92,5\,\% en las 8760 horas y 93,0\,\% en el
+conjunto~E, con el intervalo de confianza del 95\,\% por encima del 90\,\%) y
+sus fallos son asimétricos: 4,9\,\% por debajo del límite inferior frente al
+2,7\,\% por encima, coherente con el sesgo negativo de su previsión
+(sección~\ref{sec:val-comparacion}). \textbf{LightGBM} y \textbf{N-HiTS} tienen
+una infracobertura muy marcada, del 70,0\,\% y del 68,1\,\% para un 90\,\%
+nominal, con intervalos de confianza que quedan a más de 17 puntos del
+nominal. Es el resultado central de esta sección, y es negativo: los cuantiles
+entrenados con la pérdida de pinball, tal como se obtienen de estos dos modelos,
+no están calibrados. Los fallos de LightGBM son algo más frecuentes por debajo
+(18,3\,\% frente a 11,7\,\%, cociente 1,57), y los de N-HiTS, por encima
+(cociente 0,70). Ninguno de los dos cocientes pasa de 2 ni baja de 0,5, de modo
+que, por la regla de lectura de la sección~\ref{sec:prob-lectura}, no se leen
+como intervalos desplazados, sino como intervalos estrechos. El cociente del
+SARIMAX es 1,84 en las 8760 horas, bajo el umbral de 2, y 2,41 en el
+conjunto~E. La lectura fijada de antemano usa las 8760 horas, así que no se
+lee como desplazado, aunque en el conjunto~E superaría el umbral.
+
+Las puntuaciones ordenan los modelos igual que la precisión puntual: LightGBM,
+N-HiTS, SARIMAX e ingenuo. Todas las diferencias entre pares son apreciables
+según la regla de lectura, salvo una: entre LightGBM y N-HiTS, la puntuación de
+intervalo no se distingue (diferencia de $-104$~MW, con un intervalo de
+confianza de $-607$ a $+441$~MW), aunque el CRPS$_{19}$ sí es menor en
+LightGBM ($-84$~MW). Con los intervalos propios, el CRPS$_{19}$ es casi
+proporcional al MAE (entre 0,74 y 0,76 veces su valor), de modo que no añade
+información sobre el orden de los modelos. Esto tiene una consecuencia para
+leer la tabla: el buen CRPS$_{19}$ de LightGBM y de N-HiTS no significa que sus
+intervalos estén bien calibrados. Se debe a que sus intervalos son estrechos y
+sus errores pequeños; una puntuación que premia la nitidez los favorece aunque
+dejen fuera el 30\,\% de las horas.
+
+\paragraph{Cobertura por franja horaria.} La tabla~\ref{tab:cal-bloques} desglosa
+la cobertura por bloque en el conjunto~E. Como se explicó en la
+sección~\ref{sec:prob-principio}, los bloques son franjas horarias del día
+objetivo y, a la vez, tramos de anticipación; las diferencias no se pueden
+atribuir a la anticipación.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Cobertura propia del 90\,\% por bloque en el conjunto~E (\%)}
+	\label{tab:cal-bloques}
+	\small
+	\begin{tabular}{lrrrrr}
+		\hline
+		 & \textbf{B1} & \textbf{B2} & \textbf{B3} & \textbf{B4} & \textbf{Global} \\
+		 & (00--05 h) & (06--11 h) & (12--17 h) & (18--23 h) & \\
+		\hline
+		Ingenuo & 87,8 & 89,0 & 87,9 & 87,4 & 88,0 \\
+		SARIMAX & 99,0 & 92,3 & 88,9 & 91,7 & 93,0 \\
+		LightGBM & 67,0 & 73,6 & 67,7 & 75,3 & 70,9 \\
+		N-HiTS & 80,2 & 68,7 & 64,1 & 56,1 & 67,3 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Por la regla de lectura, un bloque se distingue del conjunto solo si difiere en
+más de cinco puntos de la cobertura global. Ocurre en dos modelos. En el SARIMAX,
+la cobertura de la madrugada (B1) es del 99,0\,\%, seis puntos por encima de la
+global. Es una consecuencia de que su anchura es casi plana a lo largo del
+día, entre 3898~MW a las 00:00 y 4746~MW a las 23:00, mientras que su error
+medio va de 481 a 1277~MW: la banda es demasiado ancha cuando el error es
+pequeño, de madrugada, y apenas suficiente cuando es grande. En N-HiTS la
+cobertura baja del 80,2\,\% en B1 al 56,1\,\% en B4, y el motivo es su perfil
+de sesgos por hora, de $+850$~MW a las 07:00, $-734$ a las 12:00 y $+1279$ a
+las 21:00, con bandas de entre 1,5 y 3 veces su error medio; a las 21:00 su
+cobertura es del 32\,\% y a las 05:00, del 86\,\%. En LightGBM la banda sigue la
+forma del día, de 2,6 a 5 veces su error medio, pero es demasiado estrecha a
+todas horas, y ningún bloque se aparta más de cinco puntos de la cobertura
+global. En el ingenuo no se distingue ninguno.
+
+La figura~\ref{fig:cal-semana} muestra los intervalos en una semana de mayo de
+2023. Es un ejemplo y no una prueba: sirve para ver lo que las tablas resumen. La
+banda del SARIMAX tiene una anchura casi constante, la de LightGBM sigue la
+forma del día pero es estrecha, y la de N-HiTS es la más ajustada.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{calibracion_semana.png}
+	\caption{Previsión, demanda real, intervalo propio del 90\,\% e intervalo de ACI (con $\gamma = 0{,}001$) de los cuatro modelos en la semana del 15 al 21 de mayo de 2023 (días objetivo).}
+	\label{fig:cal-semana}
+\end{figure}
+
+Por último, la cobertura varía mucho de un mes a otro. Agosto es el mes de
+menor cobertura para el ingenuo (67,7\,\%) y para LightGBM (55,9\,\%), y
+también baja en el SARIMAX (83,9\,\%). Los datos muestran que el mes es
+difícil para todos, pero no se ha comprobado a qué se debe, y su explicación
+queda como hipótesis para la discusión.
+
+% ---------------------------------------------------------------------
+\subsection{Fiabilidad de la rejilla}\label{sec:cal-fiabilidad}
+
+El diagrama de fiabilidad de la figura~\ref{fig:cal-fiabilidad} generaliza la
+cobertura del intervalo del 90\,\% a toda la rejilla de 19 cuantiles. Las curvas
+azules son las de los cuantiles propios, evaluados en el conjunto~E; las
+naranjas, las de los cuantiles de ACI, que se discuten más adelante.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{calibracion_fiabilidad.png}
+	\caption{Diagrama de fiabilidad de los cuantiles propios y de los de ACI (con $\gamma = 0{,}001$) en el conjunto~E. En el eje horizontal, el nivel del cuantil; en el vertical, la frecuencia con que la demanda queda por debajo de él.}
+	\label{fig:cal-fiabilidad}
+\end{figure}
+
+La curva del ingenuo está sobre la diagonal. La del SARIMAX queda por encima en
+los niveles medios y altos, es decir, sus cuantiles son demasiado altos, que es
+la huella de su sesgo negativo: la demanda cae por debajo del cuantil 0,5 el
+65\,\% de las veces en el conjunto~E. LightGBM y N-HiTS dibujan una curva más
+plana que la diagonal: sus cuantiles bajos son demasiado altos y los altos
+demasiado bajos, que es lo que significa un intervalo estrecho. En las 8760
+horas, con la rejilla de LightGBM, la demanda cae por debajo del cuantil 0,05
+el 16,5\,\% de las veces y por encima del 0,95 el 10,6\,\%, cuando deberían
+ser el 5\,\% en ambos casos. Por la regla de lectura, la desviación máxima de los intervalos
+propios es \emph{mala} en el SARIMAX, LightGBM y N-HiTS (más de 0,06) y
+\emph{aceptable} en el ingenuo (0,050).
+
+Dos detalles técnicos de la rejilla. Los 19 cuantiles de LightGBM y de N-HiTS se
+entrenan por separado y pueden cruzarse, de modo que hay que ordenarlos: la
+ordenación fue necesaria en las 8760 horas de LightGBM y en 7737 de N-HiTS, y no
+lo fue en el ingenuo ni en el SARIMAX. En LightGBM el efecto es pequeño:
+los cuantiles 0,05 y 0,95 cambian de media unos 30~MW, frente a una anchura de
+unos 1900~MW. La segunda red de N-HiTS, la de los 19 niveles, llega al tope de
+1000 pasos; el MAE de su mediana es de 710,3~MW, algo menor que el de la red
+oficial (716,4~MW), y la cobertura de sus cuantiles 0,05 y 0,95 es del
+66,3\,\%, a menos de dos puntos de la de la red oficial (68,1\,\%). Son, pues,
+dos sistemas parecidos, aunque no el mismo.
+
+% ---------------------------------------------------------------------
+\subsection{ACI y elección de $\gamma$}\label{sec:cal-aci}
+
+La tabla~\ref{tab:cal-gamma} recoge la elección del paso $\gamma$ de ACI, con la
+regla de la sección~\ref{sec:prob-aci}. Cada celda es el cociente entre la
+puntuación de intervalo con ese $\gamma$ y la de $\gamma = 0$, la ventana móvil
+sin adaptación, en el conjunto~E; la última columna es la media de los cuatro
+modelos.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Puntuación de intervalo de ACI relativa a la de la ventana sin adaptación ($\gamma = 0$), en el conjunto~E}
+	\label{tab:cal-gamma}
+	\small
+	\begin{tabular}{lrrrrr}
+		\hline
+		$\gamma$ & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} & \textbf{Media} \\
+		\hline
+		0,001 & 0,998 & 1,019 & 1,001 & 1,001 & 1,0049 \\
+		0,005 & 1,026 & 1,059 & 1,010 & 1,006 & 1,0251 \\
+		0,01 & 0,996 & 1,052 & 0,990 & 1,013 & 1,0128 \\
+		0,02 & 0,989 & 1,038 & 0,989 & 1,021 & 1,0093 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+El resultado es negativo: \textbf{ningún candidato queda por debajo de uno}. La
+adaptación de $\alpha_t$ no mejora la puntuación de intervalo de la ventana móvil
+sin adaptación. Por la regla, se mantiene $\gamma = 0{,}001$, el de menor
+puntuación (1,0049), que es, en la práctica, casi inerte: el nivel $\alpha_t$ medio
+de los cuatro modelos queda entre 0,079 y 0,098, cerca del 0,10 inicial. La
+razón de que los pasos mayores empeoren se ve en el recuento de intervalos
+infinitos sustituidos (tabla~\ref{tab:cal-infinitos}): con $\gamma$ grande, un
+día malo puede llevar $\alpha_t$ a cero, porque cada fallo lo reduce en
+$0{,}9\gamma$ y la retroalimentación llega en bloques de seis horas, y el
+intervalo emitido es entonces la extensión máxima de la ventana. Con
+$\gamma = 0{,}02$, el 4,1\,\% de las horas del ingenuo y el 3,9\,\% de las del
+SARIMAX tienen límite infinito, por encima del 2\,\% que la regla de lectura
+fija como defecto del método. Esta interpretación es coherente con los
+recuentos, pero no se ha comprobado por separado.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Horas con límite infinito sustituido en el conjunto~E (de 7392)}
+	\label{tab:cal-infinitos}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		$\gamma$ & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		0,001 & 0 & 0 & 0 & 0 \\
+		0,005 & 36 & 6 & 6 & 0 \\
+		0,01 & 162 & 114 & 96 & 18 \\
+		0,02 & 300 & 288 & 216 & 114 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+La tabla~\ref{tab:cal-aci} compara, con $\gamma = 0{,}001$ y en el
+conjunto~E, el intervalo propio, la ventana sin adaptación y ACI. Lo
+importante es que, para LightGBM y N-HiTS, la mejora procede de la ventana de
+residuos recientes y no de la adaptación.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Intervalo propio, ventana sin adaptación y ACI ($\gamma = 0{,}001$) en el conjunto~E}
+	\label{tab:cal-aci}
+	\small
+	\setlength{\tabcolsep}{3.5pt}
+	\begin{tabular}{lrrrr}
+		\hline
+		 & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		\textit{Cobertura (\%)} & & & & \\
+		\quad Propio & 88,0 & 93,0 & 70,9 & 67,3 \\
+		\quad Ventana ($\gamma = 0$) & 86,3 & 87,9 & 88,0 & 89,2 \\
+		\quad ACI & 88,4 & 89,0 & 89,2 & 89,1 \\
+		\quad IC del 95\,\% de ACI & 85,5--91,3 & 86,3--91,6 & 87,0--91,3 & 87,5--90,7 \\
+		\textit{Anchura media (MW)} & & & & \\
+		\quad Propio & 5925 & 4385 & 1913 & 1727 \\
+		\quad Ventana ($\gamma = 0$) & 5924 & 3810 & 2339 & 2506 \\
+		\quad ACI & 6568 & 4203 & 2439 & 2514 \\
+		\textit{Puntuación de intervalo (MW)} & & & & \\
+		\quad Propio & 9446 & 6646 & 4764 & 4868 \\
+		\quad Ventana ($\gamma = 0$) & 10\,018 & 6655 & 3324 & 3321 \\
+		\quad ACI & 10\,001 & 6785 & 3327 & 3325 \\
+		\textit{ACI $-$ propio (MW)} & & & & \\
+		\quad Puntuación de intervalo & $+555$ & $+139$ & $-1437$ & $-1544$ \\
+		\quad Lectura & {\footnotesize apreciable (peor)} & {\footnotesize no distinguible} & apreciable & apreciable \\
+		\quad CRPS$_{19}$ & $+23$ & $-40$ & $-35$ & $-87$ \\
+		\quad Lectura & {\footnotesize no distinguible} & apreciable & apreciable & apreciable \\
+		\textit{Fiabilidad de ACI} & & & & \\
+		\quad Desviación máxima & 0,039 & 0,009 & 0,031 & 0,010 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+En \textbf{LightGBM} y \textbf{N-HiTS}, ACI lleva la cobertura del 70,9\,\% y del
+67,3\,\% a cerca del 89\,\% y baja la puntuación de intervalo un 30\,\% y un
+32\,\% respecto a la del intervalo propio, con diferencias apreciables. Pero la
+ventana sin adaptación ya consigue casi lo mismo (puntuaciones de 3324 y
+3321~MW frente a 3327 y 3325~MW con ACI): la mejora viene de calcular el
+intervalo con los residuos de las últimas ocho semanas, no de la adaptación de
+$\alpha_t$. En el \textbf{SARIMAX}, ACI acerca la cobertura al nominal (la
+distancia al 90\,\% pasa de 0,030 a 0,010) y mejora el CRPS$_{19}$, pero no la
+puntuación de intervalo, que no se distingue. En el \textbf{ingenuo}, ACI
+empeora de forma apreciable la puntuación de intervalo ($+555$~MW) y no mejora
+la calibración (la distancia pasa de 0,020 a 0,016, menos de un punto): una
+ventana de 336 residuos pierde frente a los 49\,320 errores de seis años con que
+se construye su intervalo propio. La cobertura con ACI sigue oscilando mucho de
+un mes a otro; la del ingenuo, por ejemplo, va del 81\,\% al 100\,\%.
+
+Conviene repetir lo que ACI es en este trabajo (sección~\ref{sec:prob-aci}):
+un intervalo construido con los residuos recientes, que no usa el intervalo
+propio. Por eso su comparación con él no mide el efecto de una recalibración del
+intervalo de cada modelo, sino el de cambiar de mecanismo. Y, aun así, el
+resultado de este cambio es muy distinto según el modelo de partida: no aporta
+nada a quien ya estaba calibrado, como el ingenuo, y arregla en gran parte a
+quienes no lo estaban.
+
+% ---------------------------------------------------------------------
+\subsection{Síntesis}\label{sec:cal-sintesis}
+
+La calibración de 2023 deja cuatro resultados. Primero, los cuantiles de
+LightGBM y de N-HiTS entrenados con la pérdida de pinball no están calibrados,
+con coberturas del 70\,\% y del 68\,\% para un 90\,\% nominal, y su buen
+CRPS$_{19}$ procede de intervalos estrechos, no de intervalos fiables. Segundo,
+el intervalo gaussiano homocedástico del SARIMAX cubre de más y reparte mal su
+anchura a lo largo del día: demasiado ancho de madrugada y justo por la tarde.
+Tercero, calcular el intervalo con una ventana de residuos recientes, con o sin
+ACI, lleva a ambos modelos a cerca del 90\,\% y reduce un 30\,\% su
+puntuación de intervalo, pero la adaptación de ACI no aporta nada sobre la
+ventana, y el $\gamma$ elegido es casi inerte. Cuarto, el ingenuo, con su
+intervalo propio basado en errores de seis años, es el único método bien
+calibrado sin ayuda, aunque a costa de los intervalos más anchos.
+
+Estos resultados son optimistas en el sentido ya señalado: los hiperparámetros y
+el $\gamma$ se eligieron con 2023. Para 2024 se mantienen el
+$\gamma = 0{,}001$ y las mismas reglas de lectura, con la ventana y ACI
+evaluados sobre las 8784 horas del año.

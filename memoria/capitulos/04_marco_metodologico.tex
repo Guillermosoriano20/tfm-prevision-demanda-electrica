@@ -1,10 +1,10 @@
 % =====================================================================
 % Capítulo 4. Marco metodológico
 % Estado: 4.1 redactada (06/10/2026); 4.2, 4.3 y la parte puntual de la
-% sección de métricas y contrastes redactadas (15/10/2026, sesión R1).
-% Pendientes: diseño de la capa probabilística (R2, irá entre 4.3 y las
-% métricas), métricas probabilísticas (R2), Diebold-Mariano (R3) y entorno y
-% reproducibilidad (R4).
+% sección de métricas y contrastes redactadas (15/10/2026, sesión R1);
+% diseño de la capa probabilística (4.4) y métricas probabilísticas
+% redactadas (04/11/2026, sesión R2).
+% Pendientes: Diebold-Mariano (R3) y entorno y reproducibilidad (R4).
 % =====================================================================
 
 \chapter{Marco metodológico}\label{cap:metodologia}
@@ -577,8 +577,9 @@ describen en la sección~\ref{sec:explo-anomalias}.
 % ---------------------------------------------------------------------
 \subsection{Congelación y verificación del conjunto}\label{sec:datos-verificacion}
 
-Los datos no se publican en el repositorio, sino que se regeneran con los
-scripts a partir de las fuentes. Lo que se congela es, por tanto, el código
+Los datos de entrada no se publican en el repositorio, sino que se regeneran
+con los scripts a partir de las fuentes; sí se publican las tablas de
+resultados. Lo que se congela es, por tanto, el código
 que los genera, junto con una huella de contenido que permite comprobar que
 el conjunto regenerado es idéntico al empleado en el trabajo. La huella es un
 número entero calculado a partir del contenido de todas las celdas de la
@@ -1544,9 +1545,413 @@ conjunto de datos (tabla~\ref{tab:limitaciones}).
 
 \FloatBarrier
 % =====================================================================
-% PENDIENTE (R2): sección «Diseño de la capa probabilística», que irá aquí,
-% entre la especificación de los modelos y las métricas.
+% Sección 4.4 redactada el 04/11/2026 (sesión R2). Protocolo, apartados 14 y 15.
 % =====================================================================
+% =====================================================================
+\section{Diseño de la capa probabilística}\label{sec:probabilistica}
+
+Hasta aquí cada modelo produce una previsión puntual. Esta sección describe
+la capa que añade a esa previsión una medida de su incertidumbre, y cuyos
+fundamentos se expusieron en la sección~\ref{sec:probabilistica-teoria}. La
+capa se diseñó y se fijó por escrito en el protocolo de comparación antes de
+escribir su código y antes de calcular ninguna cifra de calibración de 2023;
+lo único que se había visto de 2023 eran los nombres y los tipos de las
+columnas de los archivos de previsiones y un dato ya conocido de la selección:
+la previsión puntual de LightGBM queda fuera de su propio intervalo en 543 de
+las 8760 horas (el 6,2\,\%). La sección se organiza en cinco
+partes: los principios y las reglas de uso de la capa; los intervalos propios
+de cada modelo y la rejilla de cuantiles; el método conforme adaptativo (ACI);
+los controles que debe superar el código; y las reglas con las que se leen los
+resultados y los límites que se declaran de antemano.
+
+% ---------------------------------------------------------------------
+\subsection{Principios y reglas de uso}\label{sec:prob-principio}
+
+La capa probabilística se rige por cuatro reglas, fijadas antes de ver
+ningún resultado.
+
+\begin{enumerate}
+	\item \textbf{No decide nada sobre los modelos.} Las cuatro previsiones
+	puntuales oficiales no cambian. Si los intervalos de un modelo salen mal
+	calibrados, se informa tal cual; no se corrige reajustando el modelo ni
+	eligiendo otra configuración. Lo único que se elige con 2023 en esta capa
+	es el paso $\gamma$ del método ACI (sección~\ref{sec:prob-aci}), con una
+	regla escrita de antemano.
+	\item \textbf{Nivel nominal único.} Todos los intervalos son centrales, con
+	un nivel nominal del 90\,\%, es decir, entre los cuantiles 0,05 y 0,95.
+	\item \textbf{Descriptiva.} Las diferencias entre modelos y entre métodos
+	se leen con reglas fijadas de antemano (sección~\ref{sec:prob-lectura}) y
+	con intervalos de confianza por \textit{bootstrap} de días, no con
+	contrastes de hipótesis.
+	\item \textbf{Optimismo declarado en 2023.} La calibración medida en 2023
+	es algo optimista, porque ese año ya intervino en dos elecciones: los
+	hiperparámetros de LightGBM y de N-HiTS se eligieron con su MAE
+	(sección~\ref{sec:esp-finales}), y la ganadora de N-HiTS lleva incluidos
+	sus cuantiles 0,05 y 0,95; y el paso $\gamma$ de ACI se elige con 2023.
+	Las cifras que se informan como rendimiento son, por tanto, las de 2024,
+	que no ha intervenido en ninguna elección.
+\end{enumerate}
+
+Los bloques de anticipación merecen una aclaración, porque con ellos se
+desglosa la cobertura. Con un origen diario a las 12:00 locales, el primer
+paso del horizonte es la hora 13:00 del día de origen y el último es la hora
+00:00 del segundo día (sección~\ref{sec:prot-origenes}). Las horas del día
+objetivo se agrupan en cuatro franjas de seis horas, a las que se llama
+\emph{bloques}: B1, de 00 a 05~h locales (anticipación de 12 a 17~h); B2, de
+06 a 11~h (de 18 a 23~h); B3, de 12 a 17~h (de 24 a 29~h); y B4, de 18 a
+23~h (de 30 a 36~h). Como el origen es único cada día, la anticipación y la
+hora del día no se pueden separar: los bloques son a la vez franjas
+horarias y tramos de anticipación. Por eso, cuando más adelante se hable de
+\enquote{cobertura por bloque}, debe leerse como cobertura por franja
+horaria, y no atribuir sus diferencias a la anticipación.
+
+% ---------------------------------------------------------------------
+\subsection{Intervalos propios y rejilla de cuantiles}\label{sec:prob-propios}
+
+Cada modelo produce, además de su previsión, un \emph{intervalo propio} del
+90\,\% construido con su propio mecanismo. Para evaluar la distribución
+completa, y no solo un intervalo, cada modelo produce también una
+\emph{rejilla} de 19 cuantiles, de $\tau = 0{,}05$ a $0{,}95$ con paso
+0,05. La rejilla permite aproximar el CRPS (sección~\ref{sec:prob-metricas})
+y trazar el diagrama de fiabilidad. La tabla~\ref{tab:intervalos-propios}
+resume cómo se obtiene cada pieza.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Intervalo propio del 90\,\% y rejilla de cuantiles de cada modelo}
+	\label{tab:intervalos-propios}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+		\hline
+		\textbf{Modelo} & \textbf{Intervalo propio (cuantiles 0,05 y 0,95)} & \textbf{Rejilla de 19 cuantiles} \\
+		\hline
+		Ingenuo estacional & Previsión más el cuantil empírico del error, por bloque, de los años anteriores sin la pandemia & Los 19 cuantiles empíricos del mismo error \\
+		SARIMAX & Analítico y gaussiano: previsión más $z_\tau$ por el error típico del paso & Los 19 cuantiles gaussianos \\
+		LightGBM & Dos modelos de regresión por cuantiles (0,05 y 0,95) & 19 modelos de regresión por cuantiles; entre ellos, los dos del intervalo \\
+		N-HiTS & Salidas 0,05 y 0,95 de la red oficial, que prevé también la mediana & Segunda red con los 19 cuantiles, solo para la rejilla \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+\paragraph{Ingenuo estacional.} El ingenuo no tiene parámetros, de modo que sus
+errores pasados son legítimos para medir su incertidumbre. Se calcula el error
+$e = y - \hat{y}$ de su previsión (la demanda de la misma hora de la semana
+anterior) para todos los días objetivo de 2017 a 2022 desde el 8 de enero de
+2017, ya que los siete primeros días no tienen semana anterior, sin los días
+cuyo objetivo o cuya fuente, siete días antes, caen en el periodo de la
+pandemia. Se descarta además un único error no finito: el conjunto de datos
+empieza a la 01:00 local del 1 de enero de 2017, de modo que la hora
+00:00 del 8 de enero no tiene fuente. Quedan 49\,320 errores, repartidos de forma
+casi igual entre los cuatro bloques (12\,329, 12\,330, 12\,330 y 12\,331). Para
+cada bloque y para cada nivel $\tau$ se toma el cuantil empírico del error,
+con interpolación lineal, y el intervalo es la previsión más ese cuantil.
+Sin esta separación por bloques, el ingenuo tendría una anchura constante a
+lo largo del día y sería un listón artificialmente malo. Para 2023 se usan los
+errores de 2017 a 2022, de modo que su cobertura de 2023 se mide fuera de
+muestra; con los errores de 2023 sería circular, pues el 90\,\% se cumpliría
+por construcción. En 2024 los cuantiles se actualizan cada mes con los errores
+de los días objetivo que terminan antes del origen del reajuste, es decir,
+2017 a 2023 y el propio 2024 ya ocurrido, para que el ingenuo aproveche la
+información nueva igual que los demás modelos.
+
+\paragraph{SARIMAX.} El modelo da, en cada origen, la previsión y el error
+típico de cada paso. Con los parámetros fijos del reajuste, el cuantil $\tau$
+es la previsión más $z_\tau$ veces ese error típico, donde $z_\tau$ es el
+cuantil de la normal estándar. Es el único de los cuatro cuyo intervalo
+procede de un supuesto distribucional. Los supuestos son tres, y se declaran:
+normalidad de las innovaciones, varianza de innovación estimada en la ventana
+de entrenamiento y parámetros tratados como conocidos, sin incertidumbre. Las
+colas de la distribución real del error pueden ser más pesadas que las de una
+normal, de modo que el supuesto es una simplificación cuya consecuencia
+se mide al evaluar la cobertura.
+
+\paragraph{LightGBM.} Se entrena un modelo por cuantil con la regresión por
+cuantiles de la librería (pérdida de pinball, sección~\ref{sec:probabilistica-teoria}),
+independiente del modelo puntual. Los hiperparámetros son los de la
+configuración ganadora de la tabla~\ref{tab:configuraciones}; solo cambian el
+objetivo y el nivel $\tau$. No se busca ningún hiperparámetro por cuantil, así
+que estos modelos no consumen presupuesto de búsqueda. El número de árboles de
+cada uno se elige por parada temprana con la pérdida de pinball de su
+cuantil, sobre las últimas ocho semanas de la ventana de entrenamiento y con
+las mismas reglas que el modelo puntual. Para el intervalo propio se usan los
+modelos de 0,05 y 0,95 y, para la rejilla, los 19; los dos del intervalo
+coinciden con los de la rejilla. La previsión puntual es siempre la del modelo
+ganador, no la de un modelo de la mediana, y no se fuerza a quedar dentro del
+intervalo: se cuenta en cuántas horas queda fuera. Si en una hora el límite
+inferior supera al superior, se intercambian y se cuentan esas horas.
+
+\paragraph{N-HiTS.} La red oficial se entrena con una pérdida multicuantil de
+los niveles 0,05, 0,5 y 0,95 y devuelve las tres trayectorias. La mediana es
+la previsión puntual y los otros dos cuantiles forman el intervalo propio.
+Como cambiar el conjunto de cuantiles cambiaría la previsión puntual de la
+red, ese conjunto quedó fijo antes de la búsqueda de hiperparámetros. Con las
+mismas reglas que en LightGBM, el cruce de cuantiles se corrige intercambiando
+los límites, nunca la previsión, y se cuentan las horas con cruce y las horas
+con la mediana fuera del intervalo. La rejilla no se saca de esa red, sino de
+una \emph{segunda red} con los 19 niveles, los mismos hiperparámetros y el
+mismo procedimiento de entrenamiento. La segunda red no modifica la oficial y
+solo sirve para la rejilla; pero es un sistema distinto, con su propia
+mediana, y por eso se informa de su MAE y de la cobertura de sus cuantiles
+0,05 y 0,95 frente a los de la red oficial.
+
+\paragraph{Ordenación y reajuste.} En los cuatro modelos, los 19 valores de
+cada hora se ordenan de menor a mayor, y se cuenta el número de horas en que
+hizo falta. Esta ordenación es independiente de la regla de cruce del
+intervalo del 90\,\%. En la evaluación de 2024 se reajustan cada mes, igual que
+la previsión puntual, los 19 modelos de LightGBM y la segunda red de N-HiTS,
+con la parada temprana repetida en cada reajuste; de otro modo la rejilla
+describiría un sistema de otra edad que la previsión puntual, y el CRPS
+mediría también esa diferencia.
+% ---------------------------------------------------------------------
+\subsection{Inferencia conforme adaptativa (ACI)}\label{sec:prob-aci}
+
+Además de los intervalos propios, los cuatro modelos se someten a un mismo
+procedimiento conforme, el \emph{ACI} de \textcite{gibbs2021adaptive}
+(sección~\ref{sec:probabilistica-teoria}). Conviene precisar desde el
+principio qué es y qué no es. ACI, tal como se aplica aquí, no recalibra el
+intervalo propio de cada modelo: construye otro intervalo con los residuos
+recientes de la previsión puntual, sin utilizar el intervalo propio. Es, por
+tanto, una construcción común a los cuatro modelos, y la comparación entre el
+intervalo propio y el de ACI de un mismo modelo compara dos mecanismos
+distintos, no un intervalo antes y después de corregirlo.
+
+\paragraph{Entrada y mecanismo.} La entrada de cada modelo es, hora a hora, su
+previsión puntual oficial $\hat{y}_t$ y la demanda observada $y_t$, con el
+residuo $s_t = y_t - \hat{y}_t$. En N-HiTS, $\hat{y}_t$ es la mediana de la
+red oficial; la segunda red no interviene. Los intervalos se calculan con la
+librería MAPIE (versión 1.5.0), mediante un \texttt{TimeSeriesRegressor} con el
+método \texttt{aci} y la puntuación de conformidad por defecto, que es el
+residuo con signo y da límites asimétricos: son cuantiles de los residuos
+recientes, con la corrección de muestra finita de la librería. El
+\enquote{estimador} que se le entrega no entrena nada: devuelve la previsión
+guardada de cada hora. Se usa una instancia distinta para cada bloque de
+anticipación (sección~\ref{sec:prob-principio}), de modo que cada bloque tiene
+su propio conjunto de residuos. El motivo es que el error depende mucho de la
+hora del día, y un conjunto global daría la misma anchura a las 3 que a las
+15~h.
+
+\paragraph{Ventana de residuos.} En cada origen, las puntuaciones de cada
+bloque son los $W = 336$ residuos observados más recientes de ese bloque, es
+decir, ocho semanas de seis horas, el mismo periodo que se emplea como control
+en la parada temprana de LightGBM y de N-HiTS. Con la ventana ya reunida, se
+ajusta la librería y se predice el intervalo de las horas del día objetivo.
+
+\paragraph{Qué información está disponible.} Se aplica a ACI la regla de
+información de la sección~\ref{sec:prot-origenes}: en cada origen solo cuentan
+los pares previsión--demanda de las horas ya terminadas. En el origen del día
+$D$ están observadas todas las horas del día objetivo $D-1$, previstas dos
+orígenes antes, y las horas de 00 a 11~h del día $D$, previstas en el origen
+anterior; no lo están ni el día que se va a prever ni las doce horas
+siguientes del día $D$. Por tanto, el acierto o el fallo de cada hora llega
+entre 24 y 48~h después de emitir su intervalo: 24~h para las horas de 00 a 11
+del día objetivo y 48~h para las de 12 a 23. La garantía de cobertura de ACI
+se formuló para una retroalimentación inmediata, y con este retardo solo es
+aproximada. Se declara como límite.
+
+\paragraph{Adaptación.} Además de la ventana, ACI ajusta el nivel de error
+$\alpha_t$ con el que se construye el siguiente intervalo. Parte de $\alpha_t =
+0{,}10$ en cada bloque y, cuando se conoce el resultado de una hora emitida, lo
+actualiza con la recursión
+\[
+\alpha_{t+1} = \min\{1,\ \max\{0,\ \alpha_t + \gamma\,(\alpha - \mathrm{err}_t)\}\},
+\]
+donde $\alpha = 0{,}10$, $\mathrm{err}_t$ vale uno si la demanda quedó fuera del
+intervalo realmente emitido y cero si quedó dentro, y $\gamma$ es el paso de
+adaptación. Si el modelo falla más de lo debido, $\alpha_t$ baja y el
+intervalo se ensancha; si falla menos, sube y se estrecha. La recursión se
+escribe a mano, en tres líneas, y la librería solo calcula los intervalos. Es
+una decisión deliberada: la función de actualización que ofrece la librería
+recalcula el intervalo con el estado de hoy (puntuaciones y $\alpha_t$ actuales)
+y no con el que se emitió, y con el retardo de 24 a 48~h eso rompe la identidad
+en que se apoya la garantía de ACI, que exige usar los errores de los
+intervalos realmente emitidos. La recursión propia coincide con la de la
+librería cuando la retroalimentación es inmediata (sección~\ref{sec:prob-controles}).
+
+\paragraph{Intervalos infinitos.} La librería devuelve un intervalo infinito
+solo cuando $\alpha_t = 0$. Como el intervalo emitido debe ser finito para
+definir una anchura y una puntuación, se sustituye por la extensión máxima de
+la ventana: el límite inferior es la previsión más el menor residuo, y el
+superior, la previsión más el mayor. Se cuenta el número de horas afectadas y
+se informa. Si superan el 2\,\% de las horas de un modelo, se considera un
+defecto del método para ese modelo.
+
+\paragraph{Arranque.} Los residuos de entrenamiento no sirven para empezar,
+porque son de ajuste y no de previsión. En 2023 no hay residuos honestos
+anteriores; rehacerlos para 2022 habría exigido entrenar de nuevo los modelos
+hasta 2021, con hiperparámetros elegidos con 2023. Por eso ACI no emite
+intervalos en los 57 primeros días de 2023 (del 1 de enero al 26 de febrero), y
+sus residuos arrancan la ventana. El primer día emitido es el 27 de febrero, y
+las puntuaciones iniciales de cada bloque son los 336 residuos más recientes
+observados a las 12:00 del 26 de febrero. El conjunto de evaluación de ACI en
+2023, y el de los intervalos propios cuando se comparan con él, son los 308
+días del 27 de febrero al 31 de diciembre (7392 horas). Los intervalos propios
+se evalúan además en las 8760 horas del año.
+
+En 2024 ACI se aplica sobre la concatenación de 2023 y 2024. Las horas de 2023
+solo aportan residuos, que son los de los modelos de 2023, ajustados hasta
+2022; el primer día emitido es el 1 de enero de 2024 y las puntuaciones
+iniciales son los 336 residuos más recientes de cada bloque observados en ese
+primer origen. No se arrastra el $\alpha_t$ de 2023, porque compensa la deriva
+de un modelo distinto del que se evalúa en 2024, y se mantienen el mismo
+$\gamma$ y la misma ventana. La evaluación de ACI ocupa así las 8784 horas de
+2024, sin días sin emitir. La limitación es que los residuos iniciales
+proceden de un modelo diferente del que, a partir de enero, se reajusta cada
+mes; no se puede corregir sin reentrenar 2023.
+
+\paragraph{Elección del paso $\gamma$.} Es lo único que se elige con 2023, y
+la regla se escribió antes de ver ninguna cifra. Los candidatos son $\gamma \in
+\{0{,}001;\ 0{,}005;\ 0{,}01;\ 0{,}02\}$. El caso $\gamma = 0$ es la ventana
+móvil sin adaptación: se calcula siempre como referencia, no como candidato, y
+es lo que separa lo que aporta la ventana de lo que aporta la adaptación. Para
+cada $\gamma$ y cada modelo se calcula la puntuación de intervalo del 90\,\%
+en el conjunto de 308 días (sección~\ref{sec:prob-metricas}). La puntuación de
+un candidato es la media, sobre los cuatro modelos, del cociente entre su
+puntuación con ese $\gamma$ y la de $\gamma = 0$. Se normaliza por modelo para
+que el ingenuo, con puntuaciones mucho mayores, no decida solo. Gana el
+candidato de menor puntuación; si dos difieren menos de un 0,5\,\%, el menor
+$\gamma$. Es un único $\gamma$ para los cuatro modelos. Si ningún candidato
+queda por debajo de uno, ACI no mejora a la ventana sin adaptación y se
+informa como resultado negativo, manteniendo el $\gamma$ de menor puntuación.
+La elección no se repite con 2024, pues sería circular.
+
+\paragraph{Cuantiles después de ACI.} Para calcular el CRPS y la fiabilidad
+de ACI hacen falta cuantiles, no solo un intervalo del 90\,\%. Con el $\gamma$
+elegido, ACI se repite en nueve niveles centrales (0,10; 0,20; \ldots; 0,90),
+cada uno con su propio $\alpha_t$, y los cuantiles son $(1 - c)/2$ y $(1 + c)/2$,
+con $c$ el nivel central. El cuantil 0,5 es la previsión más la mediana de la
+ventana de residuos, sin adaptación. Los valores se ordenan después igual que
+en la rejilla de los modelos.
+% ---------------------------------------------------------------------
+\subsection{Controles del código}\label{sec:prob-controles}
+
+El programa que calcula la capa probabilística se detiene si falla cualquiera
+de los controles siguientes. Comprueban que se reproduce lo ya establecido
+(controles 1 y 2), que no hay fuga de información del futuro (3 y 5) y que
+el método se comporta como debe en una situación de respuesta conocida (4).
+
+\begin{enumerate}
+	\item \textbf{Reproducción de lo ya guardado.} El ingenuo reproduce su MAE
+	de validación con una tolerancia de 0,5~MW. El SARIMAX, reajustado,
+	reproduce sus previsiones oficiales con una diferencia máxima inferior a
+	$10^{-6}$~MW; si no ocurriera, el programa se detiene y se informa, no se
+	sustituye en silencio. En LightGBM, los modelos de los cuantiles 0,05 y
+	0,95 de la rejilla son idénticos a los que dieron el intervalo propio
+	(diferencia cero). La demanda real es idéntica a la del conjunto de datos
+	en todos los archivos, y hay 8760 filas sin valores nulos.
+	\item \textbf{ACI sin retardo equivale a la librería.} Con retroalimentación
+	inmediata y datos sintéticos, la trayectoria de $\alpha_t$ de la recursión
+	propia coincide bit a bit con la de la función de actualización de MAPIE.
+	Así se comprueba que la única diferencia entre la recursión propia y la de
+	la librería es el retardo de la retroalimentación.
+	\item \textbf{Corte de causalidad de ACI.} Para varias fechas de corte, la
+	demanda real posterior al corte se sustituye por 10\,000~MW y se comprueba
+	que todos los intervalos emitidos con origen anterior o igual al corte son
+	idénticos. Como control positivo, una variante del procedimiento que viera
+	el día objetivo debe fallar esa misma prueba: así se sabe que la prueba
+	puede detectar una fuga.
+	\item \textbf{Comportamiento sintético.} Con errores independientes de
+	escala conocida, ACI con cada $\gamma$ de los candidatos cubre el
+	$0{,}90 \pm 0{,}02$. Con un salto de escala a mitad de la serie, recupera la
+	cobertura.
+	\item \textbf{Prueba de fuga de las salidas nuevas.} Se aplica a las
+	previsiones de los 17 modelos de cuantil adicionales de LightGBM, a la
+	segunda red de N-HiTS (19 salidas) y a las previsiones e intervalos
+	analíticos del SARIMAX la misma prueba de fuga que a las previsiones
+	puntuales (sección~\ref{sec:prot-fuga}), y debe dar cero días con
+	diferencias. Para 2024, con reajustes mensuales, se refuerza: se prueba el
+	modelo de cada mes sobre todos sus orígenes, en las seis salidas (ingenuo,
+	SARIMAX, LightGBM puntual, LightGBM de 19 cuantiles, N-HiTS oficial y N-HiTS de
+	19 salidas), y se añade una prueba del propio reajuste, para comprobar que
+	el entrenamiento ignora los datos posteriores a su origen.
+\end{enumerate}
+
+Antes de ejecutar nada con la demanda de 2023, el código se probó en un
+entorno separado con un arnés que sustituye esa demanda por datos inventados o
+por la de 364 días antes. Ninguna cifra impresa en esas pruebas dice nada de
+2023.
+
+% ---------------------------------------------------------------------
+\subsection{Reglas de lectura}\label{sec:prob-lectura}
+
+Las reglas con que se leen los resultados se fijaron antes de calcularlos, para
+que la interpretación no se acomode a las cifras.
+
+\begin{enumerate}
+	\item \textbf{Cobertura global del 90\,\%.} Se lee como \emph{bien
+	calibrada} si está entre el 88 y el 92\,\%, como \emph{infracobertura} por
+	debajo del 88\,\% y como \emph{sobrecobertura} por encima del 92\,\%. Los
+	$\pm 2$ puntos son orientativos, pues el error de muestreo de 308 días
+	autocorrelacionados ronda ese orden. Se da además el intervalo de confianza
+	del 95\,\% por \textit{bootstrap} de días y se indica si contiene el 90\,\%.
+	\item \textbf{Cobertura por bloque o por mes.} Se lee como distinta de la
+	global solo si difiere en más de cinco puntos.
+	\item \textbf{Asimetría.} Si el cociente entre los fallos por debajo del
+	límite inferior y los fallos por encima del superior es mayor que 2 o menor
+	que 0,5, el intervalo se lee como desplazado, es decir, sesgado, y no solo
+	estrecho.
+	\item \textbf{Diferencias de puntuación.} Una diferencia de puntuación de
+	intervalo o de CRPS entre dos modelos, o entre el intervalo propio y el de
+	ACI de un mismo modelo, es \emph{apreciable} solo si el intervalo de
+	confianza del 95\,\% por \textit{bootstrap} de días de la diferencia pareada
+	excluye el cero. En otro caso es \emph{no distinguible}.
+	\item \textbf{Mejora de ACI.} ACI mejora la calibración de un modelo si la
+	distancia entre su cobertura y el 90\,\% baja al menos un punto o si pasa de
+	estar fuera a estar dentro de la banda del 88 al 92\,\%. Mejora la
+	puntuación de intervalo según la regla anterior.
+	\item \textbf{Fiabilidad de la rejilla.} Una desviación máxima entre la
+	frecuencia observada y el nivel nominal de hasta 0,03 se lee como
+	\emph{buena}; hasta 0,06, como \emph{aceptable}; más, como \emph{mala}.
+	\item \textbf{Intervalos infinitos.} Más de un 2\,\% de horas con límite
+	infinito sustituido en un modelo se informa como defecto del método para
+	ese modelo.
+	\item \textbf{Resultados negativos.} Nada de esto cambia un modelo. Un
+	resultado negativo, como que ACI no mejore o empeore a la ventana móvil, se
+	informa tal cual.
+\end{enumerate}
+
+Las diferencias de puntuación se leen con el \textit{bootstrap} de días y no
+con el contraste de Diebold--Mariano, porque la puntuación de intervalo y el
+CRPS son puntuaciones de la distribución y no una pérdida del punto
+(sección~\ref{sec:prob-metricas}). La incertidumbre de todas las cifras se
+estima por \textit{bootstrap} de bloques de días, con 1000 réplicas y
+semilla 42: las horas de un mismo día están muy autocorrelacionadas, y
+remuestrear días respeta esa dependencia.
+
+% ---------------------------------------------------------------------
+\subsection{Limitaciones de la capa probabilística}\label{sec:prob-limites}
+
+La tabla~\ref{tab:limitaciones-probabilistica} recoge los límites que se
+declararon antes de calcular nada, y que complementan los de la modelización
+(tabla~\ref{tab:limitaciones-modelos}).
+
+{\small
+\begin{xltabular}{\textwidth}{>{\raggedright\arraybackslash}p{5.6cm} >{\raggedright\arraybackslash}X}
+	\caption{Limitaciones de la capa probabilística}
+	\label{tab:limitaciones-probabilistica} \\
+	\hline
+	\textbf{Limitación} & \textbf{Efecto esperado} \\
+	\hline
+	\endfirsthead
+	\multicolumn{2}{l}{\textit{(continuación)}} \\
+	\hline
+	\textbf{Limitación} & \textbf{Efecto esperado} \\
+	\hline
+	\endhead
+	\hline
+	\endfoot
+		Errores del ingenuo de 2017--2022 incluyen años distintos de 2023 (por ejemplo, la bajada de 2022) & Si 2023 se parece menos a esos años, su cobertura se resiente \\
+		SARIMAX: normalidad, varianza de innovación estimada en la muestra y parámetros tratados como conocidos & Intervalos posiblemente demasiado estrechos en las colas, que son más pesadas \\
+		LightGBM y N-HiTS: hiperparámetros elegidos con 2023 para la media o la mediana, no para las colas & Calibración de 2023 algo optimista y colas posiblemente mal ajustadas \\
+		La segunda red de N-HiTS es un sistema distinto de la oficial & Su rejilla puede no coincidir con el intervalo propio de la red oficial \\
+		ACI con retroalimentación retrasada de 24 a 48~h & La garantía de cobertura es solo aproximada \\
+		ACI ignora la forma de los intervalos propios y la variación dentro de un bloque y entre tipos de día; sus ventanas de ocho semanas mezclan laborables y festivos & Menos nitidez en días atípicos \\
+		El $\gamma$ de ACI se elige con los mismos datos de 2023 que se informan & Rendimiento de ACI en 2023 optimista \\
+		La rejilla de 19 niveles no ve las colas fuera de 0,025--0,975 & El CRPS aproximado queda por defecto, igual para los cuatro modelos \\
+		En 2024 los residuos iniciales de ACI son los de los modelos de 2023, y los modelos se reajustan cada mes & Los primeros meses de 2024 mezclan residuos de un modelo distinto del evaluado \\
+\end{xltabular}
+}
+
+\FloatBarrier
 
 % =====================================================================
 \section{Métricas y contrastes}\label{sec:metricas-contrastes}
@@ -1556,10 +1961,11 @@ previsiones de los cuatro modelos y los contrastes con los que se comparan,
 cuyos fundamentos se expusieron en la sección~\ref{sec:evaluacion}. Las
 métricas de precisión puntual se fijaron en el protocolo antes de ver ningún
 resultado y son las que se emplean en la selección de 2023 y en la
-evaluación final de 2024.
-% PENDIENTE (R2 y R3): subsecciones de métricas probabilísticas y del
-% contraste de Diebold-Mariano; al añadirlas, ampliar el párrafo anterior para
-% anunciar las tres partes.
+evaluación final de 2024. Las de la capa probabilística, cuyos fundamentos se
+expusieron en la sección~\ref{sec:probabilistica-teoria}, se definen a
+continuación de las puntuales.
+% PENDIENTE (R3): subsección del contraste de Diebold-Mariano; al añadirla,
+% ampliar el párrafo anterior para anunciar las tres partes.
 
 \subsection{Métricas de precisión puntual}\label{sec:metricas-puntuales}
 
@@ -1598,3 +2004,70 @@ Las previsiones de cada modelo se guardan hora a hora junto con la demanda
 observada, de modo que todas las métricas, los desgloses y los contrastes se
 calculan a partir de los mismos archivos con un único programa común a los
 cuatro modelos.
+
+% ---------------------------------------------------------------------
+% Subsección que se añade al final de la sección 4.5 (Métricas y contrastes),
+% después de «Métricas de precisión puntual».
+% ---------------------------------------------------------------------
+\subsection{Métricas probabilísticas}\label{sec:prob-metricas}
+
+Las métricas probabilísticas evalúan los intervalos propios del 90\,\%, los
+intervalos de ACI y las rejillas de cuantiles descritos en la
+sección~\ref{sec:probabilistica}. Se calculan sobre las mismas horas que las
+puntuales y en megavatios. En 2023 el conjunto de evaluación es el de los 308
+días del 27 de febrero al 31 de diciembre (7392 horas), que es lo que ACI
+emite; las métricas de los intervalos propios se dan en ese conjunto, para
+compararlas con ACI, y también en las 8760 horas del año. En 2024 es el año
+completo, 8784 horas, para todos los intervalos. El desglose por bloques
+usa los de la sección~\ref{sec:prob-principio}, que equivalen a franjas
+horarias.
+
+\paragraph{Cobertura.} Es la proporción de horas en que la demanda cae dentro
+del intervalo, $l_t \le y_t \le u_t$, con $l_t$ y $u_t$ los límites inferior y
+superior. Se informa de forma global, por bloque y por mes, con un intervalo de
+confianza del 95\,\% por \textit{bootstrap} de bloques de días (1000
+réplicas, semilla 42). Se informan también por separado la proporción de fallos
+por debajo del límite inferior ($y_t < l_t$) y por encima del superior
+($y_t > u_t$), que distinguen un intervalo estrecho de uno desplazado.
+
+\paragraph{Anchura.} Es la diferencia $u_t - l_t$, de la que se da la media, la
+mediana y la media relativa a la demanda real. La anchura se lee siempre junto
+con la cobertura: un intervalo estrecho que no cubre no es mejor que uno ancho
+que sí cubre (sección~\ref{sec:probabilistica-teoria}).
+
+\paragraph{Puntuación de intervalo.} Es la puntuación de intervalo de
+\textcite{gneiting2007strictly} con $\alpha = 0{,}10$:
+\[
+\mathrm{IS}_t = (u_t - l_t) + \frac{2}{\alpha}\,(l_t - y_t)^{+} + \frac{2}{\alpha}\,(y_t - u_t)^{+},
+\]
+donde $(x)^{+} = \max(x, 0)$. Suma la anchura y una penalización proporcional a
+cuánto se queda fuera la demanda, de modo que recompensa a la vez la
+cobertura y la nitidez. Se informa de su media sobre las horas. Es igual a 20
+veces la suma de las pérdidas de pinball de los cuantiles 0,05 y 0,95, que se
+informan también por separado.
+
+\paragraph{CRPS aproximado por la rejilla.} Con la rejilla de 19 cuantiles,
+$\tau_k = k/20$, el CRPS se aproxima por la suma de Riemann de
+$\mathrm{CRPS} = 2\int_0^1 \rho_\tau\,d\tau$ con paso 0,05:
+\[
+\mathrm{CRPS}_{19} = \frac{2}{20}\sum_{k=1}^{19} \rho_{\tau_k}\bigl(y_t, q_{\tau_k}\bigr),
+\qquad
+\rho_\tau(y, q) = (y - q)\bigl(\tau - \mathbf{1}\{y < q\}\bigr),
+\]
+donde $q_{\tau_k}$ es el cuantil $\tau_k$ previsto. La aproximación omite las
+colas fuera de 0,025--0,975, de modo que queda por defecto, y no es el CRPS
+exacto. Es igual para los cuatro modelos y comparable entre ellos, y se llama
+\enquote{CRPS$_{19}$} en las tablas para no confundirla con el exacto.
+
+\paragraph{Fiabilidad de la rejilla.} Para cada nivel $\tau_k$ se calcula la
+frecuencia observada con que la demanda queda por debajo del cuantil previsto,
+$y_t \le q_{\tau_k}$. Si el modelo está bien calibrado, esa frecuencia es $\tau_k$.
+Se presenta en una tabla y en un diagrama de fiabilidad por modelo, y se
+resume con la desviación máxima $\max_k |\text{frecuencia}_k - \tau_k|$.
+
+\paragraph{Después de ACI.} Las mismas métricas se calculan con el intervalo de
+ACI y, para el CRPS$_{19}$ y la fiabilidad, con los cuantiles de ACI de la
+sección~\ref{sec:prob-aci}. Las diferencias entre modelos, y entre el intervalo
+propio y el de ACI de un mismo modelo, se estiman por \textit{bootstrap} de
+días sobre la diferencia pareada de las puntuaciones y se leen con las reglas de
+la sección~\ref{sec:prob-lectura}.

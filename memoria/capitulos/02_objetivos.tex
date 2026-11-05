@@ -74,9 +74,9 @@ reproducibilidad.
 	\item[\textbf{OE7.}] Generar intervalos de predicción para cada modelo, en
 	primer lugar con el procedimiento propio de cada uno (intervalos analíticos
 	del SARIMAX, regresión cuantílica en LightGBM y N-HiTS, y cuantiles empíricos
-	del error de validación en el método ingenuo) y, en segundo lugar, mediante
-	recalibración con inferencia conforme adaptativa (ACI) aplicada de manera
-	uniforme a todos ellos; y evaluar su calidad con la pérdida pinball, el CRPS,
+	de sus errores pasados en el método ingenuo) y, en segundo lugar, mediante
+	inferencia conforme adaptativa (ACI), aplicada de manera uniforme a todos
+	ellos con los residuos recientes de su previsión puntual; y evaluar su calidad con la pérdida pinball, el CRPS,
 	la cobertura empírica frente a la nominal, la anchura media y los diagramas
 	de fiabilidad.
 	
@@ -95,7 +95,7 @@ Respecto a la propuesta aprobada, estos objetivos mantienen su estructura y
 su numeración lógica, con las siguientes acotaciones: el horizonte se fija
 en el día siguiente, el periodo se establece en 2017-2024, los modelos de
 suavizado exponencial, TBATS y \textit{Temporal Fusion Transformer} se tratan
-en el marco teórico pero no se implementan, la recalibración conforme se
+en el marco teórico pero no se implementan, la predicción conforme se
 limita al método ACI y la lectura económica del error de previsión queda como
 línea de trabajo futuro. La justificación de cada acotación se expone en el
 marco metodológico.
@@ -124,7 +124,7 @@ modelo que resulte preferible.
 		OE4 & LightGBM y N-HiTS producen previsiones para todo el periodo de prueba con la temperatura como covariable, y la memoria recoge los hiperparámetros finales y el espacio de búsqueda explorado. \\
 		OE5 & El protocolo queda descrito en el marco metodológico con los orígenes de previsión, las variables exógenas comunes, el horizonte y el presupuesto de búsqueda, y se aplica sin excepción a los cuatro modelos. \\
 		OE6 & Existe una tabla con MAE, RMSE, MAPE y MASE de cada modelo sobre 2024 completo y una matriz de $p$-valores del test de Diebold-Mariano para cada par de modelos. \\
-		OE7 & Para cada modelo se reportan cobertura empírica, anchura media, pérdida pinball y CRPS de los intervalos al 90\,\% antes y después de aplicar ACI, junto con sus diagramas de fiabilidad. \\
+		OE7 & Para cada modelo se reportan cobertura empírica, anchura media, pérdida pinball y CRPS de los intervalos al 90\,\%, tanto los propios de cada modelo como los de ACI, junto con sus diagramas de fiabilidad. \\
 		OE8 & Las métricas de precisión y de calibración se presentan desglosadas por hora del día y por tipo de día, y la discusión identifica los regímenes en los que cambia el modelo preferible. \\
 		OE9 & El repositorio público contiene el código, las semillas, las particiones y las dependencias fijadas, y permite reproducir las tablas de resultados de la memoria. \\
 		\hline

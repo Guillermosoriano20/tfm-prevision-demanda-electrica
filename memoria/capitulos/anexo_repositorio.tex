@@ -1,0 +1,36 @@
+% =====================================================================
+% Anexo A. Repositorio de código (R2, 04/11/2026)
+% Pendiente antes de la entrega: hacer público el repositorio (hoy es
+% privado), revisar secretos y rutas personales en el historial y en los
+% archivos de resultados, y citar el commit definitivo.
+% =====================================================================
+\chapter{Repositorio de código y reproducibilidad}\label{anexo:repositorio}
+
+El código del trabajo, el protocolo de comparación y las tablas de resultados
+que se presentan en la memoria están en un repositorio de GitHub:
+
+\begin{center}
+	\url{https://github.com/Guillermosoriano20/tfm-prevision-demanda-electrica}
+\end{center}
+
+\paragraph{Contenido.} El repositorio contiene los \textit{scripts} que
+descargan y construyen el conjunto de datos, los que ajustan y evalúan los
+cuatro modelos y los que calculan la capa probabilística y el desglose de los
+resultados; el protocolo de comparación, con las decisiones de cada fase
+fechadas antes de ejecutarla; y los archivos CSV de resultados en los que se
+apoyan las tablas y las figuras de los capítulos~\ref{cap:metodologia}
+y~\ref{cap:resultados}. Las semillas están fijadas en el código y las versiones
+de las librerías, en el archivo de dependencias, con lo que se persigue que los
+resultados puedan reproducirse.
+
+\paragraph{Lo que no contiene.} No se publican los datos de entrada ni los
+resultados intermedios, que ocupan decenas de megabytes y se regeneran con los
+\textit{scripts} a partir de las fuentes (sección~\ref{sec:datos}). La descarga
+de la demanda de Red Eléctrica exige un \textit{token} personal gratuito
+de la API de e·sios, que se guarda en un archivo local de variables de entorno,
+excluido del repositorio. La huella de contenido del conjunto
+(tabla~\ref{tab:control}) permite comprobar que el conjunto regenerado es
+idéntico al empleado.
+
+\paragraph{Versión citada.} La memoria corresponde al estado del repositorio en
+el commit indicado en la entrega.

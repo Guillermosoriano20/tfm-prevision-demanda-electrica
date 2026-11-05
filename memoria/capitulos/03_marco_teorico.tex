@@ -1,7 +1,7 @@
 % =====================================================================
 % Capítulo 3. Marco teórico y estado del arte
 % Estado: 3.1, 3.2 y 3.3 redactadas (06/10/2026); 3.4, 3.5 y 3.6 redactadas
-% (15/10/2026, sesión R1); 3.7 y 3.8 pendientes (R2 y R3).
+% (15/10/2026, sesión R1); 3.7 redactada (04/11/2026, sesión R2); 3.8 pendiente (R3).
 % =====================================================================
 
 \chapter{Marco teórico y estado del arte}\label{cap:marco-teorico}
@@ -948,3 +948,114 @@ contraste no requiere que los errores sean normales ni que tengan media
 nula, y se aplica a las previsiones, no a los modelos: compara su precisión
 en un periodo concreto con una pérdida concreta. Su aplicación en este
 trabajo se describe en el marco metodológico.
+
+% =====================================================================
+\section{Previsión probabilística y calibración}\label{sec:probabilistica-teoria}
+
+Una previsión puntual dice cuánto se espera que valga la demanda; no dice
+cuánto puede equivocarse. Para quien opera el sistema eléctrico, la segunda
+información es tan útil como la primera: no es lo mismo cubrir una punta de
+demanda prevista con un margen de 200~MW que con uno de 2000. La previsión
+probabilística responde a esa necesidad entregando, en lugar de un número,
+una distribución o un resumen de ella, como un intervalo o un conjunto de
+cuantiles. \textcite{hong2016probabilistic} revisan su desarrollo en la
+previsión de la carga eléctrica. Esta sección presenta los criterios con que se
+juzga una previsión probabilística, las puntuaciones que los miden y el método
+conforme adaptativo que se emplea en el trabajo para construir intervalos.
+
+\subsection{Calibración y nitidez}\label{sec:calibracion-nitidez}
+
+\textcite{gneiting2007probabilistic} proponen juzgar una previsión
+probabilística por dos propiedades. La \emph{calibración} es la coherencia
+estadística entre lo previsto y lo observado: un cuantil de nivel $\tau$ está
+calibrado si la demanda queda por debajo de él una proporción $\tau$ de las
+veces, y un intervalo del 90\,\% está calibrado si contiene la demanda el
+90\,\% de las veces. La \emph{nitidez} es la concentración de la distribución
+prevista, es decir, la estrechez de los intervalos; depende solo de la
+previsión, no de lo observado. El principio que formulan es maximizar la
+nitidez sujeta a la calibración. Si no se exigiera lo primero, la solución
+sería siempre un intervalo ancho; si no se exigiera lo segundo, un intervalo
+estrecho que casi nunca contiene la demanda.
+
+La calibración se comprueba con la \emph{cobertura} de los intervalos y con el
+\emph{diagrama de fiabilidad}, que para cada nivel $\tau$ de una rejilla de
+cuantiles representa la frecuencia con que la demanda queda por debajo del
+cuantil previsto. Un modelo calibrado dibuja la diagonal. Las desviaciones
+tienen una lectura directa: una curva por encima de la diagonal indica que
+el cuantil previsto es demasiado alto, y por debajo, demasiado bajo. La
+cobertura de un intervalo central distingue además entre los fallos por
+debajo y por encima del intervalo, que dicen si el intervalo es estrecho o
+está desplazado.
+
+\subsection{Puntuaciones de cuantiles e intervalos}\label{sec:puntuaciones}
+
+Calibración y nitidez no se resumen en un solo número, pero una puntuación
+adecuada las combina. Una regla de puntuación es \emph{propia} si el valor
+esperado de la pérdida se minimiza cuando la distribución prevista es la
+verdadera, y \emph{estrictamente propia} si ese mínimo es único
+\parencite{gneiting2007strictly}. Esa propiedad impide que un modelo mejore su
+puntuación declarando una distribución distinta de la que cree.
+
+El cuantil de nivel $\tau$ se estima minimizando la \emph{pérdida de pinball},
+también llamada pérdida de cuantil \parencite{koenker1978regression}:
+\begin{equation}
+	\rho_\tau(y, q) = (y - q)\bigl(\tau - \mathbf{1}\{y < q\}\bigr),
+\end{equation}
+que penaliza con peso $\tau$ las desviaciones por exceso de la demanda sobre el
+cuantil previsto $q$ y con peso $1 - \tau$ las desviaciones por defecto. Para
+$\tau = 0{,}5$ es la mitad del error absoluto, lo que conecta con la
+sección~\ref{sec:metricas}: minimizar el MAE equivale a prever la mediana. Es
+la pérdida con que se entrenan los modelos de regresión por cuantiles de
+LightGBM y de N-HiTS en este trabajo.
+
+Dos puntuaciones resumen una previsión probabilística. La primera es el
+\emph{CRPS}, la puntuación de probabilidad ordenada continua, que es una regla
+estrictamente propia sobre la distribución completa y se puede escribir como el
+doble de la integral de la pérdida de pinball sobre todos los niveles. Cuando
+solo se dispone de una rejilla finita de cuantiles, se aproxima por una suma
+de Riemann, que es la que emplea el marco metodológico
+(sección~\ref{sec:prob-metricas}). La segunda es la \emph{puntuación de
+intervalo} de \textcite{gneiting2007strictly}, que evalúa un único intervalo
+central: suma su anchura y una penalización proporcional a cuánto se queda
+fuera la demanda. Premia a la vez la cobertura y la nitidez, y para un
+intervalo central equivale a la suma, escalada, de las pérdidas de pinball de
+sus dos cuantiles extremos. Para ambas, valores menores son mejores, y se
+expresan en las unidades de la serie.
+
+\subsection{Predicción conforme y ACI}\label{sec:conforme}
+
+Los intervalos de un modelo dependen de que su distribución de errores sea
+correcta, y eso suele ser lo más frágil: un modelo gaussiano supone
+normalidad, y uno de cuantiles se ajusta en entrenamiento, donde el error es
+menor que fuera de muestra. La \emph{predicción conforme} ofrece una
+alternativa que no supone ninguna distribución. Dado un modelo puntual, se
+reservan unos datos de calibración, se calculan los errores que el modelo
+comete en ellos y se toma el cuantil adecuado de esos errores como semianchura
+del intervalo. La cobertura marginal queda garantizada en muestras finitas,
+pero bajo un supuesto de \emph{intercambiabilidad}: los datos de calibración y
+los nuevos deben comportarse como una muestra aleatoria, sin que importe el
+orden. Una serie temporal incumple el supuesto por dos razones. Sus errores
+están autocorrelacionados y su distribución cambia con el tiempo, por ejemplo
+entre una estación y otra o tras una perturbación.
+
+La \emph{inferencia conforme adaptativa} (ACI) de \textcite{gibbs2021adaptive}
+ataca el segundo problema. En lugar de fijar el nivel de error $\alpha$ con
+que se construye el intervalo, lo actualiza paso a paso: si el último
+intervalo emitido no contuvo la observación, el nivel disminuye y el siguiente
+intervalo se ensancha; si la contuvo, aumenta y se estrecha. Un parámetro
+$\gamma$ controla la rapidez de la adaptación. Lo que garantiza el método es
+que la frecuencia de fallos a largo plazo se aproxima al nivel deseado sin
+ningún supuesto sobre cómo cambia la distribución de los datos, con una
+desviación que disminuye con el número de pasos y es mayor cuanto menor es
+$\gamma$. Esa garantía se formula para una retroalimentación inmediata, en la que se
+conoce el resultado de cada intervalo antes de emitir el siguiente. En
+este trabajo el resultado llega con un retardo de uno a dos días, y la
+garantía solo se mantiene de forma aproximada; el punto se retoma en la
+sección~\ref{sec:prob-aci}.
+
+Otras propuestas abordan la dependencia temporal de otro modo.
+\textcite{xu2021conformal} construyen los intervalos con un conjunto de
+predictores entrenados sobre remuestreos de la serie y los actualizan a
+medida que se observan nuevos datos. En este trabajo se emplea ACI, que opera sobre las
+previsiones puntuales ya obtenidas sin entrenar ningún modelo adicional, lo
+que permite aplicar el mismo procedimiento a los cuatro modelos.

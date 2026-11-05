@@ -149,8 +149,8 @@ predicción son fiables. El criterio de referencia consiste en maximizar la
 nitidez de las previsiones probabilísticas, es decir, obtener intervalos lo
 más estrechos posible, con la condición de que estén calibrados
 \parencite{gneiting2007probabilistic}. La predicción conforme ofrece un
-mecanismo para recalibrar los intervalos que produce cualquier modelo sin
-imponer supuestos sobre la distribución de sus errores. Su aplicación a series
+mecanismo para construir intervalos en torno a la previsión puntual de
+cualquier modelo sin imponer supuestos sobre la distribución de sus errores. Su aplicación a series
 temporales, en las que no se cumple la intercambiabilidad de los datos que
 exige la teoría conforme clásica, ha dado lugar a variantes específicas, entre
 ellas la inferencia conforme adaptativa (ACI), diseñada para mantener la
@@ -262,8 +262,8 @@ horizonte y el mismo presupuesto máximo de configuraciones evaluadas en
 validación, fijado y documentado de antemano. El segundo
 es una evaluación conjunta de la precisión puntual, con contrastes de
 significación de Diebold-Mariano \parencite{diebold1995comparing}, y de la calibración de los intervalos de
-predicción, antes y después de recalibrarlos con ACI de forma uniforme para
-todos los modelos. El tercero es el desglose de los resultados por hora del
+predicción, tanto los propios de cada modelo como los que se construyen con
+ACI de forma uniforme para todos los modelos. El tercero es el desglose de los resultados por hora del
 día y tipo de día, que permite identificar en qué situaciones concretas
 resulta preferible cada enfoque, en lugar de limitarse a promedios agregados.
 El código, las semillas y las particiones temporales se publican para
