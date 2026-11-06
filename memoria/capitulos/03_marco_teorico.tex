@@ -1,7 +1,8 @@
 % =====================================================================
 % Capítulo 3. Marco teórico y estado del arte
 % Estado: 3.1, 3.2 y 3.3 redactadas (06/10/2026); 3.4, 3.5 y 3.6 redactadas
-% (15/10/2026, sesión R1); 3.7 redactada (04/11/2026, sesión R2); 3.8 pendiente (R3).
+% (15/10/2026, sesión R1); 3.7 redactada (04/11/2026, sesión R2); 3.8 y refinamientos del
+% contraste de Diebold-Mariano en 3.6 redactados (06/11/2026, sesión R3).
 % =====================================================================
 
 \chapter{Marco teórico y estado del arte}\label{cap:marco-teorico}
@@ -946,8 +947,22 @@ la varianza de largo plazo, en lugar de la fórmula para observaciones
 independientes, que la subestimaría y produciría rechazos espurios. El
 contraste no requiere que los errores sean normales ni que tengan media
 nula, y se aplica a las previsiones, no a los modelos: compara su precisión
-en un periodo concreto con una pérdida concreta. Su aplicación en este
-trabajo se describe en el marco metodológico.
+en un periodo concreto con una pérdida concreta.
+
+Tres refinamientos son de uso habitual. El primero es el estimador de la
+varianza de largo plazo. El de \textcite{newey1987simple} pondera las
+autocovarianzas del diferencial con pesos decrecientes hasta un número de
+retardos que se fija de antemano (pesos de Bartlett) y da siempre una varianza
+no negativa. El segundo es la corrección de muestra pequeña: con pocas
+observaciones, el contraste original tiende a rechazar la hipótesis nula con
+demasiada frecuencia, y \textcite{harvey1997testing} proponen corregir el
+estadístico y compararlo con una distribución $t$ de Student en lugar de la
+normal. El tercero es la comparación de varios pares de modelos a la vez, que
+aumenta la probabilidad de algún falso positivo. El procedimiento de
+\textcite{holm1979simple} ajusta los p-valores de forma secuencial para
+controlar esa probabilidad sin suponer que los contrastes sean independientes.
+Su aplicación en este trabajo se describe en la
+sección~\ref{sec:contraste-dm}.
 
 % =====================================================================
 \section{Previsión probabilística y calibración}\label{sec:probabilistica-teoria}
@@ -1059,3 +1074,124 @@ predictores entrenados sobre remuestreos de la serie y los actualizan a
 medida que se observan nuevos datos. En este trabajo se emplea ACI, que opera sobre las
 previsiones puntuales ya obtenidas sin entrenar ningún modelo adicional, lo
 que permite aplicar el mismo procedimiento a los cuatro modelos.
+
+
+% =====================================================================
+\section{Estado del arte en la previsión de la demanda eléctrica}\label{sec:estado-arte}
+
+Esta sección sitúa el trabajo en la literatura. No pretende ser una revisión
+sistemática: reúne las referencias necesarias para ver qué sabe la comunidad
+sobre el rendimiento relativo de los métodos estadísticos y de aprendizaje
+automático, y en qué puntos esa evidencia es débil. Recorre primero las
+competiciones de previsión, que son la fuente más abundante de comparaciones
+controladas; resume después la evidencia comparativa; señala las dos
+carencias que motivan el trabajo, ya anunciadas en la
+sección~\ref{sec:carencias}, y termina indicando cómo las aborda.
+
+\subsection{Competiciones de previsión}\label{sec:competiciones}
+
+Las competiciones fijan los datos, el horizonte y la métrica de antemano y
+miden a todos los participantes con la misma regla, lo que las convierte en el
+material más fiable para comparar métodos. En previsión de carga, las más
+conocidas son las \textit{Global Energy Forecasting Competition}. La de 2012
+tuvo dos pistas, previsión jerárquica de carga y de potencia eólica, y publicó
+sus datos, incluidas las soluciones, como referencia abierta para la comunidad
+\parencite{hong2014gefcom2012}. La de 2014 tuvo cuatro pistas (carga, precio,
+viento y energía solar) y reunió a 581 participantes de 61 países
+\parencite{hong2016gefcom2014}. Ese artículo señala que la mayor parte de la
+investigación en previsión energética sigue centrada en previsiones de un solo
+valor.
+
+Fuera del ámbito energético, las competiciones M de Makridakis son la
+referencia general. La cuarta, M4, usó 100\,000 series de distintos dominios,
+comparó 61 métodos y, a diferencia de las anteriores, evaluó también los
+intervalos de predicción además de las previsiones puntuales
+\parencite{makridakis2020m4}. Su ganador fue un método híbrido que combina el
+suavizado exponencial con redes recurrentes de tipo LSTM
+\parencite{smyl2020hybrid}. Dos cautelas limitan lo que se puede trasladar de
+estas competiciones a este trabajo. Las series de M4 no son demanda eléctrica
+horaria, con sus tres estacionalidades y su dependencia de la temperatura, y
+las de GEFCom son de otros sistemas y otros periodos. Por eso sirven como
+contexto del método y no como evidencia sobre el problema que se estudia aquí.
+
+\subsection{Evidencia comparativa entre métodos estadísticos y de aprendizaje automático}\label{sec:evidencia}
+
+La evidencia es mixta. \textcite{makridakis2018statistical} compararon varios
+métodos populares de aprendizaje automático con ocho métodos estadísticos sobre
+1045 series mensuales de la competición M3 y encontraron que los primeros
+quedaban por detrás en todas las métricas y horizontes analizados, con un coste
+computacional considerablemente mayor; defendieron entonces que hacían falta
+comparaciones abiertas y objetivas. El resultado de M4, en cambio, favoreció a
+un método que incorpora redes neuronales, aunque lo hizo dentro de una
+estructura estadística de suavizado exponencial \parencite{smyl2020hybrid}.
+Entre las arquitecturas profundas de la sección~\ref{sec:dl}, N-BEATS y N-HiTS
+declaran mejoras frente a los métodos anteriores en sus propios conjuntos de
+datos \parencite{oreshkin2020nbeats,challu2023nhits}. En previsión de largo
+horizonte, \textcite{zeng2023transformers} mostraron que modelos lineales de una
+sola capa superaban a las arquitecturas basadas en transformadores en nueve
+conjuntos de datos reales, lo que invita a no dar por supuesto que una
+arquitectura más compleja rinda más.
+
+En previsión de carga a corto plazo, los modelos clásicos no son un listón
+abandonado. \textcite{cancelo2008forecasting} describen el sistema que usaba
+entonces el propio operador del sistema eléctrico español, Red Eléctrica de
+España, formado por un modelo diario y 24 modelos horarios de estructura
+común. \textcite{taylor2003short} adaptó el suavizado exponencial de Holt-Winters
+a dos estacionalidades (sección~\ref{sec:tbats}). La lectura que se desprende
+es la de la sección~\ref{sec:carencias}: la ventaja de los métodos más
+complejos tiene que demostrarse en cada problema, con una comparación en la que
+todos los modelos partan en igualdad de condiciones.
+
+\subsection{Carencias que motivan el trabajo}\label{sec:carencias-literatura}
+
+La primera carencia es la falta de equidad en las comparaciones. Las
+diferencias entre dos modelos solo se pueden atribuir al método si los dos
+disponen de la misma información, del mismo horizonte y de un esfuerzo de ajuste
+comparable. \textcite{hewamalage2023forecast} señalan que los investigadores de
+aprendizaje automático adoptan con frecuencia prácticas de evaluación
+defectuosas, que pueden hacer que un método poco competitivo lo parezca, y
+dedican su guía a la partición de los datos, el cálculo del error y el contraste
+estadístico. Esas son, precisamente, las decisiones que un protocolo de
+comparación debe fijar antes de ver los resultados.
+
+La segunda carencia es la restricción de la evaluación al error puntual. La previsión
+probabilística de la demanda se ha desarrollado con rapidez
+\parencite{hong2016probabilistic}, y sin embargo la comparación entre familias de
+modelos se sigue haciendo sobre todo con métricas puntuales, y rara vez se
+comprueba además si los intervalos de cada modelo están calibrados
+(sección~\ref{sec:calibracion-nitidez}). Esta última afirmación procede de las
+referencias consultadas para este trabajo y no de una búsqueda exhaustiva, de
+modo que debe leerse con esa cautela.
+
+\subsection{Posición del trabajo}\label{sec:posicion}
+
+El trabajo no propone un método nuevo. Su aportación es una comparación
+controlada, con un único protocolo, de un modelo clásico de series temporales
+con estacionalidad múltiple (SARIMAX con regresión armónica), un método de
+\textit{boosting} (LightGBM) y una red profunda (N-HiTS), frente a un listón
+común, el ingenuo estacional. La tabla~\ref{tab:carencias-respuesta} resume cómo
+se aborda cada carencia.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Carencias de la literatura y respuesta del trabajo}
+	\label{tab:carencias-respuesta}
+	\small
+	\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.6cm}}
+		\hline
+		\textbf{Carencia} & \textbf{Cómo se aborda} & \textbf{Dónde} \\
+		\hline
+		Comparaciones no equitativas & Mismas variables, horizonte, regla de información y presupuesto de búsqueda para los cuatro modelos; 2023 para elegir y 2024 para evaluar una sola vez; pruebas de fuga de información con control positivo; contraste de Diebold--Mariano con corrección de muestra pequeña y de comparaciones múltiples & Secciones~\ref{sec:protocolo} y~\ref{sec:metricas-contrastes} \\
+		Evaluación solo puntual & Intervalos propios de cada modelo, rejilla de 19 cuantiles, puntuación de intervalo y CRPS aproximado, diagramas de fiabilidad e intervalos conformes adaptativos (ACI) comunes a los cuatro & Secciones~\ref{sec:probabilistica} y~\ref{sec:prob-metricas} \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+La comparación tiene límites que se declaran ya y se retoman en las
+conclusiones. Estudia un solo sistema, el peninsular español, y un solo año de
+evaluación. Usa temperaturas de un reanálisis como si fueran previsiones
+perfectas, de modo que la ventaja de los modelos que más dependen de la
+temperatura podría reducirse con previsiones meteorológicas reales. Y los
+hiperparámetros de LightGBM y de N-HiTS se eligieron con 2023, lo que los
+favorece en 2023, pero no en 2024. Nada de ello impide la
+comparación, pero acota lo que se puede afirmar con ella.

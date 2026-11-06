@@ -4,7 +4,8 @@
 % sección de métricas y contrastes redactadas (15/10/2026, sesión R1);
 % diseño de la capa probabilística (4.4) y métricas probabilísticas
 % redactadas (04/11/2026, sesión R2).
-% Pendientes: Diebold-Mariano (R3) y entorno y reproducibilidad (R4).
+% Contraste de Diebold-Mariano y reglas puntuales redactados (06/11/2026, sesión R3).
+% Pendiente: entorno y reproducibilidad (R4).
 % =====================================================================
 
 \chapter{Marco metodológico}\label{cap:metodologia}
@@ -1963,9 +1964,8 @@ métricas de precisión puntual se fijaron en el protocolo antes de ver ningún
 resultado y son las que se emplean en la selección de 2023 y en la
 evaluación final de 2024. Las de la capa probabilística, cuyos fundamentos se
 expusieron en la sección~\ref{sec:probabilistica-teoria}, se definen a
-continuación de las puntuales.
-% PENDIENTE (R3): subsección del contraste de Diebold-Mariano; al añadirla,
-% ampliar el párrafo anterior para anunciar las tres partes.
+continuación de las puntuales, y la sección termina con el contraste de
+Diebold--Mariano y las reglas con que se leen las diferencias puntuales.
 
 \subsection{Métricas de precisión puntual}\label{sec:metricas-puntuales}
 
@@ -2071,3 +2071,70 @@ sección~\ref{sec:prob-aci}. Las diferencias entre modelos, y entre el intervalo
 propio y el de ACI de un mismo modelo, se estiman por \textit{bootstrap} de
 días sobre la diferencia pareada de las puntuaciones y se leen con las reglas de
 la sección~\ref{sec:prob-lectura}.
+
+% ---------------------------------------------------------------------
+\subsection{Contraste de Diebold--Mariano y reglas de lectura puntuales}\label{sec:contraste-dm}
+
+Las diferencias de precisión puntual entre modelos se contrastan con el
+contraste de \textcite{diebold1995comparing}, cuyo fundamento se expuso en la
+sección~\ref{sec:diebold-mariano}. Se aplica solo a la evaluación final de
+2024, y se detalla aquí lo que se fijó antes de ver ninguna cifra.
+
+\paragraph{Pérdida y unidad de análisis.} La unidad es el día. Para cada día
+objetivo se promedia la pérdida de sus horas y el diferencial es la
+diferencia de esas pérdidas diarias entre los dos modelos, de modo que $n = 366$
+en 2024. Se promedia por días porque las horas de un mismo día comparten errores
+muy correlacionados, y tratarlas como independientes inflaría la
+significación. La pérdida principal es el error absoluto, coherente con el MAE y
+con el criterio de selección de la sección~\ref{sec:protocolo}; como control de
+robustez se repite todo con el error cuadrático, coherente con el RMSE.
+
+\paragraph{Varianza y corrección de muestra pequeña.} La varianza de largo plazo
+del diferencial se estima con el método de \textcite{newey1987simple}, con
+pesos de Bartlett y 7 retardos diarios. Se eligió 7 porque la dependencia de
+los errores diarios tiene memoria semanal (la demanda se parece más a la de la misma hora de la semana anterior que a la
+del día anterior, sección~\ref{sec:explo-acf}) y la meteorología
+persiste varios días; como sensibilidad se informa también con 3 y 14 retardos.
+El estadístico se corrige con el factor de \textcite{harvey1997testing} para un
+horizonte de un día, $\mathrm{DM}^{*} = \mathrm{DM}\,\sqrt{(n-1)/n}$, y se
+contrasta con una distribución $t$ de Student de $n - 1$ grados de libertad, a
+dos colas.
+
+\paragraph{Seis pares y ajuste de Holm.} Con cuatro modelos hay seis pares. Se
+informan los p-valores ajustados por el procedimiento de \textcite{holm1979simple},
+que controla la probabilidad de algún falso positivo entre las seis
+comparaciones, y la lectura usa los ajustados.
+
+\paragraph{Controles del contraste.} Antes de aplicarlo a 2024, el programa
+comprueba el contraste con datos sintéticos de 366 días: con diferenciales
+independientes de media cero, la tasa de rechazo al 5\,\% debe estar entre el 3
+y el 8\,\%; con una diferencia de $-0{,}3$ desviaciones típicas por día debe
+rechazar en más del 80\,\% de las réplicas; y con autocorrelación AR(1) de 0,5,
+el retardo 7 debe mantener la tasa de rechazo por debajo del 10\,\%. Los tres
+controles se superaron (5,0\,\%, 100\,\% y 7,6\,\%, respectivamente).
+
+\paragraph{Reglas de lectura.} Se fijaron antes de calcular nada, y son las
+siguientes.
+\begin{enumerate}
+	\item Una diferencia entre dos modelos es \emph{apreciable} si el p-valor
+	ajustado de Diebold--Mariano con pérdida absoluta y 7 retardos es menor que
+	0,05, y \emph{no distinguible} en otro caso. Si la pérdida cuadrática lleva
+	a otra conclusión, se dice. El orden de los cuatro modelos por MAE solo se
+	llama \enquote{establecido} si los tres pares consecutivos son apreciables.
+	\item El sesgo es \emph{apreciable} si su valor absoluto supera los
+	150~MW.
+	\item La comparación con 2023 es solo descriptiva, sin contraste: un cambio
+	relativo del MAE entre $-10$ y $+10$\,\% se lee como \emph{similar}; por
+	encima de $+10$\,\%, como \emph{peor que en la validación}; y por debajo de
+	$-10$\,\%, como \emph{mejor}.
+	\item Un resultado negativo, como que un modelo no mejore al ingenuo, se
+	informa tal cual.
+\end{enumerate}
+
+\paragraph{Límites.} El contraste anual promedia los meses y no detecta que el
+orden de dos modelos cambie de uno a otro; por eso se mira además el MAE por
+mes. La comparación con 2023 mezcla el efecto del año con el del reajuste
+mensual, y con la \enquote{maldición del ganador}, porque los hiperparámetros de
+LightGBM y de N-HiTS se eligieron con 2023: el trabajo no puede separar esas
+causas. Tampoco hay un control sin reajuste, que habría permitido medir su
+efecto, porque queda fuera del alcance fijado en el protocolo.

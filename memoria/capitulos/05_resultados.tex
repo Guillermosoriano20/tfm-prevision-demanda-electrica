@@ -1,7 +1,8 @@
 % =====================================================================
 % Capítulo 5. Desarrollo, análisis y resultados
 % Estado: 5.1 redactada (06/10/2026); 5.2 redactada (15/10/2026, sesión R1);
-% 5.3 redactada (04/11/2026, sesión R2); 5.4 en adelante pendientes (R3 y R4).
+% 5.3 redactada (04/11/2026, sesión R2); 5.4 y 5.5 redactadas (06/11/2026,
+% sesión R3); 5.6 en adelante pendientes (R4).
 % Figuras de 5.1: definitivas (07/10/2026), generadas por src/14_exploracion.py
 % directamente en memoria/figuras/.
 % =====================================================================
@@ -1181,3 +1182,444 @@ Estos resultados son optimistas en el sentido ya señalado: los hiperparámetros
 el $\gamma$ se eligieron con 2023. Para 2024 se mantienen el
 $\gamma = 0{,}001$ y las mismas reglas de lectura, con la ventana y ACI
 evaluados sobre las 8784 horas del año.
+
+% =====================================================================
+\section{Evaluación final en 2024: precisión puntual}\label{sec:evaluacion-final}
+
+Esta sección presenta el rendimiento que se informa del trabajo. 2024 es el
+año que no intervino en ninguna elección: las cuatro configuraciones eran las
+ganadoras de 2023, se congelaron antes de calcular nada, los modelos se
+reajustaron cada mes con todo lo ocurrido hasta el origen
+(sección~\ref{sec:prot-particiones}) y las cifras se leyeron una sola vez, con las
+reglas de la sección~\ref{sec:contraste-dm}. Las previsiones tienen una
+anticipación de 12 a 36 horas y cubren las 8784 horas del año bisiesto.
+
+La sección empieza con la precisión de los cuatro modelos, sigue con el
+contraste de Diebold--Mariano, compara después con 2023, describe el error por
+mes y por franja horaria y termina con una síntesis.
+
+\subsection{Precisión de los cuatro modelos}\label{sec:final-precision}
+
+La tabla~\ref{tab:final-puntuales} recoge las métricas puntuales. El orden por
+MAE es el mismo que en la validación: LightGBM (573,6~MW), N-HiTS (665,6),
+SARIMAX (1089,7) e ingenuo (1217,9). Medido contra el ingenuo, LightGBM
+elimina el 53\,\% de su error absoluto y N-HiTS el 45\,\%, mientras que el
+SARIMAX solo elimina el 10,5\,\%. El MASE del ingenuo vale 0,917 y no uno
+porque la escala es fija (sección~\ref{sec:metricas-puntuales}): 2024 fue un año
+algo más fácil para el ingenuo que el periodo de 2017 a 2022 con que se fijó
+la escala.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Precisión puntual de los cuatro modelos en 2024 (8784 horas)}
+	\label{tab:final-puntuales}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		 & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		MAE (MW) & 1217,9 & 1089,7 & 573,6 & 665,6 \\
+		\quad IC del 95\,\% (MW) & 1107--1342 & 984--1195 & 545--605 & 633--700 \\
+		MAE relativo al ingenuo & 1,000 & 0,895 & 0,471 & 0,547 \\
+		RMSE (MW) & 1871,7 & 1616,0 & 770,7 & 875,8 \\
+		MAPE (\%) & 4,56 & 4,18 & 2,16 & 2,54 \\
+		MASE & 0,917 & 0,820 & 0,432 & 0,501 \\
+		Sesgo (MW) & $-$6,7 & $+$6,0 & $+$135,0 & $-$41,1 \\
+		RMSE / MAE & 1,54 & 1,48 & 1,34 & 1,32 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+
+Los intervalos de confianza del 95\,\% del MAE, calculados por
+\textit{bootstrap} de días, no se solapan entre LightGBM (545--605~MW) y
+N-HiTS (633--700), ni entre estos dos y los clásicos. Sí se solapan los del
+SARIMAX (984--1195) y el ingenuo (1107--1342). El solapamiento de dos
+intervalos no equivale a un contraste, que se hace en el apartado siguiente,
+pero anticipa su resultado. Ningún modelo tiene un sesgo apreciable, es decir,
+superior a 150~MW en valor absoluto; el mayor es el de LightGBM, de $+135$~MW,
+lo que significa que se queda corto de media (el error es real menos previsto).
+La razón entre el RMSE y el MAE es menor en los dos modelos de aprendizaje
+automático (1,34 y 1,32) que en los clásicos (1,48 y 1,54), de modo que
+sus errores grandes pesan menos.
+
+\subsection{Contraste de Diebold--Mariano}\label{sec:final-dm}
+
+La tabla~\ref{tab:final-dm} contrasta los seis pares con la pérdida absoluta
+diaria, el método de Newey y West con 7 retardos, la corrección de Harvey,
+Leybourne y Newbold y el ajuste de Holm. Una diferencia media positiva en la
+tabla significa que el segundo modelo del par se equivoca menos.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Contraste de Diebold--Mariano en 2024 (pérdida absoluta diaria, 366 días, 7 retardos)}
+	\label{tab:final-dm}
+	\small
+	\begin{tabular}{llrrrl}
+		\hline
+		\textbf{Modelo $a$} & \textbf{Modelo $b$} & \textbf{$\bar d$ (MW)} & \textbf{DM} & \textbf{p ajustado} & \textbf{Lectura} \\
+		\hline
+		ingenuo & SARIMAX & $+$128 & 1,72 & 0,087 & no distinguible \\
+		ingenuo & LightGBM & $+$644 & 6,42 & $<0{,}001$ & apreciable \\
+		ingenuo & N-HiTS & $+$552 & 5,34 & $<0{,}001$ & apreciable \\
+		SARIMAX & LightGBM & $+$516 & 6,81 & $<0{,}001$ & apreciable \\
+		SARIMAX & N-HiTS & $+$424 & 5,67 & $<0{,}001$ & apreciable \\
+		LightGBM & N-HiTS & $-$92 & $-$4,55 & $<0{,}001$ & apreciable \\
+		\hline
+	\end{tabular}
+\end{table}
+
+
+Cinco de los seis pares son apreciables, todos con un p-valor ajustado
+inferior a 0,001: LightGBM y N-HiTS superan al ingenuo y al SARIMAX, y LightGBM
+supera a N-HiTS en 92~MW de pérdida media diaria. La conclusión se mantiene con
+la pérdida cuadrática y con 3 y 14 retardos.
+
+El sexto par es un \textbf{resultado negativo}: el SARIMAX no se distingue del
+ingenuo estacional. La diferencia a su favor es de 128~MW por día, con un
+p-valor ajustado de 0,087. La conclusión depende algo de las decisiones del
+contraste. Con 3, 7 y 14 retardos, el p-valor ajustado es 0,057, 0,087 y
+0,120. Con pérdida cuadrática es 0,063 con 7 retardos y 0,086 con 14, pero
+baja a 0,047 con 3, justo por debajo del umbral. La lectura que se fijó antes
+de calcular, con pérdida absoluta y 7 retardos, es \enquote{no distinguible} y
+es la que se informa. Lo que dicen las variantes es que, en el mejor caso, el
+SARIMAX mejora al ingenuo por un margen muy pequeño. Con la regla de la
+sección~\ref{sec:contraste-dm}, el orden de los tres primeros modelos
+(LightGBM, N-HiTS y SARIMAX) queda establecido, pero no el de los cuatro,
+porque el último par consecutivo no es apreciable.
+
+\subsection{Comparación con 2023}\label{sec:final-2023}
+
+La comparación con la validación es solo descriptiva. El MAE del ingenuo baja un
+13,0\,\% (de 1400,0 a 1217,9~MW), el del SARIMAX sube un 15,5\,\% (de 943,4 a
+1089,7), el de LightGBM baja un 2,0\,\% (de 585,2 a 573,6) y el de N-HiTS, un
+7,1\,\% (de 716,4 a 665,6). Con la regla de lectura, el ingenuo es mejor que en
+2023, el SARIMAX es peor y los dos modelos de aprendizaje automático son
+similares.
+
+Estos cambios admiten varias explicaciones que el diseño no permite separar.
+Una es el efecto del año: el ingenuo mejora un 13\,\% sin que haya cambiado
+nada en él, de modo que 2024 es un año distinto para quien copia el patrón de la
+semana anterior. Otra es la \enquote{maldición del ganador}, porque los
+hiperparámetros de los tres modelos ajustados se eligieron con 2023, y la tercera, el
+reajuste mensual. En LightGBM y N-HiTS no se observa una pérdida de más del 10\,\%, pero no
+se puede descartar una pequeña. El
+SARIMAX es el caso más llamativo: con el reajuste mensual su sesgo pasa de
+$-346$~MW en 2023 a $+6$~MW en 2024 y deja de ser apreciable, pero el error no
+mejora, sino que empeora. No se ha comprobado a qué se debe. Tampoco se ha
+medido el efecto del reajuste por separado, porque no se hizo un control sin
+reajuste. Los sesgos de LightGBM y de N-HiTS cambian además de signo (de
+$-142$ a $+135$~MW y de $+188$ a $-41$~MW), sin una explicación comprobada.
+
+\subsection{Error por mes y por franja horaria}\label{sec:final-mes}
+
+La tabla~\ref{tab:final-mes} desglosa el MAE por mes y por franja horaria del
+día objetivo. Es una descripción, sin contrastes y sin explicación comprobada;
+el desglose por hora del día y tipo de día, que sí contrasta las diferencias,
+es el de la sección siguiente a la calibración.
+
+\begin{table}[htbp]
+	\centering
+	\caption{MAE por mes y por franja horaria en 2024 (MW)}
+	\label{tab:final-mes}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		 & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		Enero & 1936 & 1655 & 623 & 797 \\
+		Febrero & 898 & 689 & 669 & 702 \\
+		Marzo & 1273 & 1282 & 680 & 866 \\
+		Abril & 1042 & 1441 & 745 & 897 \\
+		Mayo & 906 & 1048 & 426 & 485 \\
+		Junio & 935 & 767 & 562 & 582 \\
+		Julio & 1017 & 780 & 518 & 490 \\
+		Agosto & 1698 & 988 & 548 & 499 \\
+		Septiembre & 985 & 804 & 536 & 662 \\
+		Octubre & 723 & 691 & 571 & 742 \\
+		Noviembre & 1010 & 1385 & 445 & 556 \\
+		Diciembre & 2143 & 1523 & 566 & 713 \\
+		\hline
+		B1 (00--05 h) & 745 & 825 & 375 & 537 \\
+		B2 (06--11 h) & 1265 & 1118 & 578 & 678 \\
+		B3 (12--17 h) & 1649 & 1304 & 792 & 762 \\
+		B4 (18--23 h) & 1212 & 1112 & 549 & 685 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+
+Los meses más difíciles son diciembre y enero para el ingenuo (2143 y
+1936~MW), enero, diciembre, abril y noviembre para el SARIMAX (de 1385 a
+1655~MW) y abril para LightGBM y N-HiTS (745 y 897~MW); el mejor mes de estos
+dos es mayo (426 y 485~MW). El SARIMAX queda
+por encima del ingenuo en marzo, abril, mayo y noviembre, y en la franja de
+madrugada (B1, 825 frente a 745~MW). N-HiTS queda por debajo de LightGBM en
+julio (490 frente a 518~MW), en agosto (499 frente a 548) y en la franja de la
+tarde (B3, 762 frente a 792). Las diferencias entre los dos modelos de
+aprendizaje automático son pequeñas en esos casos y no se han contrastado
+aquí. Los cuatro modelos tienen su peor franja entre las 12 y las 17 horas (B3).
+
+\subsection{Síntesis}\label{sec:final-sintesis}
+
+La evaluación final deja cuatro resultados. Primero, el orden de precisión de
+2024 es el de la validación: LightGBM, N-HiTS, SARIMAX e ingenuo, y LightGBM es
+apreciablemente mejor que N-HiTS, con una diferencia robusta a la pérdida y al
+número de retardos. Segundo, y es el resultado negativo, el SARIMAX con
+estacionalidad múltiple no se distingue del ingenuo estacional con el criterio
+fijado de antemano: el modelo clásico más elaborado del trabajo no mejora de
+forma demostrable a la referencia más simple. Tercero, los dos modelos de
+aprendizaje automático conservan en 2024 lo que mostraron en 2023, y el
+SARIMAX no. Cuarto, el sesgo de ningún modelo es apreciable, pero la comparación
+con 2023 mezcla el efecto del año, el del reajuste y el de haber elegido los
+hiperparámetros con 2023, y no permite repartir las causas.
+
+% =====================================================================
+\section{Calibración en 2024}\label{sec:calibracion-final}
+
+Esta sección presenta la calibración de los intervalos de los cuatro modelos en
+2024, el año de la evaluación final. A diferencia de la
+sección~\ref{sec:calibracion}, todos los intervalos se evalúan sobre las mismas
+8784 horas, porque ACI parte de los residuos de 2023 y emite desde el primer día
+del año (sección~\ref{sec:prob-aci}). Las reglas de lectura son las de la
+sección~\ref{sec:prob-lectura}, y el paso $\gamma = 0{,}001$ de ACI es el
+elegido con 2023: no se reelige con 2024.
+
+La sección sigue el orden de la~\ref{sec:calibracion}: intervalos propios,
+fiabilidad de la rejilla, ventana y ACI, y una síntesis.
+
+\subsection{Intervalos propios del 90\,\%}\label{sec:final-propios}
+
+La tabla~\ref{tab:final-propios} recoge las métricas de los intervalos propios.
+Los dos modelos clásicos sobrecubren por poco y los dos de aprendizaje automático
+infracubren, como en 2023, aunque menos.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Intervalos propios del 90\,\% en 2024 (8784 horas)}
+	\label{tab:final-propios}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		 & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		Cobertura (\%) & 92,3 & 93,3 & 76,1 & 78,7 \\
+		\quad IC del 95\,\% (\%) & 90,0--94,4 & 91,3--95,2 & 73,7--78,4 & 76,7--80,8 \\
+		Fallos por debajo / por encima (\%) & 3,8 / 3,9 & 3,5 / 3,2 & 10,6 / 13,3 & 11,6 / 9,6 \\
+		Cociente de fallos & 0,97 & 1,09 & 0,79 & 1,21 \\
+		Anchura media (MW) & 5948 & 5717 & 2221 & 2081 \\
+		Puntuación de intervalo (MW) & 8811 & 7392 & 4418 & 4157 \\
+		CRPS$_{19}$ (MW) & 913 & 826 & 420 & 485 \\
+		CRPS$_{19}$ / MAE & 0,749 & 0,758 & 0,732 & 0,729 \\
+		Desviación máxima de fiabilidad & 0,023 & 0,096 & 0,141 & 0,084 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+
+El \textbf{ingenuo} cubre el 92,3\,\%, algo por encima de la banda del 88 al
+92\,\% de la regla de lectura; se lee como sobrecobertura, pero por
+0,3 puntos y con un intervalo de confianza (90,0--94,4\,\%) que contiene el
+90\,\%, de modo que es un resultado marginal. Sus fallos están repartidos a
+partes iguales. En 2023 cubría el 88,3\,\%, con cuantiles de 2017--2022, y en
+2024, con los cuantiles actualizados cada mes, el 92,3\,\%. El \textbf{SARIMAX}
+cubre el 93,3\,\% (91,3--95,2\,\%), con el intervalo de confianza completo por
+encima del 90\,\%: sobrecobertura, con una asimetría pequeña (cociente de
+fallos 1,09, dentro de la banda de 0,5 a 2). En 2023 era del 92,5\,\%.
+
+\textbf{LightGBM} y \textbf{N-HiTS} cubren el 76,1\,\% (73,7--78,4\,\%) y el
+78,7\,\% (76,7--80,8\,\%): la infracobertura de 2023 (70,0 y 68,1\,\%) se
+repite, algo menor. Por la regla de lectura, la infracobertura \enquote{se
+repite} porque ambas coberturas están por debajo del 88\,\% y sus intervalos de
+confianza quedan por debajo del 90\,\%. Es compatible con la idea de que los cuantiles de un modelo de
+cuantiles se ajustan mejor en entrenamiento, donde el error es menor, que
+fuera de muestra (sección~\ref{sec:conforme}), pero no la demuestra. Ni el cociente de
+fallos de LightGBM (0,79) ni el de N-HiTS (1,21) pasan de 2 ni bajan de 0,5, y
+por tanto los intervalos se leen como estrechos y no como desplazados.
+
+La puntuación de intervalo ordena los modelos como el MAE, salvo que N-HiTS
+queda por delante de LightGBM (4157 frente a 4418~MW). Esa diferencia no es
+apreciable: el intervalo de confianza de la diferencia pareada, de $+262$~MW, va
+de $-146$ a $+675$~MW. El CRPS$_{19}$, en cambio, sí es apreciablemente menor en
+LightGBM (420 frente a 485~MW; diferencia de $-65$~MW, de $-93$ a $-40$). El
+resto de las diferencias entre pares son apreciables en las dos puntuaciones. Como en
+2023, el CRPS$_{19}$ es casi proporcional al MAE (entre 0,73 y 0,76 veces su valor),
+de modo que no añade información sobre el orden de los modelos, y el buen
+CRPS$_{19}$ de las dos redes y de LightGBM no significa que sus intervalos estén
+calibrados.
+
+\paragraph{Cobertura por franja horaria.} Con la regla de que un bloque se
+distingue del conjunto solo si difiere en más de cinco puntos de la cobertura
+global, solo hay una franja destacable: la de la tarde (B3) en LightGBM, con el
+68,9\,\%, 7,2 puntos por debajo del 76,1\,\% global. Los demás bloques de los
+cuatro modelos quedan a menos de cinco puntos de su global. La
+figura~\ref{fig:final-bloque-mes} muestra la cobertura por franja y por mes con
+el intervalo propio y con el de ACI.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{calibracion_2024_bloque_mes.png}
+	\caption{Cobertura del intervalo del 90\,\% por franja horaria del día objetivo y por mes en 2024, con el intervalo propio (línea continua) y el de ACI con $\gamma = 0{,}001$ (línea discontinua). La banda gris es el 88--92\,\% de la regla de lectura.}
+	\label{fig:final-bloque-mes}
+\end{figure}
+
+Por mes, la cobertura oscila mucho. La del ingenuo baja al 74,2\,\% en
+diciembre, al 79,4\,\% en enero y al 84,8\,\% en agosto, que son sus tres meses
+de mayor error absoluto (tabla~\ref{tab:final-mes}), y llega al 100\,\% en julio
+y en octubre. Es lo esperable si sus cuantiles, que dependen solo del bloque
+horario y de los errores pasados, no distinguen unos meses de otros; pero esta
+coincidencia es una descripción, no una prueba. El mínimo mensual de LightGBM es el 62,2\,\% en enero
+y el de N-HiTS el 62,2\,\% en abril, su mes de mayor error; el del SARIMAX, el
+87,4\,\% en diciembre.
+
+La figura~\ref{fig:final-semana} muestra los intervalos en una semana de mayo
+de 2024, la misma posición semanal que la semana de 2023. Es un ejemplo y no una
+prueba.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{calibracion_2024_semana.png}
+	\caption{Previsión, demanda real, intervalo propio del 90\,\% e intervalo de ACI (con $\gamma = 0{,}001$) de los cuatro modelos en la semana del 13 al 19 de mayo de 2024 (días objetivo).}
+	\label{fig:final-semana}
+\end{figure}
+
+\subsection{Fiabilidad de la rejilla}\label{sec:final-fiabilidad}
+
+La figura~\ref{fig:final-fiabilidad} es el diagrama de fiabilidad de la rejilla
+de 19 cuantiles, con el intervalo propio y con ACI.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=\textwidth]{calibracion_2024_fiabilidad.png}
+	\caption{Diagrama de fiabilidad de la rejilla de cuantiles en 2024: frecuencia con que la demanda queda por debajo del cuantil previsto, para el intervalo propio y con ACI ($\gamma = 0{,}001$).}
+	\label{fig:final-fiabilidad}
+\end{figure}
+
+Las desviaciones máximas de los modelos propios son 0,023 (ingenuo), 0,096
+(SARIMAX), 0,141 (LightGBM) y 0,084 (N-HiTS), que por la regla de lectura son
+\emph{buena}, \emph{mala}, \emph{mala} y \emph{mala} (hasta 0,03, buena; hasta
+0,06, aceptable; más, mala). El ingenuo sigue la diagonal. El SARIMAX dibuja una
+S: la frecuencia queda por debajo de la diagonal en los niveles bajos y por
+encima en los altos, lo que corresponde a una distribución prevista más ancha
+que la real. En LightGBM la frecuencia observada en el cuantil 0,5 es 0,394:
+la demanda real supera a la mediana prevista el 61\,\% de las horas, coherente con
+el sesgo de $+135$~MW. En N-HiTS la mediana está centrada (0,524), pero las colas
+son demasiado estrechas: la frecuencia por debajo del cuantil 0,05 es 0,132 y
+por debajo del 0,90, 0,842.
+
+\subsection{Ventana y ACI}\label{sec:final-aci}
+
+La tabla~\ref{tab:final-aci} compara el intervalo propio, la ventana de
+residuos sin adaptación ($\gamma = 0$) y ACI con $\gamma = 0{,}001$.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Intervalo propio, ventana sin adaptación y ACI ($\gamma = 0{,}001$) en 2024 (8784 horas)}
+	\label{tab:final-aci}
+	\small
+	\setlength{\tabcolsep}{3.5pt}
+	\begin{tabular}{lrrrr}
+		\hline
+		 & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		\textit{Cobertura (\%)} & & & & \\
+		\quad Propio & 92,3 & 93,3 & 76,1 & 78,7 \\
+		\quad Ventana ($\gamma = 0$) & 86,9 & 87,3 & 88,2 & 89,4 \\
+		\quad ACI & 88,0 & 88,6 & 89,1 & 89,4 \\
+		\quad IC del 95\,\% de ACI & 85,4--90,6 & 86,1--91,0 & 87,4--90,7 & 87,7--91,1 \\
+		\textit{Anchura media (MW)} & & & & \\
+		\quad Propio & 5948 & 5717 & 2221 & 2081 \\
+		\quad Ventana ($\gamma = 0$) & 5201 & 4796 & 2359 & 2823 \\
+		\quad ACI & 5594 & 5175 & 2456 & 2845 \\
+		\textit{Puntuación de intervalo (MW)} & & & & \\
+		\quad Propio & 8811 & 7392 & 4418 & 4157 \\
+		\quad Ventana ($\gamma = 0$) & 9048 & 8115 & 3300 & 3751 \\
+		\quad ACI & 9140 & 8144 & 3314 & 3768 \\
+		\textit{ACI $-$ propio (MW)} & & & & \\
+		\quad Puntuación de intervalo & $+$329 & $+$752 & $-$1104 & $-$388 \\
+		\quad Lectura & {\footnotesize no distinguible} & {\footnotesize apreciable} & {\footnotesize apreciable} & {\footnotesize apreciable} \\
+		\quad CRPS$_{19}$ & $+$14 & $-$1 & $-$21 & $-$16 \\
+		\quad Lectura & {\footnotesize no distinguible} & {\footnotesize no distinguible} & {\footnotesize apreciable} & {\footnotesize apreciable} \\
+		\textit{ACI $-$ ventana (MW)} & & & & \\
+		\quad Puntuación de intervalo & $+$92 & $+$29 & $+$15 & $+$18 \\
+		\quad Lectura & {\footnotesize no distinguible} & {\footnotesize no distinguible} & {\footnotesize no distinguible} & {\footnotesize apreciable} \\
+		\textit{Fiabilidad de ACI} & & & & \\
+		\quad Desviación máxima & 0,030 & 0,016 & 0,009 & 0,006 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+
+Para LightGBM y N-HiTS, ACI lleva la cobertura del 76,1 y del 78,7\,\% al 89,1
+y al 89,4\,\%, y baja la puntuación de intervalo un 25,0\,\% y un 9,3\,\%
+respecto a la del intervalo propio, con diferencias apreciables. Pero la ventana
+sin adaptación ya consigue casi lo mismo (3300 y 3751~MW frente a 3314 y
+3768~MW con ACI): la mejora viene de calcular el intervalo con los residuos de
+las últimas ocho semanas. La adaptación de $\alpha_t$ no aporta nada: la
+diferencia de puntuación de intervalo entre ACI y la ventana es de $+15$ y
+$+18$~MW, no distinguible en LightGBM y apreciable en N-HiTS pero a favor de la
+ventana (un 0,5\,\%). Es el mismo resultado negativo que en 2023.
+
+En los dos modelos clásicos, la ventana queda algo por debajo de la banda
+(86,9\,\% en el ingenuo y 87,3\,\% en el SARIMAX) y ACI los sube al 88,0 y al
+88,6\,\%, dentro de la banda; por la regla de lectura, ACI mejora ahí la
+calibración respecto a la ventana, aunque con intervalos más anchos y sin mejora
+de la puntuación de intervalo (diferencias no distinguibles de $+92$ y $+29$~MW).
+Frente al intervalo propio, ACI empeora la puntuación del SARIMAX de forma
+apreciable ($+752$~MW) y no cambia la del ingenuo (diferencia no distinguible de
+$+329$~MW): el intervalo que ya sobrecubría es mejor, en puntuación, que el
+construido con ocho semanas de residuos. Con ACI, la desviación máxima de
+fiabilidad de los cuatro modelos es de 0,030 o menos.
+
+La tabla~\ref{tab:final-gamma} muestra la sensibilidad a $\gamma$, solo
+descriptiva. Con $\gamma = 0{,}001$ la puntuación de intervalo es entre un 0,4 y un
+1,0\,\% peor que con la ventana en los cuatro modelos y no hay horas con límite
+infinito. Con $\gamma = 0{,}02$ la puntuación baja respecto a la ventana en el
+ingenuo (0,950) y en el SARIMAX (0,991), pero sube en los dos de aprendizaje
+automático, y hay 396 y 408 horas con límite infinito en los dos clásicos
+(el 4,5 y el 4,6\,\% de las horas) y 210 y 156 en los otros dos. Por la regla de
+lectura, más del 2\,\% de horas infinitas es un defecto del método, que aquí
+se da en tres de los cuatro modelos. La puntuación de la regla de elección de
+$\gamma$, recalculada con 2024, es 1,0057, 1,0275, 1,0034 y 0,9965 para
+$\gamma$ = 0,001, 0,005, 0,01 y 0,02. Aunque el último valor es menor que uno,
+$\gamma$ no se reelige.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Sensibilidad a $\gamma$ en 2024: puntuación de intervalo relativa a la ventana ($\gamma = 0$) y horas con límite infinito}
+	\label{tab:final-gamma}
+	\small
+	\begin{tabular}{lrrrrrrrr}
+		\hline
+		 & \multicolumn{4}{c}{\textbf{IS($\gamma$) / IS(0)}} & \multicolumn{4}{c}{\textbf{Horas infinitas}} \\
+		$\gamma$ & Ing. & SAR. & LGBM & N-HiTS & Ing. & SAR. & LGBM & N-HiTS \\
+		\hline
+		0,001 & 1,010 & 1,004 & 1,005 & 1,005 & 0 & 0 & 0 & 0 \\
+		0,005 & 1,027 & 1,063 & 1,015 & 1,004 & 114 & 60 & 0 & 0 \\
+		0,010 & 0,979 & 0,998 & 1,025 & 1,011 & 186 & 198 & 60 & 30 \\
+		0,020 & 0,950 & 0,991 & 1,024 & 1,021 & 396 & 408 & 210 & 156 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+
+\subsection{Síntesis}\label{sec:final-cal-sintesis}
+
+La calibración de 2024 deja cuatro resultados. Primero, los intervalos propios de
+LightGBM y de N-HiTS siguen sin estar calibrados (76,1 y 78,7\,\% para un 90\,\%
+nominal), algo menos que en 2023, y los de los dos modelos clásicos sobrecubren
+por poco. Segundo, calcular el intervalo con los residuos de las últimas ocho
+semanas lleva a los dos modelos de aprendizaje automático a cerca del 89\,\% y
+reduce su puntuación de intervalo un 25 y un 9\,\%. Tercero, la adaptación de ACI
+no aporta nada sobre esa ventana: el resultado negativo de 2023 se confirma.
+Cuarto, en el ingenuo y el SARIMAX ni la ventana ni ACI mejoran, en valor nominal,
+la puntuación del intervalo propio, y ACI la empeora de forma apreciable en el
+SARIMAX; solo acercan algo la cobertura a la banda.
+
+Entre los intervalos construidos con ACI, los cuatro quedan dentro de la banda
+del 88 al 92\,\%, y el de LightGBM es el más estrecho (2456~MW de anchura media
+frente a 2845 en N-HiTS), con una puntuación de intervalo nominalmente menor
+(3314 frente a 3768~MW). Esa última comparación no se ha contrastado. Los
+resultados de calibración tienen las mismas limitaciones que los de 2023: los
+residuos iniciales de ACI son los de los modelos de 2023, y el $\gamma$ se eligió
+con 2023.
