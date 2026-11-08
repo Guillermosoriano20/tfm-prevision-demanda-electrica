@@ -1,0 +1,148 @@
+% =====================================================================
+% Capítulo 6. Conclusiones
+% Estado: redactado el 06/11/2026 (sesión R4). No introduce cifras nuevas:
+% recoge las de los capítulos 4 y 5.
+% =====================================================================
+
+\chapter{Conclusiones}\label{cap:conclusiones}
+
+Este capítulo recoge lo que el trabajo ha conseguido y lo que no. Recorre
+primero los objetivos específicos con los criterios de la
+tabla~\ref{tab:criterios}, resume después las conclusiones sobre la pregunta de
+investigación, expone las limitaciones que acotan esas conclusiones y termina
+con las líneas de trabajo futuro. La interpretación detallada de los resultados
+está en la sección~\ref{sec:discusion}.
+
+\section{Cumplimiento de los objetivos}\label{sec:concl-objetivos}
+
+La tabla~\ref{tab:concl-objetivos} resume el resultado de cada objetivo frente
+al criterio de cumplimiento fijado en el capítulo~\ref{cap:objetivos}. Como allí
+se estableció, un objetivo de comparación se cumple cuando la comparación se ha
+hecho correctamente, sea cual sea el modelo que resulte preferible. Todos los
+objetivos se consideran cumplidos; en dos, OE8 y OE9, con una salvedad que se
+explica tras la tabla.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Resultado de cada objetivo específico}
+	\label{tab:concl-objetivos}
+	\small
+	\begin{tabularx}{\textwidth}{l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.0cm}}
+		\hline
+		\textbf{Objetivo} & \textbf{Resultado} & \textbf{Dónde} \\
+		\hline
+		OE1 & Conjunto de 70\,127 horas y 60 columnas, regenerable con el código a partir de las fuentes y verificado con una huella de contenido. Sin huecos ni valores nulos; ningún valor de demanda corregido; 2927 horas de la pandemia marcadas y excluidas del entrenamiento & Secciones~\ref{sec:datos} y~\ref{sec:entorno} \\
+		OE2 & Picos del periodograma en 24 y 168~h; ADF y KPSS rechazan ambos su hipótesis nula, sin contradicción, y no se diferencia la serie; relación en U con la temperatura, modelizada con grados-día. De ahí se derivan las decisiones de modelización & Sección~\ref{sec:exploratorio} \\
+		OE3 & Ingenuo estacional y SARIMAX (ARMA(5,1), con términos de Fourier, exógenas, variable de nivel y retardos de 48 y 168~h) con previsiones para todo 2024. Ljung--Box rechaza el ruido blanco de los residuos: queda una dependencia diaria sin modelar & Secciones~\ref{sec:val-sarimax} y~\ref{sec:final-precision} \\
+		OE4 & LightGBM y N-HiTS con la temperatura como covariable y previsiones para todo 2024; hiperparámetros finales y espacio de búsqueda documentados & Secciones~\ref{sec:esp-finales} y~\ref{sec:val-seleccion} \\
+		OE5 & Protocolo con orígenes móviles, variables, horizonte y presupuesto de búsqueda comunes, 2023 para elegir y 2024 para evaluar una sola vez, y prueba de fuga con control positivo, aplicado a los cuatro modelos & Sección~\ref{sec:protocolo} \\
+		OE6 & Tabla de MAE, RMSE, MAPE y MASE en 2024 y contraste de Diebold--Mariano de los seis pares. LightGBM y N-HiTS superan al SARIMAX y al ingenuo; el SARIMAX no se distingue del ingenuo & Secciones~\ref{sec:final-precision} y~\ref{sec:final-dm} \\
+		OE7 & Cobertura, anchura, puntuación de intervalo y CRPS$_{19}$ de los intervalos propios y de los de ACI, con diagramas de fiabilidad, en 2023 y en 2024 & Secciones~\ref{sec:calibracion} y~\ref{sec:calibracion-final} \\
+		OE8 & Precisión por hora, bloque, tipo de día y régimen, y calibración por bloque y tipo de día, con 19 contrastes. No se encuentra un régimen en el que cambie de forma distinguible el modelo preferible & Sección~\ref{sec:desglose} \\
+		OE9 & Código, semillas, particiones y dependencias fijadas en un repositorio, con las tablas de resultados & Sección~\ref{sec:entorno} y anexo~\ref{anexo:repositorio} \\
+		\hline
+	\end{tabularx}
+\end{table}
+
+\paragraph{Salvedad de OE8.} El criterio pide las métricas desglosadas por hora
+del día y por tipo de día. La precisión se presenta por hora, y la calibración
+por franja de seis horas y por tipo de día, no por hora: la cobertura por hora
+local se calculó y se guarda en el repositorio, pero no se ha analizado. El
+puente es un solo día de 2024, y los resultados sobre él son descriptivos.
+Además, el criterio incluye identificar los regímenes en que cambia el modelo
+preferible; el resultado es que no cambia ninguno de forma distinguible, lo que
+se informa como hallazgo.
+
+% COMPROBAR (cierre): OE9 supone que el repositorio es público en el momento de la entrega (hoy es privado).
+\paragraph{Salvedad de OE9.} El criterio exige un repositorio público que permita
+reproducir las tablas de la memoria. Las tablas de resultados están en el
+repositorio y los datos de entrada se regeneran con el código, pero las
+previsiones guardadas no se publican, de modo que la reproducción requiere
+volver a entrenar los modelos, y no se ha comprobado que dos entrenamientos de
+N-HiTS en equipos distintos den previsiones idénticas
+(sección~\ref{sec:entorno-limites}).
+
+\section{Conclusiones sobre la pregunta de investigación}\label{sec:concl-pregunta}
+
+La pregunta de investigación tiene tres partes, y la
+sección~\ref{sec:disc-respuesta} las responde con detalle. En síntesis, con las
+condiciones de este trabajo:
+
+\begin{enumerate}
+	\item Los modelos de aprendizaje automático y profundo mejoran al SARIMAX de
+	forma estadísticamente significativa en 2024. LightGBM reduce el MAE un 47\,\%
+	y N-HiTS un 39\,\%, y LightGBM es apreciablemente mejor que N-HiTS. El orden
+	de precisión es LightGBM, N-HiTS, SARIMAX e ingenuo, con la salvedad de que
+	el SARIMAX no se distingue del ingenuo con la regla fijada de antemano. Ese es
+	el resultado negativo más relevante: el modelo clásico con estacionalidad
+	múltiple no mejora de forma demostrable a la referencia más simple.
+	\item Lo hacen en casi todas las horas y tipos de día. LightGBM tiene el menor
+	MAE en 19 de las 24 horas y N-HiTS en cinco, y ningún régimen cambia el modelo
+	preferible. La mayor distancia con los modelos clásicos está en los festivos,
+	donde estos fallan con un MAE de 3672 y 2813~MW frente a 796 y 655~MW, aunque
+	con 10 festivos de un solo año.
+	\item Ninguna familia tiene intervalos propios dentro de la banda del 88 al
+	92\,\%: los de los modelos clásicos sobrecubren por poco y los cuantiles de
+	LightGBM y N-HiTS infracubren claramente (76,1 y 78,7\,\%). Con los intervalos
+	construidos con el mismo método, la ventana de residuos recientes o ACI, los
+	cuatro quedan dentro de la banda. La calibración depende más de cómo se
+	construye el intervalo que de la familia del modelo. ACI no mejora la ventana
+	de residuos con el $\gamma$ elegido.
+\end{enumerate}
+
+No se concluye que una familia sea mejor en general, ni que N-HiTS sea más
+robusto en épocas difíciles: esto último es una hipótesis. En cuanto a la
+calibración, la construcción más sencilla, la ventana de residuos recientes sin
+adaptación, da los mismos resultados que ACI con el $\gamma$ elegido, de modo
+que en este problema no se justifica la complejidad añadida de ACI.
+
+\section{Limitaciones}\label{sec:concl-limitaciones}
+
+Las limitaciones que acotan estas conclusiones se discuten en la
+sección~\ref{sec:disc-limites}. Son cinco:
+\begin{itemize}
+	\item \textbf{Previsión meteorológica perfecta.} Se emplea la temperatura de
+	reanálisis como si fuera una previsión sin error, de modo que los resultados son
+	una cota superior de lo que se obtendría en operación.
+	\item \textbf{Un sistema, un año y un modelo por familia.} Las conclusiones se
+	refieren al sistema peninsular, a 2024 y a los cuatro modelos estudiados, y no a
+	las familias en general.
+	\item \textbf{Selección con 2023.} Los hiperparámetros y el $\gamma$ de ACI se
+	eligieron con 2023, y la comparación entre 2023 y 2024 mezcla el efecto del
+	año, el de la elección y el del reajuste mensual, para el que no hay control.
+	\item \textbf{Causas sin comprobar.} Las explicaciones del autoconsumo, del
+	perfil aplanado de N-HiTS, de la infracobertura de los cuantiles, de los meses
+	difíciles y del empeoramiento del SARIMAX en 2024 son hipótesis.
+	\item \textbf{Especificación del SARIMAX.} Sin términos ARMA estacionales ni
+	diferenciación, y con una dependencia diaria residual; no se ha explorado otra
+	especificación, de modo que el resultado es el de este SARIMAX y no el de toda
+	la familia.
+\end{itemize}
+
+\section{Trabajo futuro}\label{sec:concl-futuro}
+
+Las líneas siguientes quedan fuera del alcance de este trabajo y se derivan de
+sus limitaciones.
+\begin{itemize}
+	\item \textbf{Previsiones meteorológicas reales.} Repetir la comparación con
+	las previsiones de temperatura disponibles a las 12:00 del día $D$, para medir
+	cuánto se reduce la ventaja de los modelos que más dependen de la temperatura.
+	Es la extensión de mayor valor práctico.
+	\item \textbf{Autoconsumo y otras variables.} Incorporar una variable que
+	recoja la producción solar, para comprobar si el exceso de previsión al
+	mediodía desaparece.
+	\item \textbf{Más sistemas, años y modelos.} Repetir el protocolo en otros años
+	y sistemas, y añadir otros representantes de cada familia, como el suavizado
+	exponencial con varias estacionalidades, TBATS o el \textit{Temporal Fusion
+	Transformer}, que se tratan en el marco teórico pero no se implementan.
+	\item \textbf{Un SARIMAX con términos estacionales.} Explorar si otra
+	especificación acerca al modelo clásico a los de aprendizaje automático.
+	\item \textbf{Controles que faltan.} Una evaluación sin reajuste mensual, para
+	separar su efecto del del año, y una comparación de la cobertura de los
+	cuantiles dentro y fuera de la muestra de entrenamiento.
+	\item \textbf{Calibración.} Evaluar ACI con otros valores de $\gamma$ y otros
+	métodos de calibración, y analizar la cobertura por hora local.
+	\item \textbf{Lectura económica del error.} Traducir el error de previsión en
+	su coste para el mercado diario, que la propuesta mencionaba y el alcance
+	dejó fuera.
+\end{itemize}

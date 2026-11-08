@@ -1,0 +1,84 @@
+% =====================================================================
+% Resumen (IMRyD, unas 300 palabras) y abstract. Redactado el 06/11/2026
+% (sesión R4). Las cifras proceden del capítulo 5.
+% =====================================================================
+\chapter*{Resumen}
+\addcontentsline{toc}{chapter}{Resumen}
+
+\textbf{Introducción.} La previsión del día siguiente de la demanda eléctrica
+horaria sirve de base a la casación del mercado diario. La comparación entre
+modelos clásicos y de aprendizaje automático suele hacerse sin igualdad de
+condiciones y solo con el error puntual. Este trabajo las compara con un
+protocolo equitativo para la demanda peninsular española y evalúa también la
+calibración de los intervalos de predicción.
+
+\textbf{Métodos.} Se construye un conjunto horario de 2017 a 2024 con la demanda
+de ESIOS, la temperatura de reanálisis ponderada por población y el calendario
+laboral. Se comparan un ingenuo estacional, un SARIMAX con términos de Fourier,
+LightGBM y la red N-HiTS, con la misma información y el mismo presupuesto de
+búsqueda. 2023 sirve para elegir y 2024, con reajuste mensual y una sola
+ejecución, para evaluar. La precisión se mide con MAE, RMSE, MAPE, MASE y el
+contraste de Diebold--Mariano; los intervalos del 90\,\%, propios y con
+inferencia conforme adaptativa (ACI), con cobertura, puntuación de intervalo y
+CRPS. La temperatura de reanálisis equivale a una previsión meteorológica
+perfecta.
+
+\textbf{Resultados.} En 2024 el MAE es de 573,6~MW en LightGBM, 665,6 en N-HiTS,
+1089,7 en el SARIMAX y 1217,9 en el ingenuo. LightGBM y N-HiTS superan de forma
+significativa al SARIMAX y al ingenuo, y LightGBM supera a N-HiTS; el SARIMAX no
+se distingue del ingenuo con la regla fijada de antemano. Los intervalos propios
+de LightGBM y N-HiTS infracubren (76,1 y 78,7\,\% para un 90\,\% nominal) y los
+de los modelos clásicos sobrecubren por poco. Con ACI los cuatro quedan entre el
+88 y el 92\,\%, pero ACI no mejora una ventana de residuos recientes. Ningún
+régimen cambia de forma distinguible el modelo preferible, y los modelos
+clásicos fallan sobre todo en festivos.
+
+\textbf{Discusión.} En este problema el aprendizaje automático mejora al SARIMAX,
+y la calibración depende más de cómo se construye el intervalo que del modelo.
+Los resultados son de un sistema, un año y cuatro modelos, y una cota superior
+por la previsión meteorológica perfecta.
+
+\medskip
+\noindent\textbf{Palabras clave:} previsión de la demanda eléctrica; series
+temporales; SARIMAX; aprendizaje automático; intervalos de predicción.
+
+\clearpage
+\begin{otherlanguage}{english}
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+\textbf{Introduction.} Day-ahead forecasts of hourly electricity demand underpin
+the day-ahead market. Comparisons between classical and machine-learning models
+are often made on unequal terms and with point error alone. This thesis compares
+them under a fair protocol for peninsular Spanish demand and also evaluates the
+calibration of prediction intervals.
+
+\textbf{Methods.} An hourly dataset for 2017--2024 combines ESIOS demand,
+population-weighted reanalysis temperature and the working-day calendar. A
+seasonal naïve benchmark, a SARIMAX with Fourier terms, LightGBM and the N-HiTS
+network are compared with the same information and search budget. 2023 is used to
+choose and 2024, with monthly refitting and a single run, to evaluate. Accuracy is
+measured with MAE, RMSE, MAPE, MASE and the Diebold--Mariano test; 90\,\%
+intervals, each model's own and those built with adaptive conformal inference
+(ACI), with coverage, interval score and CRPS. Reanalysis temperature amounts to
+a perfect weather forecast.
+
+\textbf{Results.} In 2024 the MAE is 573.6~MW for LightGBM, 665.6 for N-HiTS,
+1089.7 for SARIMAX and 1217.9 for the naïve model. LightGBM and N-HiTS
+significantly outperform SARIMAX and the naïve model, and LightGBM outperforms
+N-HiTS; SARIMAX cannot be distinguished from the naïve model under the rule fixed
+in advance. The own intervals of LightGBM and N-HiTS undercover (76.1 and
+78.7\,\% for a nominal 90\,\%) and those of the classical models slightly
+overcover. With ACI all four fall between 88 and 92\,\%, but ACI does not improve
+on a window of recent residuals. No regime changes the preferred model in a
+distinguishable way, and the classical models fail mainly on public holidays.
+
+\textbf{Discussion.} In this problem machine learning improves on SARIMAX, and
+calibration depends more on how the interval is built than on the model. The
+results refer to one system, one year and four models, and are an upper bound
+because of the perfect weather forecast.
+
+\medskip
+\noindent\textbf{Keywords:} electricity demand forecasting; time series; SARIMAX;
+machine learning; prediction intervals.
+\end{otherlanguage}

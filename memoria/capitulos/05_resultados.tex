@@ -2,7 +2,7 @@
 % Capítulo 5. Desarrollo, análisis y resultados
 % Estado: 5.1 redactada (06/10/2026); 5.2 redactada (15/10/2026, sesión R1);
 % 5.3 redactada (04/11/2026, sesión R2); 5.4 y 5.5 redactadas (06/11/2026,
-% sesión R3); 5.6 en adelante pendientes (R4).
+% sesión R3); 5.6 redactada (06/11/2026, sesión R4); 5.7 redactada (06/11/2026, sesión R4).
 % Figuras de 5.1: definitivas (07/10/2026), generadas por src/14_exploracion.py
 % directamente en memoria/figuras/.
 % =====================================================================
@@ -856,7 +856,9 @@ correlacionados
 con los de los demás. La selección se hizo solo con el MAE; los desgloses,
 calculados después con reglas de lectura fijadas de antemano, no cambiaron
 ninguna ganadora. Si estos resultados se mantienen, y si las diferencias son
-significativas, se comprueba con la evaluación única de 2024.
+significativas, se comprueba en la sección~\ref{sec:evaluacion-final} con la
+evaluación única de 2024, donde el orden de los tres modelos ajustados se
+mantiene y el SARIMAX deja de distinguirse del ingenuo.
 
 % =====================================================================
 % Sección 5.3 redactada el 04/11/2026 (sesión R2). Cifras de
@@ -1316,7 +1318,7 @@ $-142$ a $+135$~MW y de $+188$ a $-41$~MW), sin una explicación comprobada.
 La tabla~\ref{tab:final-mes} desglosa el MAE por mes y por franja horaria del
 día objetivo. Es una descripción, sin contrastes y sin explicación comprobada;
 el desglose por hora del día y tipo de día, que sí contrasta las diferencias,
-es el de la sección siguiente a la calibración.
+es el de la sección~\ref{sec:desglose}.
 
 \begin{table}[htbp]
 	\centering
@@ -1623,3 +1625,511 @@ frente a 2845 en N-HiTS), con una puntuación de intervalo nominalmente menor
 resultados de calibración tienen las mismas limitaciones que los de 2023: los
 residuos iniciales de ACI son los de los modelos de 2023, y el $\gamma$ se eligió
 con 2023.
+
+% =====================================================================
+% Sección 5.6 redactada el 06/11/2026 (sesión R4). Cifras de
+% data/resultados/final/desglose/ (src/30_desglose_oe8_2024.py; protocolo,
+% apartado 16.14). Las tablas se generan desde los CSV.
+% =====================================================================
+\section{Desglose por hora, tipo de día y régimen}\label{sec:desglose}
+
+Esta sección responde al objetivo~OE8: desglosar la precisión y la calibración
+de 2024 por hora del día y por tipo de día, e identificar los regímenes en los
+que cambia el modelo preferible. El desglose no entrena ni reajusta nada: lee
+las previsiones, los intervalos y los resultados de ACI de 2024 que ya se
+habían guardado y los agrupa. Se calculó con un único script, una sola vez, con
+un candado que impide repetirlo, y ninguno de sus resultados cambia un modelo,
+un parámetro ni el $\gamma$ de ACI. Lo que sigue es descripción, contraste con
+reglas fijadas de antemano o hipótesis sin comprobar.
+
+La sección empieza con el diseño del desglose, sigue con la precisión por
+régimen, con el modelo preferible en cada uno y con la calibración, y termina
+con una síntesis.
+
+% ---------------------------------------------------------------------
+\subsection{Diseño del desglose}\label{sec:desg-diseno}
+
+\paragraph{Regímenes.} Los 366 días de 2024 se reparten, por el calendario de
+la sección~\ref{sec:datos-calendario}, en 253 laborables, 102 días de fin de
+semana, 10 festivos y 1 puente. Los festivos son el 1 y el 6 de enero (este,
+sábado), el 28 y el 29 de marzo, el 1 de mayo, el 15 de agosto, el 12 de octubre
+(sábado), el 1 de noviembre, el 6 de diciembre y el 25 de diciembre; un festivo
+en sábado cuenta como festivo. El puente es el viernes 16 de agosto. El 8 de
+diciembre, domingo y fiesta nacional, figura como domingo corriente por la
+limitación del calendario declarada en la
+sección~\ref{sec:datos-limitaciones}. Además de los tipos de día, se separa el
+periodo de Navidad (del 23 de diciembre al 6 de enero), que en 2024 suma 15 días,
+y se analizan los cuatro bloques horarios B1 a B4 de la
+sección~\ref{sec:prob-principio}, el cruce de los tres tipos de día por los
+cuatro bloques y el día de la semana.
+
+\paragraph{Qué se conocía ya de 2024.} Al presentar las secciones~\ref{sec:evaluacion-final}
+y~\ref{sec:calibracion-final} ya se habían leído el error por bloque y por mes y
+la cobertura por bloque y por mes. Eso se repite aquí como control de
+reproducción, y las cifras por bloque coinciden con las de aquellas secciones.
+Lo que no se había visto es el desglose por hora local, por tipo de día, por
+cruce, por día de la semana y por periodo navideño.
+
+\paragraph{Reglas de lectura.} Cada hora local tiene 366 observaciones, de
+modo que el intervalo de confianza de una cobertura por hora es de unos tres
+puntos y las 24 horas se tratan solo como descripción. Con el puente, un solo
+día, no se calcula ningún intervalo ni contraste. Para el resto se contrasta una
+celda cada vez. Si el modelo de menor MAE de la celda es LightGBM, el preferible
+global, se compara con el segundo; si es otro, se compara LightGBM con ese. La
+diferencia de MAE se estima por \textit{bootstrap} pareado de días (1000
+réplicas, semilla 42), con ajuste de Holm dentro de cada familia de contrastes
+(4 bloques, 3 tipos de día y 12 cruces), y se lee como apreciable si el
+$p$-valor ajustado es inferior a 0,05. \textbf{Hay cambio de régimen} en una
+celda solo si el mejor modelo es distinto de LightGBM y el intervalo de la
+diferencia excluye el cero tras el ajuste; si el mejor es otro pero el
+intervalo incluye el cero, se dice que no se distingue y no se cuenta como
+cambio. Un cambio solo se afirma en regímenes de al menos 10 días. Para el
+sesgo, la calibración y la asimetría de los fallos valen las reglas de las
+secciones~\ref{sec:contraste-dm} y~\ref{sec:prob-lectura}: un sesgo es apreciable
+por encima de 150~MW, una cobertura está bien calibrada entre el 88 y el
+92\,\%, y la asimetría de los fallos es marcada si su cociente supera 2 o baja
+de 0,5. Una diferencia de cobertura entre dos regímenes se lee como apreciable
+solo si supera cinco puntos y los intervalos de confianza no se solapan.
+
+\paragraph{Controles.} Antes de dar por buenas las salidas, el script comprobó
+los recuentos de días, la reproducción del MAE y de las coberturas por bloque
+de la evaluación final y que los MAE por hora, por tipo de día y por cruce
+reproducen el MAE global. Comprobó también el contraste con una diferencia
+sintética: sin diferencia, el $p$-valor fue inferior a 0,05 en el 3\,\% de 60
+repeticiones, y con una diferencia de $+60$~MW, el $p$-valor fue de 0,002.
+
+\paragraph{Riesgo de azar.} Con 24 horas, 12 cruces y varios regímenes, algún
+patrón aparecerá por casualidad. Por eso las horas son solo descripción, los
+contrastes llevan ajuste de Holm por familia y un resultado aislado se lee como
+hipótesis.
+
+% ---------------------------------------------------------------------
+\subsection{Precisión por régimen}\label{sec:desg-precision}
+
+La tabla~\ref{tab:desg-precision} recoge el MAE y el sesgo de cada modelo en
+cada régimen. El sesgo es real menos previsto, de modo que un signo negativo
+indica que se prevé más demanda de la que hubo.
+
+\begin{table}[htbp]
+	\centering
+	\caption{MAE y sesgo (entre paréntesis) por régimen en 2024 (MW)}
+	\label{tab:desg-precision}
+	\small
+	\begin{tabular}{lrrrrr}
+		\hline
+		\textbf{Régimen} & \textbf{Días} & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		B1 (00--05 h) & 366 & 745 ($-$1) & 825 ($+$111) & 375 ($+$213) & 537 ($-$246) \\
+		B2 (06--11 h) & 366 & 1265 ($-$6) & 1118 ($+$19) & 578 ($+$193) & 678 ($+$49) \\
+		B3 (12--17 h) & 366 & 1649 ($-$15) & 1304 ($-$158) & 792 ($-$84) & 762 ($-$223) \\
+		B4 (18--23 h) & 366 & 1212 ($-$5) & 1112 ($+$52) & 549 ($+$218) & 685 ($+$255) \\
+		\hline
+		Laborable & 253 & 1218 ($+$140) & 1074 ($+$94) & 582 ($+$183) & 677 ($+$8) \\
+		Fin de semana & 102 & 944 ($+$25) & 962 ($+$40) & 525 ($+$57) & 638 ($-$144) \\
+		Festivo & 10 & 3672 ($-$3589) & 2813 ($-$2567) & 796 ($-$155) & 655 ($-$255) \\
+		Puente (16/8) & 1 & 4639 ($-$4639) & 934 ($+$6) & 1079 ($-$1079) & 624 ($+$200) \\
+		\hline
+		Navidad (23/12--6/1) & 15 & 2374 ($-$1700) & 1822 ($-$303) & 597 ($-$208) & 762 ($-$355) \\
+		Fuera de Navidad & 351 & 1168 ($+$66) & 1058 ($+$19) & 573 ($+$150) & 661 ($-$28) \\
+		\hline
+	\end{tabular}
+\end{table}
+
+\paragraph{Por hora.} La figura~\ref{fig:desg-hora} muestra el MAE de cada modelo
+por hora local del día objetivo. Es una descripción, sin contrastes. El máximo
+del error está a las 13 h en el ingenuo (1689~MW), a las 15 h en el SARIMAX
+(1333~MW), a las 14 h en LightGBM (849~MW) y a las 12 h en N-HiTS (866~MW), que
+tiene un segundo máximo a las 21 h (850~MW). LightGBM tiene el menor MAE en 19
+de las 24 horas, y N-HiTS en cinco, las de las 13 a las 17 h. Con un único
+origen diario, la hora del día y la anticipación van unidas
+(sección~\ref{sec:val-perfil}), y la figura no permite separarlas.
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[width=0.85\textwidth]{desglose_2024_mae_hora.png}
+	\caption{MAE de los cuatro modelos en 2024 por hora local del día objetivo.}
+	\label{fig:desg-hora}
+\end{figure}
+
+\paragraph{Por bloque y por tipo de día.} Entre laborables y fines de semana las
+diferencias son moderadas: el MAE del ingenuo baja de 1218 a 944~MW, el de
+LightGBM de 582 a 525~MW y el de N-HiTS de 677 a 638~MW, mientras que el del
+SARIMAX baja menos (de 1074 a 962~MW). En los festivos, en cambio, los modelos
+se separan. El ingenuo falla 3672~MW de media, unas tres veces su error de
+laborable, y el SARIMAX 2813~MW, unas 2,6 veces el suyo; los dos tienen un
+sesgo de $-3589$ y $-2567$~MW, es decir, prevén un día laborable cuando la
+demanda es la de un festivo, como en 2023
+(sección~\ref{sec:val-dias}). LightGBM falla 796~MW, un 37\,\% más que en un
+laborable, y N-HiTS 655~MW, que no es más que en un laborable (677~MW). El sesgo
+de festivos es negativo en los cuatro modelos, y en LightGBM y N-HiTS
+($-155$ y $-255$~MW) supera el umbral de 150~MW. El cruce más
+difícil es el de los festivos por la franja de la mañana (B2), con 5203, 4310,
+864 y 739~MW en el ingenuo, el SARIMAX, LightGBM y N-HiTS.
+
+\paragraph{Navidad.} El MAE dentro del periodo de Navidad (15 días) es 2,03 veces
+el de fuera en el ingenuo y 1,72 veces en el SARIMAX, frente a 1,04 en LightGBM y
+1,15 en N-HiTS. El sesgo dentro de Navidad es negativo en los cuatro modelos.
+Es una descripción: son 15 días de un solo año.
+
+\paragraph{Día de la semana, puente y domingo festivo.} Por día de la semana, el
+MAE de LightGBM va de 519~MW los domingos a 617~MW los miércoles, y el de N-HiTS,
+de 599~MW los viernes a 791~MW los lunes, con un sesgo de $+177$~MW ese día. El
+puente del 16 de agosto es un solo día y no se generaliza: el ingenuo falla
+4639~MW, con sesgo negativo porque copia el viernes anterior, laborable;
+el SARIMAX, 934~MW; LightGBM, 1079~MW, y N-HiTS, 624~MW. El domingo festivo del
+8 de diciembre, tratado como domingo corriente, tiene un MAE de 496, 745, 527 y
+449~MW en el ingenuo, el SARIMAX, LightGBM y N-HiTS, frente a 944, 962, 525 y
+638~MW de media en los fines de semana: la omisión del calendario no se nota en
+ese día.
+
+\paragraph{Peores días.} Los 10 peores días de cada modelo, por MAE diario,
+están cerca de festivos y puentes. Un cálculo aparte sobre las fechas, que no
+está en el script y es solo descriptivo, cuenta cuántos están a siete días o
+menos de un festivo o del puente: los 10 del ingenuo, los 10 del SARIMAX, 8 de
+los de LightGBM y 4 de los de N-HiTS. Como el 32,5\,\% de los días de 2024 (119
+de 366) cumple esa condición, la concentración es muy marcada en los dos modelos
+clásicos, menos en LightGBM, aunque 8 de 10 supera el 32,5\,\%, y no se aprecia en N-HiTS (4 de 10). El peor día del ingenuo
+es el 25 de diciembre (9212~MW) y el del SARIMAX, el 8 de enero (7199~MW); los
+de LightGBM y N-HiTS son el 12 de octubre (1692~MW), un festivo en sábado, y el
+10 de marzo (2306~MW), un domingo.
+
+% ---------------------------------------------------------------------
+\subsection{Modelo preferible y cambio de régimen}\label{sec:desg-regimen}
+
+La tabla~\ref{tab:desg-pref} reúne los 19 contrastes de la sección anterior. En
+cada fila, la diferencia es el MAE de LightGBM menos el del modelo con que se
+compara, de modo que un valor negativo favorece a LightGBM.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Modelo preferible por celda y contraste con LightGBM (MW; $p$ ajustado por Holm dentro de cada familia)}
+	\label{tab:desg-pref}
+	\small
+	\setlength{\tabcolsep}{3pt}
+	\begin{tabular}{lrrrr>{\raggedright\arraybackslash}p{4.1cm}}
+		\hline
+		\textbf{Celda} & \textbf{Días} & \textbf{Diferencia} & \textbf{IC del 95\,\%} & \textbf{$p$ ajustado} & \textbf{Lectura} \\
+		\hline
+		B1 (00--05 h) & 366 & $-$162 & $-$211 a $-$114 & 0,008 & LightGBM, apreciable \\
+		B2 (06--11 h) & 366 & $-$100 & $-$143 a $-$57 & 0,008 & LightGBM, apreciable \\
+		B3 (12--17 h) & 366 & $+$30 & $-$21 a $+$77 & 0,242 & N-HiTS nominal, no distinguible \\
+		B4 (18--23 h) & 366 & $-$136 & $-$181 a $-$92 & 0,008 & LightGBM, apreciable \\
+		\hline
+		Laborable & 253 & $-$95 & $-$139 a $-$52 & 0,006 & LightGBM, apreciable \\
+		Fin de semana & 102 & $-$113 & $-$183 a $-$53 & 0,006 & LightGBM, apreciable \\
+		Festivo & 10 & $+$141 & $-$57 a $+$403 & 0,222 & N-HiTS nominal, no distinguible \\
+		\hline
+		Laborable $\times$ B1 & 253 & $-$165 & $-$226 a $-$102 & 0,024 & LightGBM, apreciable \\
+		Laborable $\times$ B2 & 253 & $-$119 & $-$178 a $-$56 & 0,024 & LightGBM, apreciable \\
+		Laborable $\times$ B3 & 253 & $+$30 & $-$27 a $+$81 & 0,893 & N-HiTS nominal, no distinguible \\
+		Laborable $\times$ B4 & 253 & $-$126 & $-$180 a $-$69 & 0,024 & LightGBM, apreciable \\
+		Fin de semana $\times$ B1 & 102 & $-$154 & $-$265 a $-$61 & 0,024 & LightGBM, apreciable \\
+		Fin de semana $\times$ B2 & 102 & $-$79 & $-$178 a $+$4 & 0,408 & LightGBM, no distinguible \\
+		Fin de semana $\times$ B3 & 102 & $-$25 & $-$118 a $+$64 & 1,000 & LightGBM, no distinguible \\
+		Fin de semana $\times$ B4 & 102 & $-$193 & $-$275 a $-$114 & 0,024 & LightGBM, apreciable \\
+		Festivo $\times$ B1 & 10 & $-$185 & $-$357 a $-$16 & 0,224 & LightGBM, no distinguible \\
+		Festivo $\times$ B2 & 10 & $+$126 & $-$187 a $+$462 & 1,000 & N-HiTS nominal, no distinguible \\
+		Festivo $\times$ B3 & 10 & $+$384 & $-$56 a $+$886 & 0,408 & N-HiTS nominal, no distinguible \\
+		Festivo $\times$ B4 & 10 & $+$238 & $-$35 a $+$480 & 0,408 & N-HiTS nominal, no distinguible \\
+		\hline
+	\end{tabular}
+\end{table}
+
+\textbf{No hay ningún cambio de régimen distinguible.} LightGBM se mantiene como
+preferible de forma apreciable en 10 de las 19 celdas: tres de los cuatro
+bloques (B1, B2 y B4), los laborables, los fines de semana, los cruces de
+laborable con B1, B2 y B4 y los de fin de semana con B1 y B4. Se mantiene como
+mejor sin distinguirse del segundo en otras tres (fin de semana por B2 y por
+B3, y festivo por B1). En las seis restantes el menor MAE nominal es de N-HiTS,
+pero la diferencia no se distingue de cero: la franja de la tarde (B3), con una
+diferencia de $+30$~MW, el laborable por B3, los festivos ($+141$~MW, con un
+intervalo de $-57$ a $+403$~MW) y los festivos por B2, B3 y B4. El puente, con un
+solo día, queda como descripción.
+
+Hay que leer ese «no se distingue» con prudencia. Con 10 días, el contraste de
+los festivos tiene poca potencia, de modo que la falta de una diferencia
+distinguible no equivale a que los dos modelos sean igual de buenos. Tampoco se
+distingue en la tarde de los laborables (253 días), pero ahí la diferencia
+nominal es de solo 30~MW.
+
+% ---------------------------------------------------------------------
+\subsection{Calibración por régimen}\label{sec:desg-cal}
+
+La tabla~\ref{tab:desg-cob} recoge la cobertura del intervalo del 90\,\% por
+tipo de día, con el intervalo propio y con ACI.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Cobertura del intervalo del 90\,\% por tipo de día en 2024 (\%): intervalo propio / ACI ($\gamma = 0{,}001$)}
+	\label{tab:desg-cob}
+	\small
+	\begin{tabular}{lrrrr}
+		\hline
+		\textbf{Tipo de día} & \textbf{Ingenuo} & \textbf{SARIMAX} & \textbf{LightGBM} & \textbf{N-HiTS} \\
+		\hline
+		Laborable & 92,4 / 87,4 & 93,7 / 89,3 & 76,8 / 88,5 & 78,3 / 88,4 \\
+		Fin de semana & 97,4 / 94,8 & 94,8 / 90,8 & 76,1 / 92,5 & 78,9 / 91,9 \\
+		Festivo & 47,5 / 42,5 & 65,8 / 50,0 & 65,4 / 74,2 & 86,2 / 90,8 \\
+		Puente (24 horas) & 0,0 / 0,0 & 100,0 / 83,3 & 16,7 / 54,2 & 91,7 / 83,3 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+En \textbf{laborables y fines de semana} los resultados se parecen a los del año
+completo (sección~\ref{sec:calibracion-final}). Los intervalos propios de
+LightGBM y N-HiTS infracubren en ambos (entre el 76,1 y el 78,9\,\%), los del
+ingenuo y el SARIMAX sobrecubren y ACI deja a los cuatro modelos cerca de la
+banda del 88 al 92\,\%, con tres excepciones: el ingenuo con ACI queda por
+debajo en laborables (87,4\,\%) y por encima en fines de semana (94,8\,\%), y
+LightGBM con ACI queda apenas por encima en fines de semana (92,5\,\%). Esa diferencia de 7,4
+puntos entre los dos tipos de día, con intervalos de confianza que no se
+solapan, es la única diferencia de calibración entre regímenes que se lee como
+apreciable: con el intervalo propio, el ingenuo cubre un 92,4\,\% en laborables
+y un 97,4\,\% en fines de semana, que son 4,99 puntos y, por la regla, no
+alcanzan el umbral.
+
+En los \textbf{festivos} la calibración se rompe en los modelos clásicos. El
+intervalo propio del ingenuo cubre el 47,5\,\% de las horas y el del SARIMAX el
+65,8\,\%, y ACI no lo repara: el ingenuo queda en el 42,5\,\% y el SARIMAX en el
+50,0\,\%. Con ACI, el intervalo de confianza de LightGBM (60,0 a 89,2\,\%)
+tampoco incluye el 90\,\%; solo el de N-HiTS lo incluye (80,8 a 98,3\,\%), con
+una cobertura del 90,8\,\%. Con 10 días los intervalos de confianza son muy
+anchos y la comparación es descriptiva. La puntuación de intervalo y el
+CRPS$_{19}$ de los festivos, con el intervalo propio, ordenan los modelos como
+el error: 35\,733 y 2984~MW en el ingenuo, 20\,906 y 2105 en el SARIMAX, 9601 y
+658 en LightGBM, y 3397 y 528 en N-HiTS; con ACI, 5542 y 615 en LightGBM y 3573
+y 481 en N-HiTS. En el cruce de festivos con la mañana (B2), la cobertura
+propia es del 31,7, 33,3, 53,3 y 76,7\,\% en los cuatro modelos.
+
+Una causa posible de que ACI no repare los festivos de los modelos clásicos es
+que su retroalimentación llega con 24 a 48 horas de retraso y que los festivos
+son días aislados, de modo que los errores del día anterior no avisan del
+siguiente. Es coherente con los datos, pero no se ha comprobado. En el puente,
+un solo día, las coberturas son del 0, el 100, el 16,7 y el 91,7\,\% (propio),
+sin intervalos. No se ha analizado la cobertura por hora local: queda en el
+repositorio, y su lectura sería posterior y descriptiva.
+
+% ---------------------------------------------------------------------
+\subsection{Síntesis}\label{sec:desg-sintesis}
+
+El desglose deja cuatro resultados. Primero, no se encuentra ningún régimen en
+el que cambie de forma distinguible el modelo preferible: LightGBM se mantiene
+como mejor, de forma apreciable, en los regímenes con datos suficientes. Segundo,
+el efecto fuerte del régimen no está entre LightGBM y N-HiTS, sino en los
+modelos clásicos, que en los festivos multiplican por unas tres veces su error
+de un laborable, quedan lejos de la cobertura del 90\,\% y no la recuperan con
+ACI. Tercero, \textbf{no se concluye que N-HiTS sea mejor en épocas difíciles}:
+su ventaja nominal en festivos y en la franja de la tarde no se distingue de cero,
+y LightGBM tiene un error menor en Navidad (597 frente a 762~MW). Queda como
+hipótesis, con 10 festivos de un solo año, que N-HiTS sea más robusto ante los
+festivos, porque es el único modelo con una cobertura compatible con el 90\,\%
+en ellos y tiene la menor puntuación de intervalo, sin contraste. Cuarto, las
+causas de todo lo anterior (el fallo de los clásicos en festivos, la ventaja
+nominal de N-HiTS por la tarde, la falta de efecto de ACI) son hipótesis sin
+comprobar, y las conclusiones describen un solo año.
+
+% =====================================================================
+% Sección 5.7 redactada el 06/11/2026 (sesión R4). No introduce cifras
+% nuevas: reúne las de 5.2 a 5.6. Las explicaciones de los resultados se
+% declaran como hipótesis cuando no se han comprobado.
+% =====================================================================
+\section{Discusión}\label{sec:discusion}
+
+Esta sección interpreta los resultados de las anteriores. Responde primero a la
+pregunta de investigación de la sección~\ref{sec:aportacion}, separa después lo
+que los datos muestran de lo que solo se conjetura sobre sus causas, recoge los
+resultados negativos y termina con los límites que acotan lo que se puede
+afirmar. No se presentan cifras nuevas: todas proceden de las secciones
+anteriores, a las que se remite.
+
+% ---------------------------------------------------------------------
+\subsection{Respuesta a la pregunta de investigación}\label{sec:disc-respuesta}
+
+La pregunta tiene tres partes. La primera es si los modelos de aprendizaje
+automático y profundo mejoran, de forma estadísticamente significativa, al
+SARIMAX con estacionalidad múltiple en la previsión del día siguiente. En 2024
+\textbf{sí lo hacen}, con las condiciones del protocolo: el MAE de LightGBM es
+de 573,6~MW y el de N-HiTS de 665,6~MW, frente a los 1089,7~MW del SARIMAX, es
+decir, un 47 y un 39\,\% menos. Los dos contrastes de Diebold--Mariano tienen un
+p-valor ajustado inferior a 0,001 y se mantienen con la pérdida cuadrática y con 3
+y 14 retardos (sección~\ref{sec:final-dm}). Entre los dos modelos de aprendizaje
+automático, LightGBM es apreciablemente mejor que N-HiTS, por 92~MW de pérdida
+media diaria. Hay un matiz que reduce el alcance de esta respuesta: el SARIMAX
+no se distingue del ingenuo estacional con la regla fijada de antemano. Superar
+al SARIMAX es, por tanto, superar a un comparador que no mejora de forma
+demostrable a la referencia más simple, y la comparación más informativa es la
+de los dos modelos de aprendizaje automático con el ingenuo (diferencias de 644
+y 552~MW de pérdida media diaria).
+
+La segunda parte pregunta en qué horas y tipos de día lo hacen. La respuesta es
+que \textbf{en casi todos}. LightGBM tiene el menor MAE en 19 de las 24 horas
+y N-HiTS en cinco, las de las 13 a las 17 h; ningún modelo clásico es el
+mejor en ninguna hora. En ninguno de los 19 contrastes del desglose cambia de
+forma distinguible el modelo preferible, de modo que no se encuentra un régimen
+en el que un modelo clásico sea la mejor opción
+(sección~\ref{sec:desg-regimen}). Donde la distancia entre familias es mayor es
+en los festivos: el MAE de los modelos clásicos es de 3672 y 2813~MW y el de los
+de aprendizaje automático, de 796 y 655~MW. Esta es la respuesta más clara a «en
+qué situaciones», pero se apoya en 10 festivos de un solo año
+(sección~\ref{sec:desg-precision}).
+
+La tercera parte pregunta qué familia proporciona intervalos mejor calibrados, y
+la respuesta es menos sencilla. Con los intervalos propios de cada modelo
+ninguna familia queda en la banda del 88 al 92\,\%, pero las dos fallan en
+sentidos distintos. Los intervalos de los modelos clásicos cubren algo de más
+(92,3 y 93,3\,\%), mientras que los cuantiles de LightGBM y N-HiTS cubren
+claramente de menos (76,1 y 78,7\,\%). En ese sentido, los modelos clásicos
+están mejor calibrados, y lo están a costa de intervalos más anchos. Pero la
+calibración no es una propiedad fija de la familia: cuando los intervalos de los
+cuatro se construyen con el mismo método, la ventana de residuos recientes o
+ACI, los cuatro quedan dentro de la banda
+(sección~\ref{sec:final-cal-sintesis}). Lo que se puede decir con los datos es,
+por tanto, que \textbf{la calibración depende más de cómo se construye el
+intervalo que del modelo}, y que los cuantiles entrenados con la pérdida de
+pinball, sin corregir, no son fiables en estos dos modelos. Que LightGBM y
+N-HiTS tengan una puntuación de intervalo menor no contradice esto, porque se
+debe en parte a que sus intervalos son estrechos (sección~\ref{sec:cal-propios}).
+
+Estas respuestas son del problema y el protocolo estudiados. La literatura
+revisada es mixta sobre el rendimiento relativo de los métodos estadísticos y de
+aprendizaje automático (sección~\ref{sec:evidencia}), y un único sistema, un
+único año de evaluación y un modelo por familia no la resuelven. El resultado
+concuerda con la ventaja del aprendizaje automático en este problema concreto,
+pero no permite extenderla a otros.
+
+% ---------------------------------------------------------------------
+\subsection{Qué se sabe y qué se conjetura}\label{sec:disc-hipotesis}
+
+Los resultados describen qué ocurre; las explicaciones de por qué ocurre, en
+general, no se han comprobado. Se separan aquí las dos cosas. Las que siguen son
+hipótesis, y ninguna se ha contrastado.
+
+\paragraph{Exceso de previsión al mediodía y autoconsumo.} En 2023 los tres
+modelos ajustados prevén entre las 12:00 y las 18:00 más demanda de la que hubo
+($-508$, $-411$ y $-313$~MW de sesgo medio en el SARIMAX, LightGBM y N-HiTS), y en
+LightGBM el exceso es mayor de abril a septiembre ($-507$~MW) que de noviembre a
+febrero ($-210$~MW) (sección~\ref{sec:val-perfil}). Es compatible con el
+autoconsumo fotovoltaico, que reduce la demanda observada en las horas de sol y
+no está entre las variables de los modelos, que solo conocen la temperatura y el
+calendario. Pero la misma pauta podría deberse a otra variable estacional no
+incluida, y no se ha medido el autoconsumo. En 2024 el sesgo de esa franja es
+menor ($-158$, $-84$ y $-223$~MW, tabla~\ref{tab:desg-precision}), lo que
+coincide con el reajuste mensual, que podría absorber parte del crecimiento del
+autoconsumo, pero también con el cambio de año, y el diseño no permite separar
+ambas cosas.
+
+\paragraph{El perfil aplanado de N-HiTS.} En 2023 la amplitud del perfil diario
+de N-HiTS es el 88\,\% de la real, frente al 101--102\,\% de los otros dos modelos
+ajustados (sección~\ref{sec:val-perfil}). Una causa posible está en la
+arquitectura, que genera la previsión interpolando desde representaciones de
+baja resolución \parencite{challu2023nhits}, lo que favorece perfiles suaves; no
+se ha comprobado. Además, el análisis del perfil no se ha repetido en 2024.
+
+\paragraph{Cuantiles estrechos.} Los cuantiles de LightGBM y N-HiTS se ajustan
+con los datos de entrenamiento, donde el error del modelo suele ser menor que
+fuera de la muestra, y esto produciría intervalos más estrechos de lo debido. Es
+coherente con que la ventana de residuos recientes, que son errores fuera de
+muestra, los corrija. No se ha comparado la cobertura dentro y fuera de la
+muestra de entrenamiento, que es lo que lo comprobaría.
+
+\paragraph{Anchura de los intervalos del SARIMAX.} Su intervalo gaussiano
+homocedástico tiene la misma anchura en todas las horas, lo que se sigue de su
+construcción. Esa anchura no refleja que el error depende de la hora, y en
+2023 resultó demasiado ancha de madrugada y justa por la tarde
+(sección~\ref{sec:cal-propios}).
+
+\paragraph{Meses y días difíciles.} En 2023, agosto es el mes de menor cobertura del
+ingenuo y de LightGBM, y en 2024 es uno de los tres meses de mayor error del
+ingenuo. Esto coincide
+con el periodo vacacional, en el que la demanda de una semana se parece menos a
+la de la anterior, pero esta explicación se propone sin haberse comprobado. Los
+modelos clásicos fallan en festivos con un sesgo de $-3589$ y $-2567$~MW, es
+decir, prevén más demanda de la que hubo; por qué no los corrige ACI, y si es porque su
+retroalimentación llega con 24 a 48 horas de retraso, es una hipótesis.
+
+\paragraph{Robustez de N-HiTS.} Que N-HiTS sea más robusto en festivos y en
+épocas difíciles es una hipótesis que sugieren su cobertura del 90,8\,\% y su
+menor puntuación de intervalo en ellos, pero no se sostiene con el contraste:
+su ventaja de error en festivos no se distingue de cero y LightGBM tiene un
+error menor en Navidad (sección~\ref{sec:desg-regimen}).
+
+\paragraph{El empeoramiento del SARIMAX en 2024.} El SARIMAX es el único modelo
+cuyo error aumenta entre 2023 y 2024 (un 15,5\,\%), aunque su sesgo se reduce
+casi a cero. No se ha identificado la causa. Las explicaciones posibles
+(sensibilidad a las características del año, efecto del reajuste mensual, o
+que 2024 favorezca más al ingenuo, cuyo error baja un 13\,\%) no se pueden
+separar con este diseño.
+
+% ---------------------------------------------------------------------
+\subsection{Resultados negativos}\label{sec:disc-negativos}
+
+Cuatro resultados del trabajo son negativos y se mantienen como tales.
+
+El primero es que \textbf{el SARIMAX con estacionalidad múltiple no se distingue
+del ingenuo estacional}. Con la regla fijada de antemano (pérdida absoluta y 7
+retardos), el p-valor ajustado es 0,087; con la pérdida cuadrática y 3 retardos
+sería 0,047. Lo que se informa es la primera lectura, y lo que dicen las
+variantes es que, en el mejor caso, el margen es muy pequeño. La especificación
+del SARIMAX tiene un papel en esto: en 2023 los mayores cambios los produjeron
+la variable de nivel y los retardos de 48 y 168 horas, no el orden del proceso
+de los errores (sección~\ref{sec:val-seleccion}), y no se ha explorado si otra
+especificación lo acercaría a los modelos de aprendizaje automático. Es una
+limitación del comparador y no una propiedad de la familia.
+
+El segundo es que \textbf{los cuantiles de LightGBM y N-HiTS no están
+calibrados}, ni en 2023 ni en 2024. Su buen CRPS$_{19}$ no debe leerse como una
+buena calibración.
+
+El tercero es que \textbf{ACI no aporta nada sobre la ventana de residuos} en
+LightGBM y N-HiTS; en el ingenuo y el SARIMAX ni la ventana ni ACI mejoran la
+puntuación del intervalo propio, y ACI la empeora de forma apreciable en el
+SARIMAX; en los festivos, tampoco repara la cobertura de los modelos
+clásicos. La conclusión es sobre ACI \parencite{gibbs2021adaptive} con el
+$\gamma = 0{,}001$ que se eligió con 2023, un valor con el que la adaptación es
+casi inerte, y no sobre ACI con otros valores, que no se evaluaron en 2024. Que la
+ventana por sí sola baste es un resultado útil: es un método más simple.
+
+El cuarto es que \textbf{el desglose no encuentra un cambio de régimen}: ningún
+régimen cambia de forma distinguible el modelo preferible. Para el objetivo OE8
+esto es un hallazgo, no una carencia: la ventaja de LightGBM sobre N-HiTS es
+estable entre los regímenes con datos suficientes, y la de los dos sobre los
+clásicos es grande en todos.
+
+% ---------------------------------------------------------------------
+\subsection{Límites de la comparación}\label{sec:disc-limites}
+
+\paragraph{Previsión meteorológica perfecta.} Los modelos usan la temperatura de
+reanálisis de la propia hora que prevén, lo que equivale a suponer una previsión
+meteorológica sin error (sección~\ref{sec:aportacion}). Los resultados son, por
+tanto, una cota superior de lo alcanzable en operación. Con previsiones reales
+el error de todos los modelos que usan la temperatura aumentaría, y la ventaja
+de los que más dependen de ella podría reducirse. Esa dependencia
+no se ha medido en este trabajo. El ingenuo es el único modelo que no usa la temperatura, de modo
+que es el que menos se vería afectado, y es posible que su distancia a los
+demás se redujera en operación. No se ha cuantificado.
+
+\paragraph{Un sistema, un año y un modelo por familia.} Las conclusiones se
+refieren al sistema peninsular, a 2024 y a los cuatro modelos estudiados. Un
+solo año tiene un solo patrón de festivos, uno de ellos puente, y los
+contrastes sobre 10 festivos tienen intervalos muy anchos. Que LightGBM supere a
+N-HiTS no es una conclusión sobre el boosting frente a las redes en general.
+
+\paragraph{Selección con 2023.} Los hiperparámetros de los tres modelos
+ajustados y el $\gamma$ de ACI se eligieron con 2023, y esa elección favorece a
+los modelos en 2023 pero no en 2024. El efecto es la «maldición del ganador»,
+que se declara en la sección~\ref{sec:final-2023}: la comparación de 2023 con
+2024 mezcla ese efecto con el del año y el del reajuste mensual, y por eso es
+solo descriptiva. No se hizo un control sin reajuste, de modo que no se sabe
+cuánto aporta el reajuste mensual a los resultados de 2024.
+
+\paragraph{Contrastes y residuos.} Los contrastes de Diebold--Mariano usan la
+pérdida diaria (366 días), que reduce la dependencia entre horas pero no la
+elimina, y su resultado para el par SARIMAX--ingenuo depende algo de las
+decisiones del contraste. Los residuos iniciales de ACI son los de los modelos
+de 2023. El desglose por hora, tipo de día y régimen es descriptivo en lo que no
+tiene contraste.
+
+\paragraph{Lo que el trabajo no hace.} No analiza la cobertura por hora local, no
+se ha medido el efecto de ninguna de las hipótesis de la sección anterior y no
+evalúa otros horizontes ni otros sistemas eléctricos. Quedan como trabajo futuro
+en el capítulo~\ref{cap:conclusiones}.

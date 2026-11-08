@@ -1,0 +1,69 @@
+% =====================================================================
+% Glosario. Redactado el 06/11/2026 (sesión R4), a mano como lista de
+% descripciones (sin el paquete glossaries). Las definiciones son las del
+% uso que se hace de cada término en la memoria.
+% =====================================================================
+\chapter*{Glosario}
+\addcontentsline{toc}{chapter}{Glosario}
+
+Este glosario recoge, por orden alfabético, los términos técnicos que más se
+usan en la memoria, con el sentido que tienen en ella.
+
+\begin{description}
+	\item[ACI (inferencia conforme adaptativa).] Método que construye el intervalo
+	de predicción con los residuos recientes del modelo y ajusta en línea su nivel
+	según los fallos pasados, con un paso de adaptación $\gamma$.
+	\item[ADF y KPSS.] Contrastes de estacionariedad con hipótesis nulas opuestas:
+	raíz unitaria el ADF, estacionariedad el KPSS.
+	\item[ARMA.] Modelo de los errores que combina autorregresión y media móvil. En
+	el SARIMAX de este trabajo modela la dependencia de los errores de la regresión.
+	\item[Calibración.] Coincidencia entre la frecuencia con que la observación cae
+	dentro de un intervalo y el nivel nominal de este.
+	\item[Cobertura empírica.] Proporción de observaciones que caen dentro del
+	intervalo de predicción.
+	\item[CRPS.] Puntuación de una distribución predictiva completa; aquí se aproxima
+	con una rejilla de 19 cuantiles (CRPS$_{19}$).
+	\item[Diebold--Mariano.] Contraste de igualdad de precisión entre dos
+	previsiones, basado en la diferencia de sus pérdidas. Se usa con la corrección de
+	Harvey, Leybourne y Newbold, la varianza de Newey y West y el ajuste de Holm.
+	\item[ESIOS.] Sistema de información del operador del sistema eléctrico español
+	(Red Eléctrica de España), de donde procede la demanda.
+	\item[Fuga de información.] Uso, al ajustar o evaluar un modelo, de datos que no
+	estarían disponibles en el momento de emitir la previsión.
+	\item[Grados-día.] Medida de cuánto se aleja la temperatura de un umbral de
+	confort, por debajo (calefacción) o por encima (refrigeración).
+	\item[Huella de contenido.] Número calculado a partir de todos los valores del
+	conjunto de datos, que cambia si cambia cualquiera de ellos.
+	\item[Ingenuo estacional.] Previsión que copia la demanda de la misma hora del
+	mismo día de la semana anterior.
+	\item[LightGBM.] Implementación de \textit{gradient boosting}, que combina
+	árboles de decisión añadidos de forma secuencial.
+	\item[MAE, RMSE, MAPE y MASE.] Error absoluto medio, raíz del error cuadrático
+	medio, error porcentual absoluto medio y error absoluto medio escalado. El MASE
+	de este trabajo divide el MAE por el del ingenuo estacional en 2017--2022.
+	\item[MSTL.] Descomposición de una serie en tendencia, varias estacionalidades y
+	un resto.
+	\item[N-HiTS.] Red neuronal de previsión que genera la previsión a varias
+	escalas de tiempo.
+	\item[Nitidez.] Estrechez de los intervalos de predicción: a igual calibración,
+	son mejores los más estrechos.
+	\item[Origen móvil.] Esquema de evaluación en el que la previsión se emite cada
+	día con la información disponible hasta ese momento.
+	\item[Periodograma.] Estimación de la potencia de una serie en cada frecuencia,
+	que revela sus periodicidades.
+	\item[Pérdida de pinball.] Pérdida asimétrica con la que se estima un cuantil.
+	\item[Previsión meteorológica perfecta.] Supuesto de que la temperatura usada en
+	la previsión es la observada, sin error de previsión.
+	\item[Puntuación de intervalo.] Suma de la anchura de un intervalo y una
+	penalización proporcional a lo que la observación queda fuera de él.
+	\item[Reajuste.] Nueva estimación de un modelo con los datos disponibles hasta una
+	fecha. En 2024 cada modelo se reajusta cada mes.
+	\item[Reanálisis.] Reconstrucción de las condiciones meteorológicas pasadas
+	combinando observaciones y un modelo físico.
+	\item[SARIMAX.] En este trabajo, una regresión con términos de Fourier, variables
+	exógenas y errores ARMA, estimada con la clase SARIMAX de statsmodels.
+	\item[Sesgo.] Media de la demanda real menos la prevista; un valor negativo
+	indica que se prevé más demanda de la que hubo.
+	\item[Términos de Fourier.] Senos y cosenos con un periodo dado, que representan
+	una estacionalidad en una regresión.
+\end{description}

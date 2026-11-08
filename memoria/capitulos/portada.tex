@@ -1,0 +1,57 @@
+% =====================================================================
+% Portada de la memoria (diseño de la plantilla de la UAX, hecha en TikZ).
+% Redactada el 06/11/2026 (sesión R4).
+% DATOS PENDIENTES: los que salen en rojo entre corchetes se completan en
+% las macros de abajo. El logo se toma de figuras/logo_uax.png si existe;
+% si no, se dibuja un recuadro de aviso.
+% =====================================================================
+\definecolor{uaxazul}{HTML}{2F5496}
+\newcommand{\pendiente}[1]{\textcolor{red}{\textbf{[#1]}}}
+
+% --- Datos de la portada (completar) ---
+\newcommand{\portadaCurso}{\textcolor{yellow}{\textbf{[curso]}}} % en la franja azul el aviso va en amarillo               % la plantilla dice «24-25»
+\newcommand{\portadaCentro}{\pendiente{centro}}             % la plantilla dice «Business Tech»
+\newcommand{\portadaAutor}{Guillermo \pendiente{apellidos}}
+\newcommand{\portadaDirector}{\pendiente{nombre del director/a}}
+\newcommand{\portadaFecha}{Noviembre de 2026}
+
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{tikzpicture}[remember picture,overlay]
+	% marco azul
+	\draw[uaxazul,line width=2.2pt]
+		([xshift=1.4cm,yshift=-1.4cm]current page.north west) rectangle
+		([xshift=-1.4cm,yshift=1.4cm]current page.south east);
+	% franja lateral
+	\fill[uaxazul]
+		([xshift=1.4cm,yshift=-1.4cm]current page.north west) rectangle
+		([xshift=4.6cm,yshift=1.4cm]current page.south west);
+	\node[white,font=\bfseries\Huge] at ([xshift=3.0cm,yshift=-3.0cm]current page.north west) {UAX};
+	\node[white,font=\bfseries\large,rotate=90] at ([xshift=3.0cm]current page.west) {TRABAJO FIN DE MÁSTER};
+	\node[white,font=\bfseries\normalsize,align=center] at ([xshift=3.0cm,yshift=3.0cm]current page.south west) {\portadaCurso};
+\end{tikzpicture}
+
+% contenido, desplazado a la derecha de la franja
+\hspace*{3.4cm}\begin{minipage}{0.64\textwidth}
+	\raggedright
+	\vspace*{0.3cm}
+	\IfFileExists{figuras/logo_uax.png}{%
+		\includegraphics[width=5.5cm]{figuras/logo_uax.png}}{%
+		\fbox{\pendiente{logo de la UAX: figuras/logo\_uax.png}}}
+
+	\vspace{1.2cm}
+	{\color{uaxazul}\large\bfseries Universidad Alfonso X el Sabio}\\[0.2cm]
+	{\color{uaxazul}\large \portadaCentro}\\[0.2cm]
+	{\color{uaxazul}\large Máster Universitario en Inteligencia Artificial}
+
+	\vspace{2.4cm}
+	{\color{uaxazul}\Large\bfseries Previsión a corto plazo de la demanda eléctrica
+	peninsular: comparación de modelos clásicos y de aprendizaje automático con
+	evaluación de intervalos de predicción}
+
+	\vspace{2.4cm}
+	{\large\textbf{Autor:} \portadaAutor}\\[0.3cm]
+	{\large\textbf{Director:} \portadaDirector}\\[0.3cm]
+	{\large \portadaFecha}
+\end{minipage}
+\end{titlepage}

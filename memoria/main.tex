@@ -8,7 +8,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[spanish,es-tabla,es-noquoting]{babel}
+\usepackage[english,spanish,es-tabla,es-noquoting]{babel} % español como idioma principal; inglés para el abstract
 \usepackage{csquotes}
 
 % --- Márgenes provisionales (pendiente de normativa UAX) ---
@@ -35,22 +35,20 @@
 \usepackage{xltabular} % tablas de varias páginas con columnas X
 \usepackage{placeins} % \FloatBarrier: las tablas no pasan de sección
 \usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz} % portada
 \graphicspath{{figuras/}}
 \usepackage[hidelinks]{hyperref}
 \hypersetup{pdftitle={Previsión a corto plazo de la demanda eléctrica peninsular: comparación de modelos clásicos y de aprendizaje automático con evaluación de intervalos de predicción},
-	pdfauthor={Guillermo}}
+	pdfauthor={Guillermo Soriano Pérez}}
 
-% --- Datos provisionales de portada ---
-\title{Previsión a corto plazo de la demanda eléctrica peninsular:\\
-	comparación de modelos clásicos y de aprendizaje automático\\
-	con evaluación de intervalos de predicción}
-\author{Guillermo}
-\date{2026}
+% --- Metadatos del PDF (la portada está en capitulos/portada.tex) ---
 
 
 \begin{document}
 	
-	\maketitle
+	\input{capitulos/portada}
+	\input{capitulos/resumen}
 	\tableofcontents
 	
 	\input{capitulos/01_introduccion}
@@ -58,6 +56,8 @@
 	\input{capitulos/03_marco_teorico}
 	\input{capitulos/04_marco_metodologico}
 	\input{capitulos/05_resultados}
+	\input{capitulos/06_conclusiones}
+	\input{capitulos/glosario}
 	
 	\printbibliography[title={Bibliografía},heading=bibintoc]
 	

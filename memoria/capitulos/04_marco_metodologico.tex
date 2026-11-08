@@ -5,7 +5,8 @@
 % diseño de la capa probabilística (4.4) y métricas probabilísticas
 % redactadas (04/11/2026, sesión R2).
 % Contraste de Diebold-Mariano y reglas puntuales redactados (06/11/2026, sesión R3).
-% Pendiente: entorno y reproducibilidad (R4).
+% Entorno de ejecución y reproducibilidad (4.6) redactado (06/11/2026, sesión R4);
+% el párrafo de versiones de 4.3 se trasladó a 4.6.
 % =====================================================================
 
 \chapter{Marco metodológico}\label{cap:metodologia}
@@ -621,7 +622,7 @@ guardada en disco se relee idéntica.
 La huella se calcula con la librería pandas, y su valor depende de que los
 datos sean idénticos bit a bit. Durante el trabajo hubo que cambiar la
 versión de pandas por un requisito de compatibilidad de otra librería
-(sección~\ref{sec:esp-software}), y el conjunto se regeneró con la
+(sección~\ref{sec:entorno-software}), y el conjunto se regeneró con la
 nueva versión. La comparación con la versión anterior mostró que 59 de las
 60 columnas eran idénticas bit a bit y que la temperatura ponderada difería,
 como máximo, en $1{,}4 \times 10^{-14}$~°C. La causa probable, no comprobada
@@ -1001,13 +1002,8 @@ finales y con un resumen de las limitaciones de la modelización. Los
 resultados de la selección en 2023 se presentan en la
 sección~\ref{sec:validacion}.
 
-Todo el trabajo se ha programado en Python, con las versiones de las
-librerías fijadas en el repositorio.\label{sec:esp-software} Los datos se
-manejan con pandas~2.3.3 \parencite{mckinney2010data,pandas2025v233}; el
-SARIMAX y los contrastes de diagnóstico emplean statsmodels~0.15.0
-\parencite{seabold2010statsmodels}; LightGBM se entrena con la librería del
-mismo nombre en su versión~4.7.0 \parencite{ke2017lightgbm}, y N-HiTS, con
-NeuralForecast~3.2.2 \parencite{olivares2022neuralforecast}.
+Los cuatro modelos se programan en Python, con las librerías y las versiones
+que se detallan en la sección~\ref{sec:entorno-software}.
 
 La elección de estos cuatro modelos deja fuera otros que el marco teórico
 presenta, por los motivos siguientes. El suavizado exponencial clásico
@@ -2138,3 +2134,137 @@ mensual, y con la \enquote{maldición del ganador}, porque los hiperparámetros 
 LightGBM y de N-HiTS se eligieron con 2023: el trabajo no puede separar esas
 causas. Tampoco hay un control sin reajuste, que habría permitido medir su
 efecto, porque queda fuera del alcance fijado en el protocolo.
+
+% =====================================================================
+% Sección 4.6 redactada el 06/11/2026 (sesión R4). Las versiones proceden
+% de requirements.txt (entorno completo fijado el 06/10/2026); los
+% tiempos, de los manifiestos y las salidas de los scripts 28 a 30.
+% =====================================================================
+\section{Entorno de ejecución y reproducibilidad}\label{sec:entorno}
+
+Esta sección describe con qué se ha ejecutado el trabajo y qué medidas se han
+tomado para que otra persona pueda repetirlo. Distingue entre lo que se
+garantiza, lo que se comprueba al ejecutar y lo que no se ha comprobado.
+
+% ---------------------------------------------------------------------
+\subsection{Entorno de ejecución}\label{sec:entorno-software}
+
+Todo el trabajo se ha programado en Python~3.13, con las versiones de las
+librerías fijadas en el repositorio (\texttt{requirements.txt}, que recoge el
+entorno completo). Los datos se manejan con
+pandas~2.3.3 \parencite{mckinney2010data,pandas2025v233}; el SARIMAX y los
+contrastes de diagnóstico emplean statsmodels~0.15.0
+\parencite{seabold2010statsmodels}; LightGBM se entrena con la librería del
+mismo nombre en su versión~4.7.0 \parencite{ke2017lightgbm}, y N-HiTS, con
+NeuralForecast~3.2.2 \parencite{olivares2022neuralforecast}, sobre
+PyTorch~2.14.1 en su versión para procesador. El calendario festivo se
+contrasta con la librería \textit{holidays}~0.105 \parencite{holidays2026}. La
+tabla~\ref{tab:entorno-versiones} reúne las demás librerías que intervienen en
+los resultados.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Librerías empleadas y versiones fijadas}
+	\label{tab:entorno-versiones}
+	\small
+	\begin{tabular}{llp{6.2cm}}
+		\hline
+		\textbf{Librería} & \textbf{Versión} & \textbf{Uso} \\
+		\hline
+		pandas & 2.3.3 & Manejo de los datos y huella de contenido \\
+		NumPy & 2.5.3 & Biblioteca de cálculo numérico \\
+		SciPy & 1.18.1 & Biblioteca de cálculo científico \\
+		PyArrow & 25.0.1 & Lectura y escritura de los archivos \textit{parquet} \\
+		statsmodels & 0.15.0 & SARIMAX y diagnósticos \\
+		sktime & 1.2.0 & Herramientas de series temporales \\
+		LightGBM & 4.7.0 & Modelo de \textit{boosting} \\
+		NeuralForecast & 3.2.2 & N-HiTS \\
+		PyTorch & 2.14.1 (CPU) & Entrenamiento de la red \\
+		MAPIE & 1.5.0 & Intervalos conformes (ACI) \\
+		\textit{holidays} & 0.105 & Contraste del calendario festivo \\
+		Matplotlib & 3.11.2 & Figuras \\
+		\hline
+	\end{tabular}
+\end{table}
+
+Los cálculos se hicieron en el ordenador personal del autor, con sistema
+operativo Windows y sin tarjeta gráfica. Esto condiciona el diseño del
+estudio, no solo su ejecución: la prueba de tiempos de la
+sección~\ref{sec:esp-nhits} limitó el tamaño de la red y el número de
+configuraciones de N-HiTS, y por eso la ventana de 672 horas quedó fuera.
+La tabla~\ref{tab:entorno-tiempos} recoge el tiempo de las ejecuciones
+principales.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Tiempo de las ejecuciones principales}
+	\label{tab:entorno-tiempos}
+	\small
+	\begin{tabular}{p{5.6cm}p{8.4cm}}
+		\hline
+		\textbf{Ejecución} & \textbf{Tiempo} \\
+		\hline
+		Búsqueda de N-HiTS en 2023 (20 configuraciones) & 82 min; con las semillas adicionales, 95 min \\
+		Previsión de 2024, con 12 reajustes mensuales de cada modelo & 4,33 h en total; por reajuste, SARIMAX 2,9 a 3,3 min, LightGBM 1,7 a 4,2 min, N-HiTS 7,1 a 7,6 min y la segunda red de 19 salidas, 6,7 a 8,5 min \\
+		Evaluación final de 2024 & 23 s \\
+		Desglose por régimen & menos de 1 min \\
+		\hline
+	\end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------
+\subsection{Medidas de reproducibilidad}\label{sec:entorno-medidas}
+
+\paragraph{Código y rutas.} El código está en el repositorio del anexo~\ref{anexo:repositorio}.
+Todas las rutas son relativas a la raíz del repositorio, sin rutas absolutas.
+Cada análisis y cada modelo tienen un script numerado, y la infraestructura de
+validación (la generación de los orígenes, la prueba de fuga y el cálculo de las
+métricas) se programa una sola vez en un módulo común que usan los cuatro modelos.
+
+\paragraph{Datos.} Los datos de entrada no se publican: se regeneran con los
+scripts a partir de las fuentes (sección~\ref{sec:datos-verificacion}). La
+descarga de la demanda requiere un token de acceso personal a la API de ESIOS,
+que se guarda fuera del repositorio. La huella de contenido del conjunto
+(tabla~\ref{tab:control}) permite comprobar que el conjunto regenerado es
+idéntico al del trabajo, y todos los scripts de análisis y de modelización la
+comprueban antes de empezar. Se publican las tablas de resultados.
+
+\paragraph{Semillas.} Todos los sorteos y entrenamientos usan la semilla~42. La
+variabilidad entre semillas de N-HiTS se mide con las semillas 43 y 44
+(sección~\ref{sec:prot-presupuesto}), y el \textit{bootstrap} de bloques de días
+usa la semilla 42 con 1000 réplicas.
+
+\paragraph{Decisiones fijadas antes de medir.} Las decisiones de cada paso
+(configuraciones, métricas, reglas de lectura) se escribieron en el documento
+de protocolo del repositorio y se versionaron antes de medir o de lanzar el
+cálculo correspondiente. El historial de versiones permite comprobar que una
+decisión es anterior al resultado que habría podido influir.
+
+\paragraph{Ejecución única de 2024.} El script de la evaluación final y el del
+desglose tienen un candado: se niegan a ejecutarse si ya existe su carpeta de
+resultados, salvo que se les indique expresamente una repetición con el motivo.
+Cada ejecución deja un manifiesto con los datos de la ejecución, y el motivo de
+una repetición quedaría registrado en él. Ambos se ejecutaron una sola vez. El
+código se probó antes en un entorno separado, con un arnés activado por una
+variable de entorno que sustituye la demanda de 2024 por datos inventados, de
+modo que ninguna prueba requirió leer la demanda real de 2024. El arnés solo
+existe para las pruebas.
+
+\paragraph{Ejecuciones largas.} La búsqueda de configuraciones guarda cada una al
+terminar y el cálculo de la capa probabilística omite los modelos cuyos
+resultados ya existen, de modo que, si una ejecución se interrumpe, basta con
+lanzar de nuevo el mismo comando para reanudarla.
+
+% ---------------------------------------------------------------------
+\subsection{Lo que no se garantiza}\label{sec:entorno-limites}
+
+Reproducir los resultados exige las versiones exactas de las librerías: con
+otras, el conjunto de datos puede diferir en el orden de la precisión de la
+máquina (sección~\ref{sec:datos-verificacion}). Las previsiones guardadas no se
+publican, de modo que quien quiera repetir la evaluación debe reentrenar los
+modelos, y la previsión de 2024 tarda unas cuatro horas y media en un
+ordenador como el empleado. No se ha comprobado que reentrenar N-HiTS con la
+misma semilla en otro equipo dé previsiones idénticas bit a bit: la variabilidad
+entre semillas es de 66~MW de MAE en 2023, y la que pudiera haber entre equipos
+no se ha medido. % COMPROBAR (cierre): ajustar esta frase si se hace la reproducción desde cero en un entorno limpio antes de entregar.
+Tampoco se ha repetido la ejecución completa desde cero en un entorno limpio.
