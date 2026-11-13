@@ -290,7 +290,7 @@ horas como uno de los más informativos, y tiene especial relevancia porque
 el retardo de 24 horas no está disponible para todas las horas del día
 previsto, al emitirse la previsión a las 12:00 del día anterior.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Autocorrelación simple en retardos seleccionados, 2017-2022}
 	\label{tab:acf}
@@ -440,7 +440,13 @@ La tabla~\ref{tab:sintesis-oe2} resume los hallazgos del análisis
 exploratorio y la decisión de modelización que se deriva de cada uno. Todas
 las decisiones se apoyan exclusivamente en datos de entrenamiento.
 
-\begin{table}[htbp]
+Con ello se cumple el criterio establecido para el objetivo~OE2 en la
+tabla~\ref{tab:criterios}: la memoria presenta la descomposición de la serie,
+el periodograma con los picos en los tres periodos estacionales, los
+resultados de los contrastes ADF y KPSS y la curva demanda-temperatura
+ajustada con grados-día.
+
+\begin{table}[H]
 	\centering
 	\caption{Hallazgos del análisis exploratorio y sus implicaciones para la modelización}
 	\label{tab:sintesis-oe2}
@@ -460,12 +466,6 @@ las decisiones se apoyan exclusivamente en datos de entrenamiento.
 		\hline
 	\end{tabularx}
 \end{table}
-
-Con ello se cumple el criterio establecido para el objetivo~OE2 en la
-tabla~\ref{tab:criterios}: la memoria presenta la descomposición de la serie,
-el periodograma con los picos en los tres periodos estacionales, los
-resultados de los contrastes ADF y KPSS y la curva demanda-temperatura
-ajustada con grados-día.
 
 % =====================================================================
 % Sección 5.2 redactada el 15/10/2026 (sesión R1). Cifras de
@@ -530,7 +530,7 @@ $-290$ y $-390$~MW de las demás; una hipótesis no comprobada es que el
 procedimiento de estimación llega en ellas a una solución distinta. La ganadora por RMSE es también el ARMA(5,1), lo que indica
 que la elección no depende de la métrica.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Configuraciones del SARIMAX evaluadas en 2023 (MW). Las tres primeras filas recogen la configuración de referencia ARMA(2,1) en cada fase; la tercera forma parte también de la rejilla final, cuyas quince configuraciones se ordenan después por MAE}
 	\label{tab:sarimax-rejilla}
@@ -693,13 +693,6 @@ muestra es que el error no crece de forma regular con la anticipación, sino
 que sigue la hora: las horas de madrugada, a 12-17 horas del origen, son las
 más fáciles para los cuatro modelos, y las de la tarde, las más difíciles.
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=\textwidth]{validacion_mae_anticipacion.png}
-	\caption{MAE de los cuatro modelos en 2023 según la anticipación de la hora prevista (eje inferior) y la hora local del día $D+1$ correspondiente (eje superior). Se omite la anticipación de 36~h, que solo se da en una hora del año.}
-	\label{fig:val-anticipacion}
-\end{figure}
-
 El ingenuo, el SARIMAX y LightGBM tienen el mismo perfil: error bajo de
 madrugada, subida a partir de las siete de la mañana y máximo entre las 12 y
 las 17 horas, que en LightGBM llega a unos 860~MW. N-HiTS tiene un perfil
@@ -720,7 +713,33 @@ bajo. El patrón es el mismo en los doce meses y en las tres semillas. Su
 sesgo medio por franjas es de $+31$~MW de 00:00 a 06:00, $+262$~MW de 06:00 a
 12:00, $-313$~MW de 12:00 a 18:00 y $+772$~MW de 18:00 a 24:00.
 
-\begin{table}[htbp]
+Un perfil de error tan marcado podía deberse a un desfase horario en el
+procesamiento de las previsiones, que la prueba de fuga no detectaría. La
+comprobación de alineación de la sección~\ref{sec:prot-fuga} lo descarta.
+Calculado sobre las 8754 horas comunes a todos los desplazamientos, que
+excluyen las tres primeras y las tres últimas del año, el MAE de N-HiTS es de
+716,5~MW comparado con la demanda de la misma hora, y de 1088,4 y 1164,3~MW
+comparado con la de una hora antes y una hora después; los otros tres
+modelos se comportan igual. El aplanamiento es, por tanto, un
+comportamiento del modelo. Una explicación compatible con su arquitectura
+(sección~\ref{sec:nhits}) es que las pilas de baja resolución dibujan una
+trayectoria suave y que la red, que llegó al máximo de pasos de entrenamiento,
+no llegó a añadir todo el detalle de la forma diaria. No se ha comprobado,
+y el caso es distinto del de las enmiendas del SARIMAX. N-HiTS ya recibe toda
+la información que el protocolo pone a disposición de los modelos: la ventana
+de demanda hasta el origen y las exógenas. Corregir su perfil exigiría
+cambiar hiperparámetros o el procedimiento de entrenamiento, como el número
+de pasos, los pesos del horizonte o las escalas, y eso, según la regla de la
+sección~\ref{sec:prot-principio}, sería decidir con 2023.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\textwidth]{validacion_mae_anticipacion.png}
+	\caption{MAE de los cuatro modelos en 2023 según la anticipación de la hora prevista (eje inferior) y la hora local del día $D+1$ correspondiente (eje superior). Se omite la anticipación de 36~h, que solo se da en una hora del año.}
+	\label{fig:val-anticipacion}
+\end{figure}
+
+\begin{table}[H]
 	\centering
 	\caption{Demanda media real y previsión media de cada modelo en horas seleccionadas de 2023 (MW)}
 	\label{tab:perfil}
@@ -740,25 +759,6 @@ sesgo medio por franjas es de $+31$~MW de 00:00 a 06:00, $+262$~MW de 06:00 a
 		\hline
 	\end{tabular}
 \end{table}
-
-Un perfil de error tan marcado podía deberse a un desfase horario en el
-procesamiento de las previsiones, que la prueba de fuga no detectaría. La
-comprobación de alineación de la sección~\ref{sec:prot-fuga} lo descarta.
-Calculado sobre las 8754 horas comunes a todos los desplazamientos, que
-excluyen las tres primeras y las tres últimas del año, el MAE de N-HiTS es de
-716,5~MW comparado con la demanda de la misma hora, y de 1088,4 y 1164,3~MW
-comparado con la de una hora antes y una hora después; los otros tres
-modelos se comportan igual. El aplanamiento es, por tanto, un
-comportamiento del modelo. Una explicación compatible con su arquitectura
-(sección~\ref{sec:nhits}) es que las pilas de baja resolución dibujan una
-trayectoria suave y que la red, que llegó al máximo de pasos de entrenamiento,
-no llegó a añadir todo el detalle de la forma diaria. No se ha comprobado,
-y el caso es distinto del de las enmiendas del SARIMAX. N-HiTS ya recibe toda
-la información que el protocolo pone a disposición de los modelos: la ventana
-de demanda hasta el origen y las exógenas. Corregir su perfil exigiría
-cambiar hiperparámetros o el procedimiento de entrenamiento, como el número
-de pasos, los pesos del horizonte o las escalas, y eso, según la regla de la
-sección~\ref{sec:prot-principio}, sería decidir con 2023.
 
 La tabla muestra también un rasgo común a los tres modelos ajustados: los
 tres prevén al mediodía más demanda de la que hubo. Entre las 12:00 y las
@@ -802,7 +802,20 @@ entre el RMSE y el MAE. LightGBM y N-HiTS reducen mucho ese error, y N-HiTS es
 el mejor de los cuatro en festivos y en puentes. En los cuatro modelos, el
 sesgo en festivos es negativo.
 
-\begin{table}[htbp]
+Los peores días de cada modelo reflejan sus debilidades propias. Los del
+ingenuo son los festivos y, sobre todo, los días situados una semana después
+de un festivo: el 13 de enero, que copia el 6, el 14 de abril, que copia el
+Viernes Santo, y del mismo modo el 8 de mayo, el 22 de agosto, el 19 de
+octubre y el 8 de noviembre. En todos ellos el modelo prevé un festivo en un
+día laborable, y se queda corto en más de 4800~MW de media diaria. Los de LightGBM
+son el 1 de mayo, el Viernes Santo, la Navidad y varios días de agosto, en
+plenas vacaciones. Entre los de N-HiTS destacan el principio y el final del
+año: el 2 y el 3 de enero, el 25 y el 31 de diciembre. Por día de la
+semana, N-HiTS se queda especialmente corto los lunes, con un sesgo de
+$+490$~MW, cuando su ventana de entrada termina en pleno fin de semana; el
+SARIMAX, en cambio, se pasa los lunes ($-524$~MW).
+
+\begin{table}[H]
 	\centering
 	\caption{MAE por tipo de día en 2023 (MW)}
 	\label{tab:tipo-dia-val}
@@ -818,19 +831,6 @@ sesgo en festivos es negativo.
 		\hline
 	\end{tabular}
 \end{table}
-
-Los peores días de cada modelo reflejan sus debilidades propias. Los del
-ingenuo son los festivos y, sobre todo, los días situados una semana después
-de un festivo: el 13 de enero, que copia el 6, el 14 de abril, que copia el
-Viernes Santo, y del mismo modo el 8 de mayo, el 22 de agosto, el 19 de
-octubre y el 8 de noviembre. En todos ellos el modelo prevé un festivo en un
-día laborable, y se queda corto en más de 4800~MW de media diaria. Los de LightGBM
-son el 1 de mayo, el Viernes Santo, la Navidad y varios días de agosto, en
-plenas vacaciones. Entre los de N-HiTS destacan el principio y el final del
-año: el 2 y el 3 de enero, el 25 y el 31 de diciembre. Por día de la
-semana, N-HiTS se queda especialmente corto los lunes, con un sesgo de
-$+490$~MW, cuando su ventana de entrada termina en pleno fin de semana; el
-SARIMAX, en cambio, se pasa los lunes ($-524$~MW).
 
 La correlación entre los errores horarios de los modelos indica en qué
 medida se equivocan a la vez. La más alta es la del ingenuo con el SARIMAX,
@@ -993,13 +993,6 @@ La figura~\ref{fig:cal-semana} muestra los intervalos en una semana de mayo de
 banda del SARIMAX tiene una anchura casi constante, la de LightGBM sigue la
 forma del día pero es estrecha, y la de N-HiTS es la más ajustada.
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=\textwidth]{calibracion_semana.png}
-	\caption{Previsión, demanda real, intervalo propio del 90\,\% e intervalo de ACI (con $\gamma = 0{,}001$) de los cuatro modelos en la semana del 15 al 21 de mayo de 2023 (días objetivo).}
-	\label{fig:cal-semana}
-\end{figure}
-
 Por último, la cobertura varía mucho de un mes a otro. Agosto es el mes de
 menor cobertura para el ingenuo (67,7\,\%) y para LightGBM (55,9\,\%), y
 también baja en el SARIMAX (83,9\,\%). Los datos muestran que el mes es
@@ -1014,13 +1007,6 @@ cobertura del intervalo del 90\,\% a toda la rejilla de 19 cuantiles. Las curvas
 azules son las de los cuantiles propios, evaluados en el conjunto~E; las
 naranjas, las de los cuantiles de ACI, que se discuten más adelante.
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=\textwidth]{calibracion_fiabilidad.png}
-	\caption{Diagrama de fiabilidad de los cuantiles propios y de los de ACI (con $\gamma = 0{,}001$) en el conjunto~E. En el eje horizontal, el nivel del cuantil; en el vertical, la frecuencia con que la demanda queda por debajo de él.}
-	\label{fig:cal-fiabilidad}
-\end{figure}
-
 La curva del ingenuo está sobre la diagonal. La del SARIMAX queda por encima en
 los niveles medios y altos, es decir, sus cuantiles son demasiado altos, que es
 la huella de su sesgo negativo: la demanda cae por debajo del cuantil 0,5 el
@@ -1032,6 +1018,20 @@ el 16,5\,\% de las veces y por encima del 0,95 el 10,6\,\%, cuando deberían
 ser el 5\,\% en ambos casos. Por la regla de lectura, la desviación máxima de los intervalos
 propios es \emph{mala} en el SARIMAX, LightGBM y N-HiTS (más de 0,06) y
 \emph{aceptable} en el ingenuo (0,050).
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\textwidth]{calibracion_semana.png}
+	\caption{Previsión, demanda real, intervalo propio del 90\,\% e intervalo de ACI (con $\gamma = 0{,}001$) de los cuatro modelos en la semana del 15 al 21 de mayo de 2023 (días objetivo).}
+	\label{fig:cal-semana}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\textwidth]{calibracion_fiabilidad.png}
+	\caption{Diagrama de fiabilidad de los cuantiles propios y de los de ACI (con $\gamma = 0{,}001$) en el conjunto~E. En el eje horizontal, el nivel del cuantil; en el vertical, la frecuencia con que la demanda queda por debajo de él.}
+	\label{fig:cal-fiabilidad}
+\end{figure}
 
 Dos detalles técnicos de la rejilla. Los 19 cuantiles de LightGBM y de N-HiTS se
 entrenan por separado y pueden cruzarse, de modo que hay que ordenarlos: la
@@ -1107,7 +1107,7 @@ conjunto~E, el intervalo propio, la ventana sin adaptación y ACI. Lo
 importante es que, para LightGBM y N-HiTS, la mejora procede de la ventana de
 residuos recientes y no de la adaptación.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Intervalo propio, ventana sin adaptación y ACI ($\gamma = 0{,}001$) en el conjunto~E}
 	\label{tab:cal-aci}
@@ -1252,7 +1252,7 @@ diaria, el método de Newey y West con 7 retardos, la corrección de Harvey,
 Leybourne y Newbold y el ajuste de Holm. Una diferencia media positiva en la
 tabla significa que el segundo modelo del par se equivoca menos.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Contraste de Diebold--Mariano en 2024 (pérdida absoluta diaria, 366 días, 7 retardos)}
 	\label{tab:final-dm}
@@ -1320,7 +1320,7 @@ día objetivo. Es una descripción, sin contrastes y sin explicación comprobada
 el desglose por hora del día y tipo de día, que sí contrasta las diferencias,
 es el de la sección~\ref{sec:desglose}.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{MAE por mes y por franja horaria en 2024 (MW)}
 	\label{tab:final-mes}
@@ -1744,13 +1744,6 @@ de las 24 horas, y N-HiTS en cinco, las de las 13 a las 17 h. Con un único
 origen diario, la hora del día y la anticipación van unidas
 (sección~\ref{sec:val-perfil}), y la figura no permite separarlas.
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[width=0.85\textwidth]{desglose_2024_mae_hora.png}
-	\caption{MAE de los cuatro modelos en 2024 por hora local del día objetivo.}
-	\label{fig:desg-hora}
-\end{figure}
-
 \paragraph{Por bloque y por tipo de día.} Entre laborables y fines de semana las
 diferencias son moderadas: el MAE del ingenuo baja de 1218 a 944~MW, el de
 LightGBM de 582 a 525~MW y el de N-HiTS de 677 a 638~MW, mientras que el del
@@ -1765,6 +1758,13 @@ de festivos es negativo en los cuatro modelos, y en LightGBM y N-HiTS
 ($-155$ y $-255$~MW) supera el umbral de 150~MW. El cruce más
 difícil es el de los festivos por la franja de la mañana (B2), con 5203, 4310,
 864 y 739~MW en el ingenuo, el SARIMAX, LightGBM y N-HiTS.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.85\textwidth]{desglose_2024_mae_hora.png}
+	\caption{MAE de los cuatro modelos en 2024 por hora local del día objetivo.}
+	\label{fig:desg-hora}
+\end{figure}
 
 \paragraph{Navidad.} El MAE dentro del periodo de Navidad (15 días) es 2,03 veces
 el de fuera en el ingenuo y 1,72 veces en el SARIMAX, frente a 1,04 en LightGBM y
@@ -1800,7 +1800,7 @@ La tabla~\ref{tab:desg-pref} reúne los 19 contrastes de la sección anterior. E
 cada fila, la diferencia es el MAE de LightGBM menos el del modelo con que se
 compara, de modo que un valor negativo favorece a LightGBM.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Modelo preferible por celda y contraste con LightGBM (MW; $p$ ajustado por Holm dentro de cada familia)}
 	\label{tab:desg-pref}

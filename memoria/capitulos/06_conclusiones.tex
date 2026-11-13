@@ -20,9 +20,26 @@ al criterio de cumplimiento fijado en el capítulo~\ref{cap:objetivos}. Como all
 se estableció, un objetivo de comparación se cumple cuando la comparación se ha
 hecho correctamente, sea cual sea el modelo que resulte preferible. Todos los
 objetivos se consideran cumplidos; en dos, OE8 y OE9, con una salvedad que se
-explica tras la tabla.
+explica antes de la tabla.
 
-\begin{table}[htbp]
+\paragraph{Salvedad de OE8.} El criterio pide las métricas desglosadas por hora
+del día y por tipo de día. La precisión se presenta por hora, y la calibración
+por franja de seis horas y por tipo de día, no por hora: la cobertura por hora
+local se calculó y se guarda en el repositorio, pero no se ha analizado. El
+puente es un solo día de 2024, y los resultados sobre él son descriptivos.
+Además, el criterio incluye identificar los regímenes en que cambia el modelo
+preferible; el resultado es que no cambia ninguno de forma distinguible, lo que
+se informa como hallazgo.
+
+\paragraph{Salvedad de OE9.} El criterio exige un repositorio público que permita
+reproducir las tablas de la memoria. Las tablas de resultados están en el
+repositorio y los datos de entrada se regeneran con el código, pero las
+previsiones guardadas no se publican, de modo que la reproducción requiere
+volver a entrenar los modelos, y no se ha comprobado que dos entrenamientos de
+N-HiTS en equipos distintos den previsiones idénticas
+(sección~\ref{sec:entorno-limites}).
+
+\begin{table}[H]
 	\centering
 	\caption{Resultado de cada objetivo específico}
 	\label{tab:concl-objetivos}
@@ -43,23 +60,6 @@ explica tras la tabla.
 		\hline
 	\end{tabularx}
 \end{table}
-
-\paragraph{Salvedad de OE8.} El criterio pide las métricas desglosadas por hora
-del día y por tipo de día. La precisión se presenta por hora, y la calibración
-por franja de seis horas y por tipo de día, no por hora: la cobertura por hora
-local se calculó y se guarda en el repositorio, pero no se ha analizado. El
-puente es un solo día de 2024, y los resultados sobre él son descriptivos.
-Además, el criterio incluye identificar los regímenes en que cambia el modelo
-preferible; el resultado es que no cambia ninguno de forma distinguible, lo que
-se informa como hallazgo.
-
-\paragraph{Salvedad de OE9.} El criterio exige un repositorio público que permita
-reproducir las tablas de la memoria. Las tablas de resultados están en el
-repositorio y los datos de entrada se regeneran con el código, pero las
-previsiones guardadas no se publican, de modo que la reproducción requiere
-volver a entrenar los modelos, y no se ha comprobado que dos entrenamientos de
-N-HiTS en equipos distintos den previsiones idénticas
-(sección~\ref{sec:entorno-limites}).
 
 \section{Conclusiones sobre la pregunta de investigación}\label{sec:concl-pregunta}
 
